@@ -44,7 +44,7 @@ export default function Auth() {
 
         {/* Logo */}
         <div style={{textAlign:"center",marginBottom:28}}>
-          <div style={{fontSize:48,marginBottom:8}}>🐄</div>
+          <img src="/logo192.png" alt="logo" style={{height:80, marginBottom:8}} />
           <div style={{fontSize:22,fontWeight:800,color:C.primary}}>App Allevamento</div>
           <div style={{fontSize:13,color:C.muted,marginTop:4}}>Gestione zootecnica integrata</div>
         </div>
