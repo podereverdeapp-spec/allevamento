@@ -287,6 +287,7 @@ function Dashboard({animali,eventi_sanitari,magazzino,onNav}){
 // ─── ANAGRAFICA ───────────────────────────────────────────────────────────────
 function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttivi,aggiungiEvento,ricaricaEventi,sanitari,totalePerAnimale}){
   const [filtro,setFiltro]=useState("tutti");
+  const [cerca,setCerca]=useState("");
   const [form,setForm]=useState(null);         // null=lista, obj=form edit/new
   const [dettaglio,setDettaglio]=useState(null); // mostra scheda completa
   const [saving,setSaving]=useState(false);
@@ -308,9 +309,17 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
   };
 
   const lista=animali.filter(a=>{
-    if(filtro==="tutti")return true;
-    if(filtro==="attivo")return a.stato==="attivo";
-    return a.specie===filtro;
+    // Filtro specie/stato
+    if(filtro==="attivo"&&a.stato!=="attivo") return false;
+    if(!["tutti","attivo"].includes(filtro)&&a.specie!==filtro) return false;
+    // Ricerca testo: BDN completo, ultime 4 cifre, nome
+    if(cerca.trim()){
+      const q=cerca.trim().toLowerCase();
+      const bdn=(a.bdn||"").toLowerCase();
+      const nome=(a.nome||"").toLowerCase();
+      if(!bdn.includes(q)&&!nome.includes(q)&&!bdn.endsWith(q)) return false;
+    }
+    return true;
   });
 
   // Calcolo razza automatico quando cambiano padre/madre
@@ -799,10 +808,41 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
   // ── Vista LISTA ──────────────────────────────────────────────────────────────
   return(
     <div style={{padding:"16px 16px 80px"}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
         <span style={{fontSize:20,fontWeight:800}}>Anagrafica</span>
         <Btn label="Aggiungi" icon="+" onClick={()=>setForm({...empty})} small/>
       </div>
+      {/* Barra di ricerca */}
+      <div style={{position:"relative",marginBottom:12}}>
+        <span style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",
+          fontSize:18,color:C.muted,pointerEvents:"none"}}>🔍</span>
+        <input
+          type="text"
+          value={cerca}
+          onChange={e=>setCerca(e.target.value)}
+          placeholder="Cerca per BDN, ultime 4 cifre o nome..."
+          style={{...{width:"100%",boxSizing:"border-box",border:`2px solid ${cerca?C.primary:C.border}`,
+            borderRadius:12,padding:"11px 40px 11px 42px",fontSize:15,
+            background:C.card,color:C.text,outline:"none",
+            boxShadow:cerca?`0 0 0 3px ${C.primary}22`:"none",
+            transition:"border-color 0.2s, box-shadow 0.2s"}}}
+        />
+        {cerca&&(
+          <button onClick={()=>setCerca("")}
+            style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",
+              background:"none",border:"none",cursor:"pointer",fontSize:18,color:C.muted,
+              padding:4}}>✕</button>
+        )}
+      </div>
+      {/* Contatore risultati */}
+      {cerca&&(
+        <div style={{fontSize:13,color:lista.length>0?C.green:C.red,
+          fontWeight:600,marginBottom:8,padding:"4px 8px",
+          background:lista.length>0?C.green+"12":C.red+"12",
+          borderRadius:8,display:"inline-block"}}>
+          {lista.length>0?`✓ ${lista.length} animale/i trovato/i`:"Nessun animale trovato"}
+        </div>
+      )}
       <div style={{display:"flex",gap:8,marginBottom:12,overflowX:"auto",paddingBottom:4}}>
         {["tutti","bovino","suino","ovino","attivo"].map(f=>(
           <button key={f} onClick={()=>setFiltro(f)}
