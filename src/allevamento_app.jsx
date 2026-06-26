@@ -752,11 +752,18 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
                     </div>
                   </Card>
                 ):(
-                  <Btn label="🐣 Registra parto" onClick={()=>setFormParto({
-                    data_evento:today(),tipo_parto:"Naturale",
-                    nati_totali:"",nati_morti:"0",nati_mummificati:"0",
-                    padre_id:"",nati:[],note:"",storico:false})}
-                    variant="outline" small/>
+                  <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                    <Btn label="🐣 Nuovo parto" onClick={()=>setFormParto({
+                      data_evento:today(),tipo_parto:"Naturale",
+                      nati_totali:"",nati_morti:"0",nati_mummificati:"0",
+                      padre_id:"",nati:[],note:"",storico:false})}
+                      variant="success" small/>
+                    <Btn label="📅 Parto storico" onClick={()=>setFormParto({
+                      data_evento:"",tipo_parto:"Naturale",
+                      nati_totali:"",nati_morti:"0",nati_mummificati:"0",
+                      padre_id:"",nati:[],note:"",storico:true})}
+                      variant="outline" small/>
+                  </div>
                 )
               )}
               <div style={{height:12}}/>
