@@ -292,6 +292,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
     transponder:"",passaporto:"",codice_asl:"",
     lotto_box:"",destinazione:"",
     stato:"attivo",data_uscita:"",
+    motivo_uscita:"",peso_vivo_uscita:"",peso_carcassa:"",
     note_sanitarie:"",note:"",vivo:true,
   };
 
@@ -330,6 +331,12 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
       destinazione:form.destinazione||null,
       stato:form.stato,
       data_uscita:form.data_uscita||null,
+      motivo_uscita:form.motivo_uscita||null,
+      peso_vivo_uscita:form.peso_vivo_uscita?parseFloat(form.peso_vivo_uscita):null,
+      peso_carcassa:form.peso_carcassa?parseFloat(form.peso_carcassa):null,
+      resa_percent:(form.peso_carcassa&&form.peso_vivo_uscita)
+        ?Math.round(parseFloat(form.peso_carcassa)/parseFloat(form.peso_vivo_uscita)*1000)/10
+        :null,
       note_sanitarie:form.note_sanitarie||null,
       note:form.note||null,
       vivo:form.stato==="attivo",
@@ -459,8 +466,44 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
             ?["Riproduzione","Ingrasso","Macello","Vendita","Carne","Latte","Lana","Non definita"]
             :["Riproduzione","Ingrasso","Vendita","Macello","Autoconsumo","Non definita"]}/>
         <Field label="Stato" value={form.stato} onChange={v=>setForm(f=>({...f,stato:v}))} options={STATI} required/>
-        {form.stato!=="attivo"&&
-          <Field label="Data uscita" value={form.data_uscita} onChange={v=>setForm(f=>({...f,data_uscita:v}))} type="date"/>}
+
+        {form.stato!=="attivo"&&(<>
+          <Sezione label="Dati Uscita"/>
+          <Field label="Data uscita" value={form.data_uscita}
+            onChange={v=>setForm(f=>({...f,data_uscita:v}))} type="date"/>
+          {/* Giorni permanenza calcolati */}
+          {form.data_uscita&&form.data_ingresso&&(()=>{
+            const gg=Math.round((new Date(form.data_uscita)-new Date(form.data_ingresso))/86400000);
+            return gg>0&&(
+              <div style={{background:C.blue+"12",border:`1px solid ${C.blue}33`,
+                borderRadius:10,padding:"8px 12px",marginBottom:12,fontSize:13}}>
+                📅 Permanenza: <strong style={{color:C.blue}}>{gg} giorni</strong>
+                {gg>=365&&<span style={{color:C.muted}}> ({(gg/365).toFixed(1)} anni)</span>}
+              </div>
+            );
+          })()}
+          <Field label="Motivo uscita" value={form.motivo_uscita}
+            onChange={v=>setForm(f=>({...f,motivo_uscita:v}))}
+            options={["Macellato","Morto (cause naturali)","Morto (malattia)","Venduto vivo","Furto","Scappato","Trasferito","Altro"]}/>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            <Field label="Peso vivo uscita (kg)" value={form.peso_vivo_uscita}
+              onChange={v=>setForm(f=>({...f,peso_vivo_uscita:v}))} type="number"/>
+            {(form.motivo_uscita==="Macellato")&&
+              <Field label="Peso carcassa (kg)" value={form.peso_carcassa}
+                onChange={v=>setForm(f=>({...f,peso_carcassa:v}))} type="number"/>}
+          </div>
+          {/* Resa calcolata automaticamente */}
+          {form.motivo_uscita==="Macellato"&&form.peso_carcassa&&form.peso_vivo_uscita&&(()=>{
+            const resa=Math.round(parseFloat(form.peso_carcassa)/parseFloat(form.peso_vivo_uscita)*1000)/10;
+            return(
+              <div style={{background:C.green+"12",border:`1px solid ${C.green}33`,
+                borderRadius:10,padding:"8px 12px",marginBottom:12,fontSize:13}}>
+                ⚖️ Resa: <strong style={{color:C.green}}>{resa}%</strong>
+                <span style={{color:C.muted,fontSize:12}}> (carcassa/peso vivo)</span>
+              </div>
+            );
+          })()}
+        </>)}
 
         <Sezione label="Sanità e Note"/>
         <Field label="Note sanitarie" value={form.note_sanitarie} onChange={v=>setForm(f=>({...f,note_sanitarie:v}))}/>
@@ -545,7 +588,25 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
                 {a.lotto_box&&<Row label="Lotto / Box" val={a.lotto_box}/>}
                 {a.destinazione&&<Row label="Destinazione" val={a.destinazione}/>}
                 <Row label="Stato" val={a.stato.toUpperCase()}/>
-                {a.data_uscita&&<Row label="Data uscita" val={a.data_uscita}/>}
+                {a.stato!=="attivo"&&(()=>{
+                  const gg=(a.data_uscita&&a.data_ingresso)
+                    ?Math.round((new Date(a.data_uscita)-new Date(a.data_ingresso))/86400000)
+                    :null;
+                  return(<>
+                    {a.data_uscita&&<Row label="Data uscita" val={a.data_uscita}/>}
+                    {gg>0&&<Row label="Permanenza" val={`${gg} giorni${gg>=365?" ("+( gg/365).toFixed(1)+" anni)":""}`}/>}
+                    {a.motivo_uscita&&<Row label="Motivo uscita" val={a.motivo_uscita}/>}
+                    {a.peso_vivo_uscita&&<Row label="Peso vivo uscita" val={a.peso_vivo_uscita+" kg"}/>}
+                    {a.peso_carcassa&&<Row label="Peso carcassa" val={a.peso_carcassa+" kg"}/>}
+                    {a.resa_percent&&(
+                      <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",
+                        fontSize:14,borderBottom:`1px solid ${C.border}`}}>
+                        <span style={{color:C.muted,fontSize:13}}>Resa macellazione</span>
+                        <span style={{fontWeight:700,color:C.green}}>{a.resa_percent}%</span>
+                      </div>
+                    )}
+                  </>);
+                })()}
               </Card>
               {(a.note_sanitarie||a.note)&&(
                 <Card>
