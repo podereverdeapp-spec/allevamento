@@ -773,31 +773,46 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
           <div style={{marginTop:8}}>Tocca "Aggiungi" per iniziare!</div>
         </div>
       ):lista.map(a=>(
-        <Card key={a.id} style={{cursor:"pointer"}} onClick={()=>setDettaglio(a)}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-            <div style={{display:"flex",gap:10,alignItems:"center"}}>
-              <div style={{background:specieColor(a.specie)+"20",borderRadius:12,padding:10,fontSize:26}}>
+        <Card key={a.id} style={{borderLeft:`4px solid ${specieColor(a.specie)}`}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+            <div style={{display:"flex",gap:10,alignItems:"center",flex:1}}>
+              <div style={{background:specieColor(a.specie)+"20",borderRadius:12,padding:10,fontSize:26,flexShrink:0}}>
                 {specieIcon(a.specie)}
               </div>
-              <div>
-                <div style={{fontWeight:700,fontSize:16}}>{a.nome||a.bdn||"—"}</div>
-                <div style={{fontSize:12,color:C.muted}}>
-                  {a.bdn&&a.nome?a.bdn+" · ":""}{a.razza_calcolata||a.razza||"—"}
+              <div style={{flex:1}}>
+                <div style={{fontWeight:800,fontSize:16}}>{a.nome||a.bdn||"—"}</div>
+                <div style={{fontSize:12,color:C.muted,marginTop:2}}>
+                  {a.nome&&a.bdn?a.bdn+" · ":""}{a.razza_calcolata||a.razza||"—"}
                 </div>
                 <div style={{display:"flex",gap:6,marginTop:4,flexWrap:"wrap"}}>
                   <Badge label={specieLabel(a.specie)} color={specieColor(a.specie)}/>
                   {a.categoria&&<Badge label={a.categoria} color={C.muted}/>}
-                  <Badge label={a.sesso==="M"?"♂":"♀"+(a.sesso==="C"?"✂":"")}
-                    color={a.sesso==="M"?C.blue:"#B5547A"}/>
-                  {a.stato!=="attivo"&&<Badge label={a.stato} color={C.red}/>}
+                  <Badge label={a.sesso==="M"?"♂ M":"♀ F"} color={a.sesso==="M"?C.blue:"#B5547A"}/>
+                  {a.stato!=="attivo"&&<Badge label={a.stato.toUpperCase()} color={C.red}/>}
                 </div>
               </div>
             </div>
-            <div style={{fontSize:12,color:C.muted,textAlign:"right"}}>
-              {a.nascita&&<div>📅 {a.nascita}</div>}
+            <div style={{fontSize:12,color:C.muted,textAlign:"right",flexShrink:0}}>
+              {a.nascita&&<div>🎂 {a.nascita}</div>}
+              {a.data_ingresso&&<div>📥 {a.data_ingresso}</div>}
               {a.peso_attuale&&<div>⚖️ {a.peso_attuale}kg</div>}
             </div>
           </div>
+          {(a.origine||a.prezzo_acquisto||a.madre_id)&&(
+            <div style={{display:"flex",gap:12,fontSize:12,color:C.muted,
+              padding:"6px 0",borderTop:`1px solid ${C.border}`,marginBottom:8,flexWrap:"wrap"}}>
+              {a.origine&&<span>🏠 {a.origine}</span>}
+              {a.prezzo_acquisto&&<span>💰 €{a.prezzo_acquisto}</span>}
+              {a.madre_id&&<span>🧬 pedigree ✓</span>}
+            </div>
+          )}
+          <button onClick={()=>setDettaglio(a)}
+            style={{width:"100%",background:specieColor(a.specie),color:"#FFF",
+              border:"none",borderRadius:10,padding:"9px 0",fontSize:14,
+              fontWeight:700,cursor:"pointer",display:"flex",
+              alignItems:"center",justifyContent:"center",gap:8}}>
+            <span>📋</span> Apri scheda completa
+          </button>
         </Card>
       ))}
     </div>
