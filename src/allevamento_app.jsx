@@ -939,6 +939,7 @@ function AntenatatoMini({a,onClick}){
 function Sanitario({animali,eventi,loading,aggiungi}){
   const [form,setForm]=useState(null);
   const [saving,setSaving]=useState(false);
+  const [cerca,setCerca]=useState("");
   const salva=async()=>{
     if(!form.animale_id||!form.descrizione)return;
     setSaving(true);
@@ -971,16 +972,60 @@ function Sanitario({animali,eventi,loading,aggiungi}){
     </div>
   );
   const tipoColor={vaccino:C.green,farmaco:C.blue,visita:C.yellow,intervento:C.red,altro:C.muted};
+
+  const eventiFiltrati=eventi.filter(e=>{
+    if(!cerca.trim()) return true;
+    const q=cerca.trim().toLowerCase();
+    const a=animali.find(x=>x.id===e.animale_id);
+    const bdn=(a?.bdn||"").toLowerCase();
+    const nome=(a?.nome||"").toLowerCase();
+    const desc=(e.descrizione||"").toLowerCase();
+    const prod=(e.prodotto||"").toLowerCase();
+    const tipo=(e.tipo||"").toLowerCase();
+    return bdn.includes(q)||nome.includes(q)||bdn.endsWith(q)||
+           desc.includes(q)||prod.includes(q)||tipo.includes(q);
+  });
+
   return(
     <div style={{padding:"16px 16px 80px"}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
         <span style={{fontSize:20,fontWeight:800}}>Registro Sanitario</span>
         <Btn label="Aggiungi" icon="+" onClick={()=>setForm({animale_id:"",tipo:"vaccino",
           descrizione:"",data:today(),veterinario:"",prodotto:"",scadenza:"",costo:""})} small/>
       </div>
-      {loading?<Spinner/>:eventi.length===0?(
+      {/* Barra ricerca */}
+      <div style={{position:"relative",marginBottom:12}}>
+        <span style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",
+          fontSize:18,color:C.muted,pointerEvents:"none"}}>🔍</span>
+        <input type="text" value={cerca} onChange={e=>setCerca(e.target.value)}
+          placeholder="Cerca per BDN, ultime 4 cifre, nome o tipo evento..."
+          style={{width:"100%",boxSizing:"border-box",
+            border:`2px solid ${cerca?C.primary:C.border}`,borderRadius:12,
+            padding:"11px 40px 11px 42px",fontSize:15,background:C.card,
+            color:C.text,outline:"none",
+            boxShadow:cerca?`0 0 0 3px ${C.primary}22`:"none"}}/>
+        {cerca&&(
+          <button onClick={()=>setCerca("")}
+            style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",
+              background:"none",border:"none",cursor:"pointer",fontSize:18,color:C.muted}}>✕</button>
+        )}
+      </div>
+      {cerca&&(
+        <div style={{fontSize:13,color:eventiFiltrati.length>0?C.green:C.red,
+          fontWeight:600,marginBottom:8,padding:"4px 8px",
+          background:eventiFiltrati.length>0?C.green+"12":C.red+"12",
+          borderRadius:8,display:"inline-block"}}>
+          {eventiFiltrati.length>0?`✓ ${eventiFiltrati.length} evento/i trovato/i`:"Nessun evento trovato"}
+        </div>
+      )}
+      {loading?<Spinner/>:eventiFiltrati.length===0&&!cerca?(
         <div style={{textAlign:"center",padding:40,color:C.muted}}>Nessun evento registrato.</div>
-      ):eventi.map(e=>{
+      ):eventiFiltrati.length===0?(
+        <div style={{textAlign:"center",padding:32,color:C.muted}}>
+          <div style={{fontSize:32,marginBottom:8}}>🔍</div>
+          <div>Nessun risultato per "{cerca}"</div>
+        </div>
+      ):eventiFiltrati.map(e=>{
         const a=animali.find(x=>x.id===e.animale_id);
         const col=tipoColor[e.tipo]||C.muted;
         return(
