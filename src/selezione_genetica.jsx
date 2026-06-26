@@ -149,7 +149,7 @@ function CardRiproduttore({rip, kpi, score, rank, animali, onClick}) {
               <Stat label="Parti" val={kpi.nParti}/>
               {kpi.prolificita&&<Stat label="Nati/parto" val={kpi.prolificita}/>}
               {kpi.pctNatiVivi&&<Stat label="Vivi %" val={kpi.pctNatiVivi+"%"}/>}
-              {kpi.iipMedio&&<Stat label="IIP" val={kpi.iipMedio+"gg"}/>}
+              {kpi.iipMedio&&<Stat label="IIP" val={`${(kpi.iipMedio/30.4).toFixed(1)} mesi`}/>}
             </div>
           )}
         </div>
@@ -220,11 +220,13 @@ function DettaglioKPI({rip, kpi, score, animali, parti, onBack}) {
         <KPIRow label="N° parti totali" val={kpi.nParti}/>
         <KPIRow label="Età al primo parto" val={kpi.etaPrimoParto} unit=" mesi"
           note="dalla nascita al 1° parto"/>
-        <KPIRow label="IIP medio" val={kpi.iipMedio} unit=" gg"
+        <KPIRow label="IIP medio" 
+          val={kpi.iipMedio?`${kpi.iipMedio} gg  (${(kpi.iipMedio/30.4).toFixed(1)} mesi)`:null}
+          unit=""
           col={kpi.iipMedio&&kpi.iipMedio<350?C.green:C.yellow}
           note="intervallo inter-parto"/>
-        {kpi.iipMin&&<KPIRow label="IIP minimo" val={kpi.iipMin} unit=" gg"/>}
-        {kpi.iipMax&&<KPIRow label="IIP massimo" val={kpi.iipMax} unit=" gg"/>}
+        {kpi.iipMin&&<KPIRow label="IIP minimo" val={`${kpi.iipMin} gg (${(kpi.iipMin/30.4).toFixed(1)} mesi)`} unit=""/>}
+        {kpi.iipMax&&<KPIRow label="IIP massimo" val={`${kpi.iipMax} gg (${(kpi.iipMax/30.4).toFixed(1)} mesi)`} unit=""/>}
       </Card>
 
       {/* KPI Prolificità */}

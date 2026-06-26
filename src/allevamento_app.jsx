@@ -178,6 +178,17 @@ function useEventiRiproduttivi() {
   return{eventi,loading,carica,aggiungi};
 }
 
+function useCostiAnimale() {
+  const [costi,setCosti]=useState([]);
+  const carica=async()=>{
+    const{data}=await supabase.from("costi_animale").select("animale_id,voce,importo");
+    setCosti(data||[]);
+  };
+  useEffect(()=>{carica();},[]);
+  const totalePerAnimale=(id)=>costi.filter(c=>c.animale_id===id).reduce((s,c)=>s+(c.importo||0),0);
+  return{totalePerAnimale};
+}
+
 function useMagazzino() {
   const [scorte,setScorte]=useState([]);
   const [loading,setLoading]=useState(true);
@@ -274,7 +285,7 @@ function Dashboard({animali,eventi_sanitari,magazzino,onNav}){
 }
 
 // ─── ANAGRAFICA ───────────────────────────────────────────────────────────────
-function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttivi,aggiungiEvento,ricaricaEventi}){
+function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttivi,aggiungiEvento,ricaricaEventi,sanitari,totalePerAnimale}){
   const [filtro,setFiltro]=useState("tutti");
   const [form,setForm]=useState(null);         // null=lista, obj=form edit/new
   const [dettaglio,setDettaglio]=useState(null); // mostra scheda completa
@@ -360,40 +371,44 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
   const salvaParto=async()=>{
     if(!formParto.data_evento){setSavingParto(false);return;}
     setSavingParto(true);
+    const totali=parseInt(formParto.nati_totali)||0;
+    const morti=parseInt(formParto.nati_morti)||0;
+    const vivi=Math.max(0,totali-morti);
     const payload={
       animale_id:dettaglio.id,
       tipo_evento:"parto",
       data_evento:formParto.data_evento,
       tipo_parto:formParto.tipo_parto||null,
-      nati_vivi:parseInt(formParto.nati_vivi)||0,
-      nati_morti:parseInt(formParto.nati_morti)||0,
+      nati_vivi:vivi,
+      nati_morti:morti,
       nati_mummificati:parseInt(formParto.nati_mummificati)||0,
       padre_id:formParto.padre_id?parseInt(formParto.padre_id):null,
       note:formParto.note||null,
     };
     const{data:evData,error}=await aggiungiEvento(payload);
     if(error){setSavingParto(false);return;}
-
-    // Crea schede figli automaticamente
-    const nati=formParto.nati||[];
-    for(const nato of nati){
-      if(!nato.bdn_nato)continue;
-      const rc=calcolaRazza(formParto.padre_id,dettaglio.id,animali);
-      await aggiungi({
-        bdn:nato.bdn_nato,
-        specie:dettaglio.specie,
-        razza:rc||dettaglio.razza||null,
-        razza_calcolata:rc||null,
-        sesso:nato.sesso||null,
-        nascita:formParto.data_evento,
-        peso_nascita:nato.peso_nascita?parseFloat(nato.peso_nascita):null,
-        madre_id:dettaglio.id,
-        padre_id:formParto.padre_id?parseInt(formParto.padre_id):null,
-        provenienza:"Nato in azienda",
-        data_ingresso:formParto.data_evento,
-        stato:"attivo",vivo:true,
-        note:`Nato da parto del ${formParto.data_evento}`,
-      });
+    // Crea schede figli solo se NON è parto storico
+    if(!formParto.storico){
+      const nati=formParto.nati||[];
+      for(const nato of nati){
+        if(!nato.bdn_nato)continue;
+        const rc=calcolaRazza(formParto.padre_id,dettaglio.id,animali);
+        await aggiungi({
+          bdn:nato.bdn_nato,
+          specie:dettaglio.specie,
+          razza:rc||dettaglio.razza||null,
+          razza_calcolata:rc||null,
+          sesso:nato.sesso||null,
+          nascita:formParto.data_evento,
+          peso_nascita:nato.peso_nascita?parseFloat(nato.peso_nascita):null,
+          madre_id:dettaglio.id,
+          padre_id:formParto.padre_id?parseInt(formParto.padre_id):null,
+          provenienza:"Nato in azienda",
+          data_ingresso:formParto.data_evento,
+          stato:"attivo",vivo:true,
+          note:`Nato da parto del ${formParto.data_evento}`,
+        });
+      }
     }
     setSavingParto(false);
     setFormParto(null);
@@ -614,6 +629,33 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
                   </>);
                 })()}
               </Card>
+              {/* Vaccinazioni */}
+              {(()=>{
+                const vacc=(sanitari||[]).filter(s=>s.animale_id===a.id&&s.tipo==="vaccino")
+                  .sort((x,y)=>y.data>x.data?1:-1);
+                if(vacc.length===0)return null;
+                return(
+                  <Card>
+                    <Sezione label={`💉 Vaccinazioni (${vacc.length})`}/>
+                    {vacc.map(v=>(
+                      <div key={v.id} style={{display:"flex",justifyContent:"space-between",
+                        alignItems:"flex-start",padding:"7px 0",
+                        borderBottom:`1px solid ${C.border}`,fontSize:13}}>
+                        <div>
+                          <div style={{fontWeight:600}}>{v.descrizione||v.prodotto||"Vaccino"}</div>
+                          {v.prodotto&&v.descrizione&&<div style={{fontSize:11,color:C.muted}}>💊 {v.prodotto}</div>}
+                          {v.veterinario&&<div style={{fontSize:11,color:C.muted}}>👨‍⚕️ {v.veterinario}</div>}
+                          {v.scadenza&&<div style={{fontSize:11,color:C.yellow}}>⏰ richiamo: {v.scadenza}</div>}
+                        </div>
+                        <div style={{fontSize:12,color:C.muted,textAlign:"right",flexShrink:0}}>
+                          <div>{v.data}</div>
+                          {v.costo>0&&<div style={{color:C.accent}}>€{v.costo}</div>}
+                        </div>
+                      </div>
+                    ))}
+                  </Card>
+                );
+              })()}
               {(a.note_sanitarie||a.note)&&(
                 <Card>
                   <Sezione label="Note"/>
@@ -712,8 +754,8 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
                 ):(
                   <Btn label="🐣 Registra parto" onClick={()=>setFormParto({
                     data_evento:today(),tipo_parto:"Naturale",
-                    nati_vivi:"",nati_morti:"0",nati_mummificati:"0",
-                    padre_id:"",nati:[],note:""})}
+                    nati_totali:"",nati_morti:"0",nati_mummificati:"0",
+                    padre_id:"",nati:[],note:"",storico:false})}
                     variant="outline" small/>
                 )
               )}
@@ -798,11 +840,13 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
               {a.peso_attuale&&<div>⚖️ {a.peso_attuale}kg</div>}
             </div>
           </div>
-          {(a.origine||a.prezzo_acquisto||a.madre_id)&&(
+          {(a.origine||a.prezzo_acquisto||a.madre_id||totalePerAnimale(a.id)>0)&&(
             <div style={{display:"flex",gap:12,fontSize:12,color:C.muted,
               padding:"6px 0",borderTop:`1px solid ${C.border}`,marginBottom:8,flexWrap:"wrap"}}>
               {a.origine&&<span>🏠 {a.origine}</span>}
-              {a.prezzo_acquisto&&<span>💰 €{a.prezzo_acquisto}</span>}
+              {a.prezzo_acquisto&&<span>💰 Acquisto: €{a.prezzo_acquisto}</span>}
+              {(!a.prezzo_acquisto&&totalePerAnimale(a.id)>0)&&
+                <span>🌱 Costo nascita: €{totalePerAnimale(a.id).toFixed(0)}</span>}
               {a.madre_id&&<span>🧬 pedigree ✓</span>}
             </div>
           )}
@@ -1097,6 +1141,7 @@ export default function AllevamentoApp(){
   const [tab,setTab]=useState("dashboard");
   const{animali,loading:loadA,carica:ricaricaAnimali,aggiungi:addA,aggiorna:updA,elimina:delA}=useAnimali();
   const{eventi:sanitari,loading:loadS,aggiungi:addS}=useEventiSanitari();
+  const{totalePerAnimale}=useCostiAnimale();
   const{voci:alimentazione,loading:loadAl,aggiungi:addAl}=useAlimentazione();
   const{eventi:riproduttivi,loading:loadR,carica:ricaricaEventiRip,aggiungi:addEvRip}=useEventiRiproduttivi();
   const{scorte:magazzino,loading:loadM,aggiungi:addM,aggiorna:updM}=useMagazzino();
@@ -1120,6 +1165,8 @@ export default function AllevamentoApp(){
           eventiRiproduttivi={riproduttivi}
           aggiungiEvento={addEvRip}
           ricaricaEventi={ricaricaEventiRip}
+          sanitari={sanitari}
+          totalePerAnimale={totalePerAnimale}
         />}
         {tab==="sanitario"    &&<Sanitario animali={animali} eventi={sanitari} loading={loadS} aggiungi={addS}/>}
         {tab==="alimentazione"&&<Alimentazione voci={alimentazione} loading={loadAl} aggiungi={addAl}/>}
