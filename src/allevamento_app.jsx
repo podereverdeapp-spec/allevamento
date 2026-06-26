@@ -288,7 +288,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
     bdn:"",nome:"",specie:"bovino",razza:"",categoria:"",sesso:"F",
     nascita:"",peso_nascita:"",peso_attuale:"",
     provenienza:"Nato in azienda",data_ingresso:today(),
-    origine:"",padre_id:"",madre_id:"",
+    prezzo_acquisto:"",origine:"",padre_id:"",madre_id:"",
     transponder:"",passaporto:"",codice_asl:"",
     lotto_box:"",destinazione:"",
     stato:"attivo",data_uscita:"",
@@ -321,6 +321,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
       peso_attuale:form.peso_attuale?parseFloat(form.peso_attuale):null,
       provenienza:form.provenienza||null,
       data_ingresso:form.data_ingresso||null,
+      prezzo_acquisto:form.prezzo_acquisto?parseFloat(form.prezzo_acquisto):null,
       origine:form.origine||null,
       padre_id:form.padre_id?parseInt(form.padre_id):null,
       madre_id:form.madre_id?parseInt(form.madre_id):null,
@@ -440,8 +441,12 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
         <Field label="Provenienza" value={form.provenienza} onChange={v=>setForm(f=>({...f,provenienza:v}))}
           options={["Nato in azienda","Acquistato","Trasferito"]}/>
         <Field label="Data ingresso in azienda" value={form.data_ingresso} onChange={v=>setForm(f=>({...f,data_ingresso:v}))} type="date"/>
-        {form.provenienza!=="Nato in azienda"&&
-          <Field label="Azienda / Allevamento di origine" value={form.origine} onChange={v=>setForm(f=>({...f,origine:v}))}/>}
+        {form.provenienza!=="Nato in azienda"&&<>
+          <Field label="Azienda / Allevamento di origine" value={form.origine} onChange={v=>setForm(f=>({...f,origine:v}))}/>
+          <Field label="Prezzo di acquisto (€)" value={form.prezzo_acquisto}
+            onChange={v=>setForm(f=>({...f,prezzo_acquisto:v}))} type="number"
+            placeholder="Es. 1500"/>
+        </>}
         {specie==="bovino"&&
           <Field label="Codice ASL / Veterinario" value={form.codice_asl} onChange={v=>setForm(f=>({...f,codice_asl:v}))}/>}
 
@@ -581,6 +586,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
                 {a.peso_attuale&&<Row label="Peso attuale" val={a.peso_attuale+" kg"}/>}
                 {a.provenienza&&<Row label="Provenienza" val={a.provenienza}/>}
                 {a.data_ingresso&&<Row label="Data ingresso" val={a.data_ingresso}/>}
+                {a.prezzo_acquisto&&<Row label="Prezzo acquisto" val={`€ ${a.prezzo_acquisto.toFixed(2)}`}/>}
                 {a.origine&&<Row label="Azienda origine" val={a.origine}/>}
               </Card>
               <Card>

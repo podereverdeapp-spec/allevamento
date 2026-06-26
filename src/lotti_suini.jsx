@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 
 const C = {
   bg:"#F5F0E8", card:"#FFFFFF", primary:"#5C3D1E", accent:"#A0522D",
@@ -9,65 +9,7 @@ const C = {
 
 const today     = () => new Date().toISOString().split("T")[0];
 const thisYear  = () => new Date().getFullYear();
-
-function genCodiceLotto(lotti, anno) {
-  const lottiAnno = lotti.filter(l => l.anno === anno).length;
-  const n = String(lottiAnno + 1).padStart(3, "0");
-  return `L${anno}-${n}`;
-}
-
-// ─── DATI INIZIALI ────────────────────────────────────────────────────────────
-const initialData = {
-  riproduttori: [
-    { id:1, bdn:"IT034SU001", nome:"Arturo", sesso:"M", razza:"Large White", nascita:"2021-01-15", stato:"attivo" },
-    { id:2, bdn:"IT034SU002", nome:"Peppa",  sesso:"F", razza:"Large White", nascita:"2021-06-10", stato:"attivo" },
-    { id:3, bdn:"IT034SU003", nome:"Nera",   sesso:"F", razza:"Duroc",       nascita:"2022-03-01", stato:"attivo" },
-  ],
-  lotti: [
-    {
-      id:1, codice:"L2023-001", anno:2023,
-      madreId:2, padreId:1,
-      data_parto:"2023-08-15",
-      nati_totali:12, nati_vivi:11, nati_morti:1,
-      note:"Prima figliatura Peppa",
-    },
-    {
-      id:2, codice:"L2024-001", anno:2024,
-      madreId:2, padreId:1,
-      data_parto:"2024-09-02",
-      nati_totali:13, nati_vivi:13, nati_morti:0,
-      note:"",
-    },
-    {
-      id:3, codice:"L2024-002", anno:2024,
-      madreId:3, padreId:1,
-      data_parto:"2024-11-20",
-      nati_totali:10, nati_vivi:9, nati_morti:1,
-      note:"",
-    },
-  ],
-  // Singoli suini nel lotto
-  suini: [
-    // Lotto L2023-001
-    { id:1,  lottoId:1, nr:1,  bdn:"IT034SU100", sesso:"M", vivo:true,  stato:"attivo",    peso_nascita:1.4, peso_svezzamento:28, data_svezzamento:"2023-10-15", peso_attuale:95,  note:"" },
-    { id:2,  lottoId:1, nr:2,  bdn:"IT034SU101", sesso:"F", vivo:true,  stato:"attivo",    peso_nascita:1.3, peso_svezzamento:26, data_svezzamento:"2023-10-15", peso_attuale:88,  note:"" },
-    { id:3,  lottoId:1, nr:3,  bdn:"IT034SU102", sesso:"M", vivo:true,  stato:"macellato", peso_nascita:1.5, peso_svezzamento:30, data_svezzamento:"2023-10-15", peso_attuale:180, note:"" },
-    { id:4,  lottoId:1, nr:4,  bdn:null,         sesso:"M", vivo:false, stato:"morto",     peso_nascita:null,peso_svezzamento:null,data_svezzamento:null,       peso_attuale:null,note:"Nato morto" },
-    { id:5,  lottoId:1, nr:5,  bdn:"IT034SU103", sesso:"F", vivo:true,  stato:"attivo",    peso_nascita:1.4, peso_svezzamento:27, data_svezzamento:"2023-10-15", peso_attuale:92,  note:"" },
-    { id:6,  lottoId:1, nr:6,  bdn:"IT034SU104", sesso:"M", vivo:true,  stato:"attivo",    peso_nascita:1.6, peso_svezzamento:31, data_svezzamento:"2023-10-15", peso_attuale:100, note:"" },
-    { id:7,  lottoId:1, nr:7,  bdn:"IT034SU105", sesso:"F", vivo:true,  stato:"attivo",    peso_nascita:1.3, peso_svezzamento:25, data_svezzamento:"2023-10-15", peso_attuale:85,  note:"" },
-    { id:8,  lottoId:1, nr:8,  bdn:"IT034SU106", sesso:"M", vivo:true,  stato:"attivo",    peso_nascita:1.5, peso_svezzamento:29, data_svezzamento:"2023-10-15", peso_attuale:98,  note:"" },
-    { id:9,  lottoId:1, nr:9,  bdn:"IT034SU107", sesso:"F", vivo:true,  stato:"attivo",    peso_nascita:1.4, peso_svezzamento:27, data_svezzamento:"2023-10-15", peso_attuale:90,  note:"" },
-    { id:10, lottoId:1, nr:10, bdn:"IT034SU108", sesso:"M", vivo:true,  stato:"attivo",    peso_nascita:1.4, peso_svezzamento:28, data_svezzamento:"2023-10-15", peso_attuale:96,  note:"" },
-    { id:11, lottoId:1, nr:11, bdn:"IT034SU109", sesso:"F", vivo:true,  stato:"attivo",    peso_nascita:1.2, peso_svezzamento:24, data_svezzamento:"2023-10-15", peso_attuale:83,  note:"" },
-    // L2024-001 (pochi demo)
-    { id:12, lottoId:2, nr:1,  bdn:"IT034SU200", sesso:"M", vivo:true,  stato:"attivo",    peso_nascita:1.5, peso_svezzamento:null,data_svezzamento:null,       peso_attuale:null,note:"" },
-    { id:13, lottoId:2, nr:2,  bdn:null,         sesso:"F", vivo:true,  stato:"attivo",    peso_nascita:1.4, peso_svezzamento:null,data_svezzamento:null,       peso_attuale:null,note:"" },
-    { id:14, lottoId:2, nr:3,  bdn:null,         sesso:"M", vivo:true,  stato:"attivo",    peso_nascita:1.6, peso_svezzamento:null,data_svezzamento:null,       peso_attuale:null,note:"" },
-  ],
-  nextId:{ lotti:4, suini:15 },
-};
-
+import { supabase } from "./supabase";
 // ─── CALCOLI LOTTO ────────────────────────────────────────────────────────────
 function statsLotto(lottoId, suini) {
   const ss = suini.filter(s=>s.lottoId===lottoId);
@@ -516,38 +458,110 @@ function ListaLotti({data, onSeleziona, onNuovo}) {
 }
 
 // ─── APP ROOT ─────────────────────────────────────────────────────────────────
-export default function App() {
-  const [data, setData]   = useState(initialData);
+export default function LottiSuini() {
+  const [data, setData]   = useState({ riproduttori:[], lotti:[], suini:[] });
+  const [loading, setLoading] = useState(true);
   const [view, setView]   = useState("lista");
   const [selLotto, setSelLotto] = useState(null);
 
-  const addLotto = ({parto, suini}) => {
-    const lottoId = data.nextId.lotti;
-    let nextSuinoId = data.nextId.suini;
-    const nuoviSuini = suini.map(s=>({...s, id:nextSuinoId++, lottoId}));
-    setData(d=>({
-      ...d,
-      lotti:  [...d.lotti,  {...parto, id:lottoId}],
-      suini:  [...d.suini,  ...nuoviSuini],
-      nextId: {...d.nextId, lotti:lottoId+1, suini:nextSuinoId},
+  const carica = async () => {
+    setLoading(true);
+    const [{ data: anim }, { data: lotti }, { data: suini }] = await Promise.all([
+      supabase.from("animali").select("*").eq("specie","suino").order("nome"),
+      supabase.from("lotti_suini").select("*").order("data_parto", { ascending:false }),
+      supabase.from("suini_lotto").select("*").order("lotto_id").order("nr"),
+    ]);
+    // Mappa snake_case → camelCase per compatibilità con i componenti UI
+    const lottiMapped = (lotti||[]).map(l=>({
+      ...l, madreId:l.madre_id, padreId:l.padre_id,
     }));
+    const suiniMapped = (suini||[]).map(s=>({
+      ...s, lottoId:s.lotto_id,
+    }));
+    setData({
+      riproduttori: anim||[],
+      lotti: lottiMapped,
+      suini: suiniMapped,
+    });
+    setLoading(false);
+  };
+
+  useEffect(()=>{ carica(); },[]);
+
+  const addLotto = async ({ parto, suini }) => {
+    // Salva lotto
+    const { data: nuovoLotto, error: errLotto } = await supabase
+      .from("lotti_suini")
+      .insert([{
+        codice:     parto.codice,
+        anno:       parto.anno,
+        madre_id:   parto.madreId || null,
+        padre_id:   parto.padreId || null,
+        data_parto: parto.data_parto,
+        nati_totali:parto.nati_totali,
+        nati_vivi:  parto.nati_vivi,
+        nati_morti: parto.nati_morti,
+        note:       parto.note || null,
+      }])
+      .select().single();
+    if (errLotto || !nuovoLotto) return;
+
+    // Salva suini del lotto
+    if (suini.length > 0) {
+      await supabase.from("suini_lotto").insert(
+        suini.map(s => ({
+          lotto_id:         nuovoLotto.id,
+          nr:               s.nr,
+          bdn:              s.bdn || null,
+          sesso:            s.sesso,
+          vivo:             s.vivo,
+          stato:            s.stato || "attivo",
+          peso_nascita:     s.peso_nascita || null,
+          note:             s.note || null,
+        }))
+      );
+    }
+    await carica();
     setView("lista");
   };
 
-  const updateSuino = (suino) => {
-    setData(d=>({...d, suini:d.suini.map(s=>s.id===suino.id?suino:s)}));
+  const updateSuino = async (suino) => {
+    await supabase.from("suini_lotto").update({
+      bdn:               suino.bdn || null,
+      sesso:             suino.sesso,
+      stato:             suino.stato,
+      vivo:              suino.vivo,
+      peso_nascita:      suino.peso_nascita || null,
+      peso_svezzamento:  suino.peso_svezzamento || null,
+      peso_attuale:      suino.peso_attuale || null,
+      data_svezzamento:  suino.data_svezzamento || null,
+      note:              suino.note || null,
+    }).eq("id", suino.id);
+    await carica();
   };
 
-  const addSuiniLotto = (nuovi) => {
-    let nextId = data.nextId.suini;
-    const mapped = nuovi.map(s=>({...s, id:nextId++}));
-    setData(d=>({...d, suini:[...d.suini,...mapped], nextId:{...d.nextId,suini:nextId}}));
+  const addSuiniLotto = async (nuovi) => {
+    await supabase.from("suini_lotto").insert(
+      nuovi.map(s => ({
+        lotto_id:     s.lottoId,
+        nr:           s.nr,
+        bdn:          s.bdn || null,
+        sesso:        s.sesso,
+        vivo:         s.vivo,
+        stato:        s.stato || "attivo",
+        peso_nascita: s.peso_nascita || null,
+        note:         s.note || null,
+      }))
+    );
+    await carica();
     setView("scheda");
   };
 
   const wrap = ch => (
     <div style={{fontFamily:"'Segoe UI',system-ui,sans-serif",background:C.bg,minHeight:"100vh",maxWidth:480,margin:"0 auto"}}>
-      {ch}
+      {loading
+        ? <div style={{textAlign:"center",padding:80,color:C.muted}}><div style={{fontSize:40,marginBottom:12}}>⏳</div><div>Caricamento lotti...</div></div>
+        : ch}
     </div>
   );
 
