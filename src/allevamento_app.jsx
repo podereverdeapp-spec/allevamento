@@ -940,6 +940,11 @@ function Sanitario({animali,eventi,loading,aggiungi}){
   const [form,setForm]=useState(null);
   const [saving,setSaving]=useState(false);
   const [cerca,setCerca]=useState("");
+  const [modGruppo,setModGruppo]=useState(false);
+  const [selezionati,setSelezionati]=useState([]);
+  const [cercaGruppo,setCercaGruppo]=useState("");
+  const [formGruppo,setFormGruppo]=useState(null);
+  const [savingGruppo,setSavingGruppo]=useState(false);
   const salva=async()=>{
     if(!form.animale_id||!form.descrizione)return;
     setSaving(true);
@@ -973,6 +978,40 @@ function Sanitario({animali,eventi,loading,aggiungi}){
   );
   const tipoColor={vaccino:C.green,farmaco:C.blue,visita:C.yellow,intervento:C.red,altro:C.muted};
 
+  const salvaVaccinazioneGruppo=async()=>{
+    if(!formGruppo.descrizione||selezionati.length===0) return;
+    setSavingGruppo(true);
+    for(const id of selezionati){
+      await aggiungi({
+        animale_id:id,
+        tipo:formGruppo.tipo||"vaccino",
+        descrizione:formGruppo.descrizione,
+        data:formGruppo.data,
+        veterinario:formGruppo.veterinario||null,
+        prodotto:formGruppo.prodotto||null,
+        scadenza:formGruppo.scadenza||null,
+        costo:formGruppo.costo?parseFloat(formGruppo.costo)/selezionati.length:null,
+      });
+    }
+    setSavingGruppo(false);
+    setModGruppo(false);
+    setSelezionati([]);
+    setFormGruppo(null);
+  };
+
+  const toggleSelezionato=(id)=>{
+    setSelezionati(prev=>prev.includes(id)?prev.filter(x=>x!==id):[...prev,id]);
+  };
+
+  const animaliGruppo=animali.filter(a=>{
+    if(a.stato!=="attivo") return false;
+    if(!cercaGruppo.trim()) return true;
+    const q=cercaGruppo.trim().toLowerCase();
+    return (a.bdn||"").toLowerCase().includes(q)||
+           (a.nome||"").toLowerCase().includes(q)||
+           (a.bdn||"").toLowerCase().endsWith(q);
+  });
+
   const eventiFiltrati=eventi.filter(e=>{
     if(!cerca.trim()) return true;
     const q=cerca.trim().toLowerCase();
@@ -990,9 +1029,142 @@ function Sanitario({animali,eventi,loading,aggiungi}){
     <div style={{padding:"16px 16px 80px"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
         <span style={{fontSize:20,fontWeight:800}}>Registro Sanitario</span>
-        <Btn label="Aggiungi" icon="+" onClick={()=>setForm({animale_id:"",tipo:"vaccino",
-          descrizione:"",data:today(),veterinario:"",prodotto:"",scadenza:"",costo:""})} small/>
+        <div style={{display:"flex",gap:8}}>
+          <Btn label="💉 Gruppo" onClick={()=>{setModGruppo(true);setFormGruppo({
+            tipo:"vaccino",descrizione:"",data:today(),
+            veterinario:"",prodotto:"",scadenza:"",costo:""});}}
+            variant="outline" small/>
+          <Btn label="+ Singolo" icon="+" onClick={()=>setForm({animale_id:"",tipo:"vaccino",
+            descrizione:"",data:today(),veterinario:"",prodotto:"",scadenza:"",costo:""})} small/>
+        </div>
       </div>
+
+      {/* MODAL VACCINAZIONE DI GRUPPO */}
+      {modGruppo&&formGruppo&&(
+        <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,
+          background:"rgba(0,0,0,0.6)",zIndex:200,overflowY:"auto"}}>
+          <div style={{background:C.bg,borderRadius:"20px 20px 0 0",
+            position:"absolute",bottom:0,left:0,right:0,maxHeight:"95vh",
+            overflowY:"auto",padding:"20px 16px 40px"}}>
+            {/* Header */}
+            <div style={{display:"flex",justifyContent:"space-between",
+              alignItems:"center",marginBottom:16}}>
+              <span style={{fontSize:18,fontWeight:800}}>💉 Evento di gruppo</span>
+              <button onClick={()=>{setModGruppo(false);setSelezionati([]);}}
+                style={{background:C.border,border:"none",borderRadius:20,
+                  padding:"6px 12px",cursor:"pointer",fontSize:13}}>✕ Chiudi</button>
+            </div>
+
+            {/* STEP 1: Seleziona animali */}
+            <div style={{background:C.card,borderRadius:14,padding:14,marginBottom:12,
+              border:`1px solid ${C.border}`}}>
+              <div style={{fontSize:13,fontWeight:700,color:C.primary,marginBottom:8}}>
+                STEP 1 — Seleziona gli animali ({selezionati.length} selezionati)
+              </div>
+              {/* Cerca */}
+              <div style={{position:"relative",marginBottom:10}}>
+                <span style={{position:"absolute",left:10,top:"50%",
+                  transform:"translateY(-50%)",fontSize:16,color:C.muted}}>🔍</span>
+                <input type="text" value={cercaGruppo}
+                  onChange={e=>setCercaGruppo(e.target.value)}
+                  placeholder="Filtra per BDN o nome..."
+                  style={{width:"100%",boxSizing:"border-box",border:`1.5px solid ${C.border}`,
+                    borderRadius:10,padding:"8px 10px 8px 34px",fontSize:14,
+                    background:"#FAFAF8",outline:"none"}}/>
+              </div>
+              {/* Seleziona tutti */}
+              <button onClick={()=>{
+                  if(selezionati.length===animaliGruppo.length)
+                    setSelezionati([]);
+                  else
+                    setSelezionati(animaliGruppo.map(a=>a.id));
+                }}
+                style={{background:C.primary+"15",border:`1px solid ${C.primary}33`,
+                  borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:600,
+                  color:C.primary,cursor:"pointer",marginBottom:10}}>
+                {selezionati.length===animaliGruppo.length?"☐ Deseleziona tutti":"☑ Seleziona tutti"}
+              </button>
+              {/* Lista animali */}
+              <div style={{maxHeight:220,overflowY:"auto"}}>
+                {animaliGruppo.map(a=>{
+                  const sel=selezionati.includes(a.id);
+                  return(
+                    <div key={a.id} onClick={()=>toggleSelezionato(a.id)}
+                      style={{display:"flex",alignItems:"center",gap:10,
+                        padding:"8px 10px",borderRadius:10,marginBottom:4,cursor:"pointer",
+                        background:sel?C.green+"20":C.card,
+                        border:`1.5px solid ${sel?C.green:C.border}`}}>
+                      <div style={{width:22,height:22,borderRadius:6,
+                        background:sel?C.green:"transparent",
+                        border:`2px solid ${sel?C.green:C.border}`,
+                        display:"flex",alignItems:"center",justifyContent:"center",
+                        flexShrink:0}}>
+                        {sel&&<span style={{color:"#FFF",fontSize:14,fontWeight:800}}>✓</span>}
+                      </div>
+                      <div style={{flex:1}}>
+                        <div style={{fontWeight:600,fontSize:14}}>
+                          {a.nome||a.bdn}
+                        </div>
+                        <div style={{fontSize:11,color:C.muted}}>
+                          {a.bdn} · {a.razza_calcolata||a.razza||"—"} · {specieIcon(a.specie)}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* STEP 2: Dati evento */}
+            <div style={{background:C.card,borderRadius:14,padding:14,
+              border:`1px solid ${C.border}`,marginBottom:12}}>
+              <div style={{fontSize:13,fontWeight:700,color:C.primary,marginBottom:12}}>
+                STEP 2 — Dati dell'evento (vale per tutti gli animali selezionati)
+              </div>
+              <Field label="Tipo evento" value={formGruppo.tipo}
+                onChange={v=>setFormGruppo(f=>({...f,tipo:v}))}
+                options={["vaccino","farmaco","visita","intervento","altro"]}/>
+              <Field label="Descrizione *" value={formGruppo.descrizione}
+                onChange={v=>setFormGruppo(f=>({...f,descrizione:v}))}
+                placeholder="Es. Vaccino IBR, Antiparassitario..." required/>
+              <Field label="Data" value={formGruppo.data}
+                onChange={v=>setFormGruppo(f=>({...f,data:v}))} type="date"/>
+              <Field label="Prodotto / Farmaco" value={formGruppo.prodotto}
+                onChange={v=>setFormGruppo(f=>({...f,prodotto:v}))}
+                placeholder="Es. Bovilis IBR"/>
+              <Field label="Veterinario" value={formGruppo.veterinario}
+                onChange={v=>setFormGruppo(f=>({...f,veterinario:v}))}/>
+              <Field label="Data scadenza richiamo" value={formGruppo.scadenza}
+                onChange={v=>setFormGruppo(f=>({...f,scadenza:v}))} type="date"/>
+              <Field label="Costo totale (€) — suddiviso automaticamente"
+                value={formGruppo.costo}
+                onChange={v=>setFormGruppo(f=>({...f,costo:v}))} type="number"
+                placeholder="Verrà diviso per il numero di animali"/>
+              {formGruppo.costo&&selezionati.length>0&&(
+                <div style={{background:C.blue+"12",borderRadius:8,padding:"6px 10px",
+                  fontSize:12,color:C.blue,marginBottom:8}}>
+                  €{(parseFloat(formGruppo.costo)/selezionati.length).toFixed(2)} per animale
+                  · {selezionati.length} animali
+                </div>
+              )}
+            </div>
+
+            {/* Pulsante conferma */}
+            <button onClick={salvaVaccinazioneGruppo}
+              disabled={savingGruppo||selezionati.length===0||!formGruppo.descrizione}
+              style={{width:"100%",background:selezionati.length>0&&formGruppo.descrizione
+                ?C.green:"#CCC",
+                color:"#FFF",border:"none",borderRadius:12,padding:"14px",
+                fontSize:16,fontWeight:700,cursor:selezionati.length>0?"pointer":"default"}}>
+              {savingGruppo
+                ?`Salvataggio... (${selezionati.length} animali)`
+                :selezionati.length===0
+                  ?"Seleziona almeno un animale"
+                  :`✓ Registra evento su ${selezionati.length} animali`}
+            </button>
+          </div>
+        </div>
+      )}
       {/* Barra ricerca */}
       <div style={{position:"relative",marginBottom:12}}>
         <span style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",
@@ -1055,9 +1227,45 @@ function Sanitario({animali,eventi,loading,aggiungi}){
 }
 
 // ─── ALIMENTAZIONE ────────────────────────────────────────────────────────────
-function Alimentazione({voci,loading,aggiungi}){
+function Alimentazione({voci,loading,aggiungi,animali}){
   const [form,setForm]=useState(null);
   const [saving,setSaving]=useState(false);
+  const [modGruppo,setModGruppo]=useState(false);
+  const [selezionati,setSelezionati]=useState([]);
+  const [cercaGruppo,setCercaGruppo]=useState("");
+  const [formGruppo,setFormGruppo]=useState(null);
+  const [savingGruppo,setSavingGruppo]=useState(false);
+
+  const salvaRazioneGruppo=async()=>{
+    if(!formGruppo.tipo||!formGruppo.quantita||selezionati.length===0) return;
+    setSavingGruppo(true);
+    const qtaPerCapo=parseFloat(formGruppo.quantita);
+    const costoPerCapo=formGruppo.costo?parseFloat(formGruppo.costo)/selezionati.length:null;
+    for(const id of selezionati){
+      await aggiungi({
+        specie:null,
+        tipo:formGruppo.tipo,
+        quantita:qtaPerCapo,
+        unita:formGruppo.unita||"kg",
+        costo:costoPerCapo,
+        data:formGruppo.data,
+        note:formGruppo.note?`Razione di gruppo - ${formGruppo.note}`:"Razione di gruppo",
+        animale_id:id,
+      });
+    }
+    setSavingGruppo(false);
+    setModGruppo(false);
+    setSelezionati([]);
+    setFormGruppo(null);
+  };
+
+  const toggleSel=(id)=>setSelezionati(prev=>prev.includes(id)?prev.filter(x=>x!==id):[...prev,id]);
+  const animaliGruppo=(animali||[]).filter(a=>{
+    if(a.stato!=="attivo") return false;
+    if(!cercaGruppo.trim()) return true;
+    const q=cercaGruppo.trim().toLowerCase();
+    return (a.bdn||"").toLowerCase().includes(q)||(a.nome||"").toLowerCase().includes(q)||(a.bdn||"").endsWith(q);
+  });
   const salva=async()=>{
     if(!form.tipo||!form.quantita)return;
     setSaving(true);
@@ -1261,7 +1469,7 @@ export default function AllevamentoApp(){
           totalePerAnimale={totalePerAnimale}
         />}
         {tab==="sanitario"    &&<Sanitario animali={animali} eventi={sanitari} loading={loadS} aggiungi={addS}/>}
-        {tab==="alimentazione"&&<Alimentazione voci={alimentazione} loading={loadAl} aggiungi={addAl}/>}
+        {tab==="alimentazione"&&<Alimentazione voci={alimentazione} loading={loadAl} aggiungi={addAl} animali={animali}/>}
         {tab==="magazzino"    &&<Magazzino scorte={magazzino} loading={loadM} aggiungi={addM} aggiorna={updM}/>}
         {tab==="report"       &&<Report animali={animali} eventi_sanitari={sanitari} voci_alimentazione={alimentazione}/>}
       </div>
