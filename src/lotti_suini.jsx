@@ -10,6 +10,20 @@ const C = {
 const today     = () => new Date().toISOString().split("T")[0];
 const thisYear  = () => new Date().getFullYear();
 import { supabase } from "./supabase";
+
+// ─── GENERAZIONE TATUAGGIO LOTTO ─────────────────────────────────────────────
+// Formato numerico puro pensato per tatuatrice: AA + progressivo a 3 cifre
+// Esempio: 24001 = primo lotto del 2024. Stesso numero per TUTTA la nidiata.
+function genCodiceLotto(lotti, anno) {
+  const aa = String(anno).slice(-2);
+  const lottiAnno = (lotti||[]).filter(l => l.anno === anno);
+  const max = lottiAnno.reduce((m,l) => {
+    const prog = parseInt(String(l.codice||"").slice(-3)) || 0;
+    return Math.max(m, prog);
+  }, 0);
+  const progressivo = String(max + 1).padStart(3, "0");
+  return `${aa}${progressivo}`;
+}
 // ─── CALCOLI LOTTO ────────────────────────────────────────────────────────────
 function statsLotto(lottoId, suini) {
   const ss = suini.filter(s=>s.lottoId===lottoId);
@@ -63,9 +77,9 @@ function CardSuino({s, lotto, onUpdate}) {
   if (edit) return (
     <Card style={{borderLeft:`3px solid ${col}`}}>
       <div style={{fontWeight:700,color:C.primary,marginBottom:10}}>
-        {lotto.codice} / nr.{s.nr} — Modifica
+        🖋 {lotto.codice} · interno nr.{s.nr} — Modifica
       </div>
-      <Field label="BDN / Matricola individuale" value={form.bdn||""} onChange={v=>setForm(f=>({...f,bdn:v||null}))} placeholder="opzionale"/>
+      <Field label="Marchio individuale" value={form.bdn||""} onChange={v=>setForm(f=>({...f,bdn:v||null}))} placeholder="solo se diventa riproduttore"/>
       <div style={{display:"flex",gap:10}}>
         <div style={{flex:1}}>
           <Field label="Sesso" value={form.sesso} onChange={v=>setForm(f=>({...f,sesso:v}))} options={[{value:"M",label:"♂ Maschio"},{value:"F",label:"♀ Femmina"}]}/>
@@ -96,16 +110,15 @@ function CardSuino({s, lotto, onUpdate}) {
         <div style={{flex:1}}>
           {/* Identificativo principale */}
           <div style={{fontWeight:700,fontSize:14,color:s.vivo?C.text:C.morto}}>
-            <span style={{color:C.suini,fontSize:12,fontWeight:600}}>{lotto.codice}</span>
-            <span style={{color:C.muted,fontSize:13}}> / </span>
-            <span style={{fontSize:15}}>nr.{s.nr}</span>
-            {s.bdn && <span style={{color:C.muted,fontSize:12,marginLeft:8}}>· {s.bdn}</span>}
+            <span style={{background:C.suini+"20",color:C.suini,fontSize:13,fontWeight:800,
+              padding:"1px 7px",borderRadius:6}}>🖋 {lotto.codice}</span>
+            <span style={{color:C.muted,fontSize:13}}> · interno nr.{s.nr}</span>
           </div>
           <div style={{display:"flex",gap:5,marginTop:4,flexWrap:"wrap"}}>
             <Badge label={s.sesso==="M"?"♂":"♀"} color={col}/>
             <Badge label={s.stato} color={statoColor}/>
             {!s.vivo&&<Badge label="✝ nato morto" color={C.morto}/>}
-            {s.bdn&&<Badge label="BDN ✓" color={C.green}/>}
+            {s.bdn&&<Badge label={`🏷 ${s.bdn}`} color={C.green}/>}
           </div>
           {/* Pesi */}
           {s.vivo&&(
@@ -144,9 +157,14 @@ function SchedaLotto({lotto, data, onBack, onUpdateSuino, onAddSuini}) {
       <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
         <button onClick={onBack} style={{background:"none",border:"none",cursor:"pointer",fontSize:22}}>←</button>
         <div>
-          <div style={{fontSize:20,fontWeight:800,color:C.suini}}>🐷 {lotto.codice}</div>
+          <div style={{fontSize:20,fontWeight:800,color:C.suini}}>🐷 Tatuaggio {lotto.codice}</div>
           <div style={{fontSize:13,color:C.muted}}>Parto {lotto.data_parto}</div>
         </div>
+      </div>
+      <div style={{background:C.suini+"10",border:`1px solid ${C.suini}33`,borderRadius:10,
+        padding:"6px 12px",marginBottom:14,fontSize:12,color:C.muted}}>
+        Tutti i suinetti vivi di questa nidiata portano il tatuaggio <strong style={{color:C.suini}}>{lotto.codice}</strong>.
+        Il "nr." è solo un riferimento interno dell'app.
       </div>
 
       {/* KPI lotto */}
@@ -276,11 +294,13 @@ function FormNuovoLotto({data, onSave, onCancel}) {
         </div>
       </div>
 
-      {/* Anteprima codice lotto */}
+      {/* Anteprima tatuaggio lotto */}
       <Card style={{background:C.suini+"12",borderLeft:`4px solid ${C.suini}`,marginBottom:16}}>
-        <div style={{fontSize:12,color:C.muted,fontWeight:600}}>CODICE LOTTO ASSEGNATO</div>
-        <div style={{fontSize:28,fontWeight:900,color:C.suini}}>{codice}</div>
-        <div style={{fontSize:12,color:C.muted}}>Anno {anno} · lotto progressivo automatico</div>
+        <div style={{fontSize:12,color:C.muted,fontWeight:600}}>🖋 TATUAGGIO DA APPLICARE</div>
+        <div style={{fontSize:40,fontWeight:900,color:C.suini,letterSpacing:2}}>{codice}</div>
+        <div style={{fontSize:12,color:C.muted}}>
+          Stesso numero per <strong>tutta la nidiata</strong> · anno {anno} · lotto progressivo automatico
+        </div>
       </Card>
 
       {step===1&&(<>
@@ -302,8 +322,10 @@ function FormNuovoLotto({data, onSave, onCancel}) {
       </>)}
 
       {step===2&&(<>
-        <div style={{fontSize:13,color:C.muted,marginBottom:14}}>
-          Compila BDN e sesso per ogni suino. I campi sono opzionali — puoi aggiornarli in seguito.
+        <div style={{background:C.yellow+"15",border:`1px solid ${C.yellow}44`,borderRadius:10,
+          padding:"10px 14px",marginBottom:14,fontSize:13,color:C.text}}>
+          🖋 Tatua tutti i suinetti con il numero <strong>{codice}</strong> — è lo stesso per l'intera nidiata.
+          Il "nr." qui sotto serve solo all'app per distinguerli internamente (peso, sesso), non va scritto sulla pelle.
         </div>
 
         {suini.map((s,i)=>(
@@ -314,7 +336,7 @@ function FormNuovoLotto({data, onSave, onCancel}) {
             </div>
             {s.vivo&&<>
               <div style={{display:"flex",gap:10}}>
-                <div style={{flex:2}}><Field label="BDN (opz.)" value={s.bdn} onChange={v=>aggiorna(i,"bdn",v)} placeholder="es. IT034SU200"/></div>
+                <div style={{flex:2}}><Field label="Marchio individuale" value={s.bdn} onChange={v=>aggiorna(i,"bdn",v)} placeholder="solo se destinato a riproduttore"/></div>
                 <div style={{flex:1}}><Field label="Sesso" value={s.sesso} onChange={v=>aggiorna(i,"sesso",v)} options={[{value:"M",label:"♂"},{value:"F",label:"♀"}]}/></div>
               </div>
               <Field label="Peso nascita (kg)" value={s.peso_nascita} onChange={v=>aggiorna(i,"peso_nascita",v)} type="number"/>
@@ -356,7 +378,7 @@ function FormAggiungiSuini({lotto, data, onSave, onCancel}) {
           </div>
           {s.vivo&&<>
             <div style={{display:"flex",gap:10}}>
-              <div style={{flex:2}}><Field label="BDN (opz.)" value={s.bdn} onChange={v=>aggiorna(i,"bdn",v)}/></div>
+              <div style={{flex:2}}><Field label="Marchio individuale" value={s.bdn} onChange={v=>aggiorna(i,"bdn",v)} placeholder="solo se riproduttore"/></div>
               <div style={{flex:1}}><Field label="Sesso" value={s.sesso} onChange={v=>aggiorna(i,"sesso",v)} options={[{value:"M",label:"♂"},{value:"F",label:"♀"}]}/></div>
             </div>
             <Field label="Peso nascita (kg)" value={s.peso_nascita} onChange={v=>aggiorna(i,"peso_nascita",v)} type="number"/>
@@ -421,7 +443,8 @@ function ListaLotti({data, onSeleziona, onNuovo}) {
             <div key={l.id} onClick={()=>onSeleziona(l)} style={{background:C.card,borderRadius:16,padding:16,marginBottom:10,boxShadow:"0 2px 8px rgba(0,0,0,0.07)",border:`1px solid ${C.border}`,cursor:"pointer",borderLeft:`5px solid ${C.suini}`}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
                 <div>
-                  <div style={{fontSize:20,fontWeight:900,color:C.suini}}>{l.codice}</div>
+                  <div style={{fontSize:11,color:C.muted,fontWeight:600}}>🖋 TATUAGGIO</div>
+                  <div style={{fontSize:24,fontWeight:900,color:C.suini,letterSpacing:1}}>{l.codice}</div>
                   <div style={{fontSize:13,color:C.muted}}>Parto {l.data_parto}</div>
                 </div>
                 <div style={{textAlign:"right"}}>
@@ -439,7 +462,7 @@ function ListaLotti({data, onSeleziona, onNuovo}) {
                 <Badge label={`${stats.vivi} vivi`} color={C.green}/>
                 {stats.morti>0&&<Badge label={`${stats.morti} morti`} color={C.morto}/>}
                 {stats.macellati>0&&<Badge label={`${stats.macellati} macellati`} color={C.muted}/>}
-                <Badge label={`${stats.conBdn} BDN reg.`} color={C.blue}/>
+                <Badge label={`${stats.conBdn} marchi individ.`} color={C.blue}/>
               </div>
               {(madre||padre)&&(
                 <div style={{fontSize:12,color:C.muted,marginTop:6}}>

@@ -175,7 +175,17 @@ function useEventiRiproduttivi() {
     if(!error&&data)setEventi(prev=>[data,...prev]);
     return{data,error};
   };
-  return{eventi,loading,carica,aggiungi};
+  const aggiorna=async(id,m)=>{
+    const{data,error}=await supabase.from("eventi_riproduttivi").update(m).eq("id",id).select().single();
+    if(!error&&data)setEventi(prev=>prev.map(e=>e.id===id?data:e));
+    return{data,error};
+  };
+  const elimina=async(id)=>{
+    const{error}=await supabase.from("eventi_riproduttivi").delete().eq("id",id);
+    if(!error)setEventi(prev=>prev.filter(e=>e.id!==id));
+    return{error};
+  };
+  return{eventi,loading,carica,aggiungi,aggiorna,elimina};
 }
 
 function useCostiAnimale() {
@@ -285,7 +295,7 @@ function Dashboard({animali,eventi_sanitari,magazzino,onNav}){
 }
 
 // ─── ANAGRAFICA ───────────────────────────────────────────────────────────────
-function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttivi,aggiungiEvento,ricaricaEventi,sanitari,totalePerAnimale}){
+function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttivi,aggiungiEvento,aggiornaEvento,eliminaEvento,ricaricaEventi,sanitari,totalePerAnimale}){
   const [filtro,setFiltro]=useState("tutti");
   const [cerca,setCerca]=useState("");
   const [form,setForm]=useState(null);         // null=lista, obj=form edit/new
@@ -394,9 +404,20 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
       padre_id:formParto.padre_id?parseInt(formParto.padre_id):null,
       note:formParto.note||null,
     };
+
+    // ── MODALITÀ MODIFICA: aggiorna evento esistente, non crea schede figli ──
+    if(formParto.id){
+      const{error}=await aggiornaEvento(formParto.id,payload);
+      setSavingParto(false);
+      if(error){return;}
+      setFormParto(null);
+      ricaricaEventi();
+      return;
+    }
+
+    // ── MODALITÀ NUOVO: crea evento + eventualmente schede figli ──────────
     const{data:evData,error}=await aggiungiEvento(payload);
     if(error){setSavingParto(false);return;}
-    // Crea schede figli solo se NON è parto storico
     if(!formParto.storico){
       const nati=formParto.nati||[];
       for(const nato of nati){
@@ -421,6 +442,12 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
     }
     setSavingParto(false);
     setFormParto(null);
+    ricaricaEventi();
+  };
+
+  const eliminaParto=async(eventoId)=>{
+    if(!window.confirm("Eliminare questo evento parto? I dati statistici verranno persi. Le schede dei nati già create NON vengono cancellate.")) return;
+    await eliminaEvento(eventoId);
     ricaricaEventi();
   };
 
@@ -718,28 +745,80 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
               {(a.sesso==="F")&&(
                 formParto?(
                   <Card>
-                    <div style={{fontWeight:700,marginBottom:12}}>🐣 Registra parto</div>
+                    <div style={{fontWeight:700,marginBottom:4}}>
+                      {formParto.id?"✏️ Modifica parto":"🐣 Registra parto"}
+                    </div>
+                    {/* Toggle parto storico - solo in creazione */}
+                    {!formParto.id&&(
+                      <div onClick={()=>setFormParto(f=>({...f,storico:!f.storico}))}
+                        style={{display:"flex",alignItems:"center",gap:8,
+                          background:formParto.storico?C.yellow+"20":C.bg,
+                          borderRadius:10,padding:"8px 12px",marginBottom:12,cursor:"pointer",
+                          border:`1px solid ${formParto.storico?C.yellow:C.border}`}}>
+                        <div style={{width:36,height:20,borderRadius:10,
+                          background:formParto.storico?C.yellow:C.border,
+                          position:"relative",transition:"background 0.2s"}}>
+                          <div style={{width:16,height:16,borderRadius:8,background:"#FFF",
+                            position:"absolute",top:2,
+                            left:formParto.storico?18:2,transition:"left 0.2s"}}/>
+                        </div>
+                        <div>
+                          <div style={{fontSize:13,fontWeight:700,color:formParto.storico?C.yellow:C.muted}}>
+                            Parto storico
+                          </div>
+                          <div style={{fontSize:11,color:C.muted}}>
+                            {formParto.storico?"Solo per selezione genetica — non crea schede figli":"Attiva per parti già avvenuti con figli non in azienda"}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     <Field label="Data parto" value={formParto.data_evento}
                       onChange={v=>setFormParto(f=>({...f,data_evento:v}))} type="date" required/>
                     <Field label="Tipo parto" value={formParto.tipo_parto}
                       onChange={v=>setFormParto(f=>({...f,tipo_parto:v}))}
                       options={a.specie==="bovino"?["Naturale","Assistito","Cesareo"]:["Naturale","Assistito"]}/>
+                    {/* Nati totali + morti → vivi calcolati */}
                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-                      <Field label="Nati vivi" value={formParto.nati_vivi}
-                        onChange={v=>setFormParto(f=>({...f,nati_vivi:v,
-                          nati:Array.from({length:parseInt(v)||0},(_,i)=>f.nati?.[i]||{bdn_nato:"",sesso:"",peso_nascita:""})
-                        }))} type="number"/>
-                      <Field label="Nati morti" value={formParto.nati_morti}
-                        onChange={v=>setFormParto(f=>({...f,nati_morti:v}))} type="number"/>
+                      <Field label="N° nati totali" value={formParto.nati_totali}
+                        onChange={v=>{
+                          const tot=parseInt(v)||0;
+                          const mort=parseInt(formParto.nati_morti)||0;
+                          const vivi=Math.max(0,tot-mort);
+                          setFormParto(f=>({...f,nati_totali:v,
+                            nati:(!f.storico&&!f.id)?Array.from({length:vivi},(_,i)=>f.nati?.[i]||{bdn_nato:"",sesso:"",peso_nascita:""}):f.nati
+                          }));
+                        }} type="number"/>
+                      <Field label="N° nati morti" value={formParto.nati_morti}
+                        onChange={v=>{
+                          const mort=parseInt(v)||0;
+                          const tot=parseInt(formParto.nati_totali)||0;
+                          const vivi=Math.max(0,tot-mort);
+                          setFormParto(f=>({...f,nati_morti:v,
+                            nati:(!f.storico&&!f.id)?Array.from({length:vivi},(_,i)=>f.nati?.[i]||{bdn_nato:"",sesso:"",peso_nascita:""}):f.nati
+                          }));
+                        }} type="number"/>
                     </div>
-                    <Field label="Padre (ID/BDN)" value={formParto.padre_id}
+                    {/* Badge nati vivi calcolati */}
+                    {(formParto.nati_totali||formParto.nati_morti)&&(()=>{
+                      const vivi=Math.max(0,(parseInt(formParto.nati_totali)||0)-(parseInt(formParto.nati_morti)||0));
+                      return(
+                        <div style={{background:C.green+"15",border:`1px solid ${C.green}33`,
+                          borderRadius:10,padding:"8px 12px",marginBottom:12,
+                          display:"flex",gap:16,fontSize:13}}>
+                          <span>🟢 Vivi: <strong style={{color:C.green}}>{vivi}</strong></span>
+                          <span>🔴 Morti: <strong style={{color:C.red}}>{parseInt(formParto.nati_morti)||0}</strong></span>
+                          <span>📊 Totali: <strong>{parseInt(formParto.nati_totali)||0}</strong></span>
+                        </div>
+                      );
+                    })()}
+                    <Field label="Padre" value={formParto.padre_id}
                       onChange={v=>setFormParto(f=>({...f,padre_id:v}))}
                       options={animali.filter(x=>x.specie===a.specie&&x.sesso==="M").map(x=>({value:x.id,label:`${x.nome||x.bdn}`}))}/>
-                    {/* Campi per ogni nato vivo */}
-                    {(formParto.nati||[]).map((n,i)=>(
+                    {/* Campi per ogni nato vivo (solo creazione, non storico) */}
+                    {!formParto.id&&!formParto.storico&&(formParto.nati||[]).map((n,i)=>(
                       <div key={i} style={{background:C.bg,borderRadius:10,padding:10,marginBottom:8}}>
                         <div style={{fontSize:12,fontWeight:700,color:C.primary,marginBottom:8}}>
-                          🐾 Nato {i+1}
+                          🐾 Nato vivo {i+1}
                         </div>
                         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
                           <Field label="BDN/ID" value={n.bdn_nato}
@@ -753,9 +832,15 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
                           type="number"/>
                       </div>
                     ))}
+                    {formParto.id&&(
+                      <div style={{background:C.blue+"12",border:`1px solid ${C.blue}33`,borderRadius:10,
+                        padding:"8px 12px",marginBottom:12,fontSize:12,color:C.muted}}>
+                        ℹ️ La modifica aggiorna solo i dati statistici del parto. Le schede dei nati già create non vengono toccate.
+                      </div>
+                    )}
                     <Field label="Note" value={formParto.note} onChange={v=>setFormParto(f=>({...f,note:v}))}/>
                     <div style={{display:"flex",gap:8,marginTop:8}}>
-                      <Btn label={savingParto?"Salvataggio...":"Registra parto"} icon="✓" onClick={salvaParto}
+                      <Btn label={savingParto?"Salvataggio...":formParto.id?"Salva modifiche":"Registra parto"} icon="✓" onClick={salvaParto}
                         variant="success" disabled={savingParto}/>
                       <Btn label="Annulla" onClick={()=>setFormParto(null)} variant="ghost"/>
                     </div>
@@ -794,6 +879,26 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
                         </div>
                       )}
                     </div>
+                    {e.tipo_evento==="parto"&&(
+                      <div style={{display:"flex",gap:6,flexShrink:0}}>
+                        <button onClick={()=>setFormParto({
+                            id:e.id,
+                            data_evento:e.data_evento||"",
+                            tipo_parto:e.tipo_parto||"Naturale",
+                            nati_totali:String((e.nati_vivi||0)+(e.nati_morti||0)),
+                            nati_morti:String(e.nati_morti||0),
+                            nati_mummificati:String(e.nati_mummificati||0),
+                            padre_id:e.padre_id||"",
+                            note:e.note||"",
+                            nati:[],storico:false,
+                          })}
+                          style={{background:C.blue+"20",border:"none",borderRadius:8,
+                            padding:"6px 9px",cursor:"pointer",fontSize:13}}>✏️</button>
+                        <button onClick={()=>eliminaParto(e.id)}
+                          style={{background:C.red+"20",border:"none",borderRadius:8,
+                            padding:"6px 9px",cursor:"pointer",fontSize:13}}>🗑️</button>
+                      </div>
+                    )}
                   </div>
                   {e.note&&<div style={{fontSize:12,color:C.muted,marginTop:6,fontStyle:"italic"}}>{e.note}</div>}
                 </Card>
@@ -1443,7 +1548,7 @@ export default function AllevamentoApp(){
   const{eventi:sanitari,loading:loadS,aggiungi:addS}=useEventiSanitari();
   const{totalePerAnimale}=useCostiAnimale();
   const{voci:alimentazione,loading:loadAl,aggiungi:addAl}=useAlimentazione();
-  const{eventi:riproduttivi,loading:loadR,carica:ricaricaEventiRip,aggiungi:addEvRip}=useEventiRiproduttivi();
+  const{eventi:riproduttivi,loading:loadR,carica:ricaricaEventiRip,aggiungi:addEvRip,aggiorna:updEvRip,elimina:delEvRip}=useEventiRiproduttivi();
   const{scorte:magazzino,loading:loadM,aggiungi:addM,aggiorna:updM}=useMagazzino();
 
   const TABS=[
@@ -1464,6 +1569,8 @@ export default function AllevamentoApp(){
           aggiungi={addA} aggiorna={updA} elimina={delA}
           eventiRiproduttivi={riproduttivi}
           aggiungiEvento={addEvRip}
+          aggiornaEvento={updEvRip}
+          eliminaEvento={delEvRip}
           ricaricaEventi={ricaricaEventiRip}
           sanitari={sanitari}
           totalePerAnimale={totalePerAnimale}
