@@ -1,477 +1,508 @@
 import { useState, useEffect, useMemo } from "react";
+import * as XLSX from "xlsx";
+import { supabase } from "./supabase";
 
 const C = {
   bg:"#F5F0E8", card:"#FFFFFF", primary:"#5C3D1E", accent:"#A0522D",
   green:"#4A7C59", red:"#C0392B", yellow:"#D4A017", blue:"#2C6E9B",
   text:"#2D1B0E", muted:"#8B7355", border:"#D4C4A8",
-  suini:"#B5547A", maschio:"#2C6E9B", femmina:"#B5547A", morto:"#999",
+  suini:"#B5547A", morto:"#888888",
 };
+const today = () => new Date().toISOString().split("T")[0];
 
-const today     = () => new Date().toISOString().split("T")[0];
-const thisYear  = () => new Date().getFullYear();
-import { supabase } from "./supabase";
-
-// ─── GENERAZIONE TATUAGGIO LOTTO ─────────────────────────────────────────────
-// Formato numerico puro pensato per tatuatrice: AA + progressivo a 3 cifre
-// Esempio: 24001 = primo lotto del 2024. Stesso numero per TUTTA la nidiata.
-function genCodiceLotto(lotti, anno) {
-  const aa = String(anno).slice(-2);
-  const lottiAnno = (lotti||[]).filter(l => l.anno === anno);
-  const max = lottiAnno.reduce((m,l) => {
-    const prog = parseInt(String(l.codice||"").slice(-3)) || 0;
-    return Math.max(m, prog);
-  }, 0);
-  const progressivo = String(max + 1).padStart(3, "0");
-  return `${aa}${progressivo}`;
-}
-// ─── CALCOLI LOTTO ────────────────────────────────────────────────────────────
-function statsLotto(lottoId, suini) {
-  const ss = suini.filter(s=>s.lottoId===lottoId);
-  const vivi    = ss.filter(s=>s.vivo);
-  const morti   = ss.filter(s=>!s.vivo);
-  const conBdn  = vivi.filter(s=>s.bdn);
-  const conSvez = vivi.filter(s=>s.peso_svezzamento);
-  const pesoMedioSvez = conSvez.length > 0
-    ? (conSvez.reduce((a,s)=>a+s.peso_svezzamento,0)/conSvez.length).toFixed(1)
-    : null;
-  const macellati = ss.filter(s=>s.stato==="macellato").length;
-  return { totale:ss.length, vivi:vivi.length, morti:morti.length, conBdn:conBdn.length, conSvez:conSvez.length, pesoMedioSvez, macellati };
-}
+// Mappa razza → lettera per codice lotto
+const RAZZA_LETTERA = {
+  "Nero Apucalabro":"A","Cinta Senese":"C","Duroc":"D",
+  "Mora Romagnola":"G","Large White":"L","Meticcia":"M","Meticcio":"M",
+  "Nero Casertano":"N","Landrace":"R","Altra":"0",
+};
+const getRazzaLettera = r => {
+  if(!r) return "0";
+  const match = Object.keys(RAZZA_LETTERA).find(k=>k.toLowerCase()===r.trim().toLowerCase());
+  return match ? RAZZA_LETTERA[match] : "0";
+};
+const generaCodLotto = (dataParto, razzaMadre, razzaPadre, bdnMadre) => {
+  if(!dataParto) return "";
+  const d = new Date(dataParto);
+  const aa = String(d.getFullYear()).slice(-2);
+  const mm = String(d.getMonth()+1).padStart(2,"0");
+  const lM = getRazzaLettera(razzaMadre);
+  const lP = getRazzaLettera(razzaPadre);
+  const ultime2 = (bdnMadre||"").replace(/[^0-9]/g,"").slice(-2).padStart(2,"0");
+  return `${aa}${mm}${lM}${lP}${ultime2}`;
+};
+const codiceUnitá = (codLotto, nr) => `${codLotto}${String(nr).padStart(2,"0")}`;
 
 // ─── UI BASE ──────────────────────────────────────────────────────────────────
+const inputStyle = {width:"100%",boxSizing:"border-box",border:`1.5px solid ${C.border}`,
+  borderRadius:10,padding:"10px 12px",fontSize:15,background:"#FAFAF8",color:C.text,outline:"none"};
 const Card = ({children,style={}}) => (
-  <div style={{background:C.card,borderRadius:16,padding:16,marginBottom:12,boxShadow:"0 2px 8px rgba(0,0,0,0.07)",border:`1px solid ${C.border}`,...style}}>
+  <div style={{background:C.card,borderRadius:16,padding:16,marginBottom:12,
+    boxShadow:"0 2px 8px rgba(0,0,0,0.08)",border:`1px solid ${C.border}`,...style}}>
     {children}
   </div>
 );
 const Badge = ({label,color}) => (
-  <span style={{background:color+"22",color,border:`1px solid ${color}44`,borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:700}}>{label}</span>
+  <span style={{background:color+"22",color,border:`1px solid ${color}44`,
+    borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:700}}>{label}</span>
 );
-const Btn = ({label,onClick,variant="primary",small=false,icon,full=false}) => {
-  const s={primary:{bg:C.primary,fg:"#FFF"},success:{bg:C.green,fg:"#FFF"},danger:{bg:C.red,fg:"#FFF"},ghost:{bg:"transparent",fg:C.text},outline:{bg:"transparent",fg:C.primary}}[variant]||{bg:C.primary,fg:"#FFF"};
-  return <button onClick={onClick} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",gap:5,background:s.bg,color:s.fg,border:variant==="outline"?`1.5px solid ${C.primary}`:"none",borderRadius:10,padding:small?"6px 12px":"10px 18px",fontSize:small?13:15,fontWeight:600,cursor:"pointer",width:full?"100%":"auto"}}>{icon}{label}</button>;
+const Btn = ({label,onClick,variant="primary",small=false,icon,disabled=false,full=false}) => {
+  const bg = {primary:C.primary,danger:C.red,success:C.green,
+    ghost:"transparent",outline:"transparent",yellow:C.yellow}[variant]||C.primary;
+  const fg = variant==="ghost"||variant==="outline"?C.text:"#FFF";
+  return (
+    <button onClick={onClick} disabled={disabled}
+      style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,
+        background:bg,color:fg,
+        border:variant==="outline"?`1.5px solid ${C.primary}`:"none",
+        borderRadius:10,padding:small?"6px 12px":"10px 18px",
+        fontSize:small?13:15,fontWeight:600,cursor:disabled?"default":"pointer",
+        width:full?"100%":"auto",opacity:disabled?0.5:1}}>
+      {icon&&<span>{icon}</span>}{label}
+    </button>
+  );
 };
-const inputStyle = {width:"100%",boxSizing:"border-box",border:`1.5px solid ${C.border}`,borderRadius:10,padding:"10px 12px",fontSize:15,background:"#FAFAF8",color:C.text,outline:"none"};
 const Field = ({label,value,onChange,type="text",options,required,placeholder}) => (
   <div style={{marginBottom:12}}>
-    <div style={{fontSize:12,fontWeight:600,color:C.muted,marginBottom:4}}>{label}{required&&" *"}</div>
+    <div style={{fontSize:12,fontWeight:600,color:C.muted,marginBottom:4}}>
+      {label}{required&&<span style={{color:C.red}}> *</span>}
+    </div>
     {options
-      ? <select value={value??""} onChange={e=>onChange(e.target.value)} style={inputStyle}><option value="">— seleziona —</option>{options.map(o=><option key={o.value??o} value={o.value??o}>{o.label??o}</option>)}</select>
-      : <input type={type} value={value??""} onChange={e=>onChange(e.target.value)} style={inputStyle} placeholder={placeholder||""}/>}
+      ?<select value={value??""} onChange={e=>onChange(e.target.value)} style={inputStyle}>
+         <option value="">— seleziona —</option>
+         {options.map(o=><option key={o.value??o} value={o.value??o}>{o.label??o}</option>)}
+       </select>
+      :<input type={type} value={value??""} placeholder={placeholder||""}
+         onChange={e=>onChange(e.target.value)} style={inputStyle}/>
+    }
   </div>
 );
+const Spinner = () => (
+  <div style={{textAlign:"center",padding:60,color:C.muted}}>
+    <div style={{fontSize:36,marginBottom:12}}>⏳</div><div>Caricamento lotti...</div>
+  </div>
+);
+const statColor = s => ({attivo:C.green,macellato:C.muted,deceduto:C.red,venduto:C.blue,disperso:C.yellow}[s]||C.muted);
+const statLabel = s => ({attivo:"Vivo",macellato:"Macellato",deceduto:"Deceduto",venduto:"Venduto",disperso:"Disperso"}[s]||s);
+const destColor = d => ({ingrasso:C.yellow,riproduzione:C.blue,macello:C.muted}[d]||C.muted);
 
-// ─── CARD SINGOLO SUINO ───────────────────────────────────────────────────────
-function CardSuino({s, lotto, onUpdate}) {
-  const [edit, setEdit] = useState(false);
-  const [form, setForm] = useState(s);
+// ─── FORM USCITA UNITÀ ────────────────────────────────────────────────────────
+function FormUscitaUnita({unita, lotto, onSave, onCancel}) {
+  const [form,setForm] = useState({
+    stato:"macellato",
+    motivo_uscita:"Macellato",
+    data_uscita:today(),
+    peso_vivo_uscita:"",
+    peso_carcassa:"",
+  });
+  const [saving,setSaving] = useState(false);
+  const resa = form.peso_carcassa&&form.peso_vivo_uscita
+    ? Math.round(parseFloat(form.peso_carcassa)/parseFloat(form.peso_vivo_uscita)*1000)/10
+    : null;
 
-  const col = !s.vivo ? C.morto : s.sesso==="M" ? C.maschio : C.femmina;
-  const statoColor = {attivo:C.green,macellato:C.muted,morto:C.red,venduto:C.blue}[s.stato]||C.muted;
-
-  const salva = () => {
-    onUpdate({...form, peso_nascita:form.peso_nascita?parseFloat(form.peso_nascita):null, peso_svezzamento:form.peso_svezzamento?parseFloat(form.peso_svezzamento):null, peso_attuale:form.peso_attuale?parseFloat(form.peso_attuale):null});
-    setEdit(false);
-  };
-
-  if (edit) return (
-    <Card style={{borderLeft:`3px solid ${col}`}}>
-      <div style={{fontWeight:700,color:C.primary,marginBottom:10}}>
-        🖋 {lotto.codice} · interno nr.{s.nr} — Modifica
-      </div>
-      <Field label="Marchio individuale" value={form.bdn||""} onChange={v=>setForm(f=>({...f,bdn:v||null}))} placeholder="solo se diventa riproduttore"/>
-      <div style={{display:"flex",gap:10}}>
-        <div style={{flex:1}}>
-          <Field label="Sesso" value={form.sesso} onChange={v=>setForm(f=>({...f,sesso:v}))} options={[{value:"M",label:"♂ Maschio"},{value:"F",label:"♀ Femmina"}]}/>
-        </div>
-        <div style={{flex:1}}>
-          <Field label="Stato" value={form.stato} onChange={v=>setForm(f=>({...f,stato:v,vivo:v!=="morto"}))} options={["attivo","macellato","venduto","morto"].map(x=>({value:x,label:x}))}/>
-        </div>
-      </div>
-      <div style={{display:"flex",gap:10}}>
-        <div style={{flex:1}}><Field label="Peso nascita (kg)" value={form.peso_nascita||""} onChange={v=>setForm(f=>({...f,peso_nascita:v}))} type="number"/></div>
-        <div style={{flex:1}}><Field label="Peso svezzamento (kg)" value={form.peso_svezzamento||""} onChange={v=>setForm(f=>({...f,peso_svezzamento:v}))} type="number"/></div>
-      </div>
-      <div style={{display:"flex",gap:10}}>
-        <div style={{flex:1}}><Field label="Data svezzamento" value={form.data_svezzamento||""} onChange={v=>setForm(f=>({...f,data_svezzamento:v}))} type="date"/></div>
-        <div style={{flex:1}}><Field label="Peso attuale (kg)" value={form.peso_attuale||""} onChange={v=>setForm(f=>({...f,peso_attuale:v}))} type="number"/></div>
-      </div>
-      <Field label="Note" value={form.note||""} onChange={v=>setForm(f=>({...f,note:v}))}/>
-      <div style={{display:"flex",gap:8}}>
-        <Btn label="Salva" onClick={salva} variant="success" small icon="✓ "/>
-        <Btn label="Annulla" onClick={()=>{setForm(s);setEdit(false);}} variant="ghost" small/>
-      </div>
-    </Card>
-  );
-
-  return (
-    <div style={{background:!s.vivo?C.morto+"08":C.bg,borderRadius:12,padding:"10px 12px",marginBottom:8,border:`1.5px solid ${col}22`,borderLeft:`3px solid ${col}`,opacity:s.vivo?1:0.65}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-        <div style={{flex:1}}>
-          {/* Identificativo principale */}
-          <div style={{fontWeight:700,fontSize:14,color:s.vivo?C.text:C.morto}}>
-            <span style={{background:C.suini+"20",color:C.suini,fontSize:13,fontWeight:800,
-              padding:"1px 7px",borderRadius:6}}>🖋 {lotto.codice}</span>
-            <span style={{color:C.muted,fontSize:13}}> · interno nr.{s.nr}</span>
-          </div>
-          <div style={{display:"flex",gap:5,marginTop:4,flexWrap:"wrap"}}>
-            <Badge label={s.sesso==="M"?"♂":"♀"} color={col}/>
-            <Badge label={s.stato} color={statoColor}/>
-            {!s.vivo&&<Badge label="✝ nato morto" color={C.morto}/>}
-            {s.bdn&&<Badge label={`🏷 ${s.bdn}`} color={C.green}/>}
-          </div>
-          {/* Pesi */}
-          {s.vivo&&(
-            <div style={{fontSize:12,color:C.muted,marginTop:4}}>
-              {s.peso_nascita&&`nasc: ${s.peso_nascita}kg`}
-              {s.peso_svezzamento&&` → svezz: ${s.peso_svezzamento}kg`}
-              {s.peso_attuale&&` → att: ${s.peso_attuale}kg`}
-            </div>
-          )}
-        </div>
-        {s.vivo&&(
-          <button onClick={()=>setEdit(true)} style={{background:C.blue+"20",border:"none",borderRadius:8,padding:"6px 10px",cursor:"pointer",fontSize:13}}>✏️</button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ─── SCHEDA LOTTO ─────────────────────────────────────────────────────────────
-function SchedaLotto({lotto, data, onBack, onUpdateSuino, onAddSuini}) {
-  const madre = data.riproduttori.find(r=>r.id===lotto.madreId);
-  const padre = data.riproduttori.find(r=>r.id===lotto.padreId);
-  const suiniLotto = data.suini.filter(s=>s.lottoId===lotto.id).sort((a,b)=>a.nr-b.nr);
-  const stats = statsLotto(lotto.id, data.suini);
-
-  const [cerca, setCerca] = useState("");
-  const [filtroStato, setFiltroStato] = useState("tutti");
-
-  const suiniFiltrati = suiniLotto.filter(s=>
-    (filtroStato==="tutti"||s.stato===filtroStato||(filtroStato==="morto"&&!s.vivo))&&
-    (!cerca||String(s.nr).includes(cerca)||(s.bdn&&s.bdn.toLowerCase().includes(cerca.toLowerCase())))
-  );
-
-  return (
-    <div style={{padding:"16px 16px 80px"}}>
-      <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
-        <button onClick={onBack} style={{background:"none",border:"none",cursor:"pointer",fontSize:22}}>←</button>
-        <div>
-          <div style={{fontSize:20,fontWeight:800,color:C.suini}}>🐷 Tatuaggio {lotto.codice}</div>
-          <div style={{fontSize:13,color:C.muted}}>Parto {lotto.data_parto}</div>
-        </div>
-      </div>
-      <div style={{background:C.suini+"10",border:`1px solid ${C.suini}33`,borderRadius:10,
-        padding:"6px 12px",marginBottom:14,fontSize:12,color:C.muted}}>
-        Tutti i suinetti vivi di questa nidiata portano il tatuaggio <strong style={{color:C.suini}}>{lotto.codice}</strong>.
-        Il "nr." è solo un riferimento interno dell'app.
-      </div>
-
-      {/* KPI lotto */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:14}}>
-        {[
-          {label:"Nati",    value:lotto.nati_totali, color:C.primary},
-          {label:"Vivi",    value:stats.vivi,         color:C.green},
-          {label:"Morti",   value:stats.morti,         color:C.morto},
-          {label:"BDN reg.",value:stats.conBdn,        color:C.blue},
-        ].map(k=>(
-          <div key={k.label} style={{background:k.color+"12",borderRadius:10,padding:"8px 6px",textAlign:"center"}}>
-            <div style={{fontSize:10,color:k.color,fontWeight:700}}>{k.label}</div>
-            <div style={{fontSize:20,fontWeight:900,color:k.color}}>{k.value}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Genitori */}
-      <Card style={{marginBottom:14}}>
-        <div style={{fontSize:12,fontWeight:700,color:C.muted,marginBottom:8}}>GENITORI</div>
-        <div style={{display:"flex",gap:10}}>
-          {madre&&<div style={{flex:1,background:C.femmina+"10",borderRadius:10,padding:"8px 12px"}}>
-            <div style={{fontSize:10,color:C.femmina,fontWeight:700}}>♀ MADRE</div>
-            <div style={{fontWeight:700}}>{madre.nome}</div>
-            <div style={{fontSize:12,color:C.muted}}>{madre.bdn}</div>
-          </div>}
-          {padre&&<div style={{flex:1,background:C.maschio+"10",borderRadius:10,padding:"8px 12px"}}>
-            <div style={{fontSize:10,color:C.maschio,fontWeight:700}}>♂ PADRE</div>
-            <div style={{fontWeight:700}}>{padre.nome}</div>
-            <div style={{fontSize:12,color:C.muted}}>{padre.bdn}</div>
-          </div>}
-        </div>
-        {lotto.note&&<div style={{fontSize:12,color:C.muted,marginTop:8,fontStyle:"italic"}}>💬 {lotto.note}</div>}
-      </Card>
-
-      {/* Peso medio svezzamento */}
-      {stats.pesoMedioSvez&&(
-        <Card style={{borderLeft:`4px solid ${C.yellow}`,marginBottom:14}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <div>
-              <div style={{fontSize:12,color:C.muted,fontWeight:600}}>PESO MEDIO SVEZZAMENTO</div>
-              <div style={{fontSize:12,color:C.muted}}>su {stats.conSvez} suini</div>
-            </div>
-            <div style={{fontSize:28,fontWeight:900,color:C.yellow}}>{stats.pesoMedioSvez} <span style={{fontSize:14}}>kg</span></div>
-          </div>
-        </Card>
-      )}
-
-      {/* Lista suini */}
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",margin:"8px 0 10px"}}>
-        <div style={{fontSize:12,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:1}}>
-          Suini ({suiniLotto.length})
-        </div>
-        <Btn label="+ Aggiungi" onClick={onAddSuini} small icon="➕ " variant="outline"/>
-      </div>
-
-      {/* Filtri suini */}
-      <div style={{display:"flex",gap:6,marginBottom:10,overflowX:"auto",paddingBottom:2}}>
-        {["tutti","attivo","macellato","venduto","morto"].map(s=>(
-          <button key={s} onClick={()=>setFiltroStato(s)} style={{background:filtroStato===s?C.suini:C.card,color:filtroStato===s?"#FFF":C.muted,border:`1.5px solid ${filtroStato===s?C.suini:C.border}`,borderRadius:20,padding:"4px 12px",fontSize:12,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap"}}>
-            {s==="tutti"?"Tutti":s}
-          </button>
-        ))}
-      </div>
-
-      <input placeholder="🔍  Cerca nr. o BDN..." value={cerca} onChange={e=>setCerca(e.target.value)} style={{...inputStyle,marginBottom:10}}/>
-
-      {suiniFiltrati.map(s=>(
-        <CardSuino key={s.id} s={s} lotto={lotto} onUpdate={onUpdateSuino}/>
-      ))}
-      {suiniFiltrati.length===0&&(
-        <div style={{textAlign:"center",color:C.muted,padding:20}}>Nessun suino trovato</div>
-      )}
-    </div>
-  );
-}
-
-// ─── FORM NUOVO LOTTO (PARTO) ─────────────────────────────────────────────────
-function FormNuovoLotto({data, onSave, onCancel}) {
-  const madri  = data.riproduttori.filter(r=>r.sesso==="F").map(r=>({value:r.id,label:`${r.nome} — ${r.bdn}`}));
-  const maschi = data.riproduttori.filter(r=>r.sesso==="M").map(r=>({value:r.id,label:`${r.nome} — ${r.bdn}`}));
-
-  const [parto, setParto] = useState({madreId:"",padreId:"",data_parto:today(),nati_vivi:10,nati_morti:0,note:""});
-  const [suini, setSuini] = useState([]);
-  const [step,  setStep]  = useState(1); // 1=info parto, 2=registra suini
-
-  const totale = parseInt(parto.nati_vivi||0) + parseInt(parto.nati_morti||0);
-  const anno   = parseInt((parto.data_parto||today()).substring(0,4));
-  const codice = genCodiceLotto(data.lotti, anno);
-
-  // Genera automaticamente i suini quando si passa allo step 2
-  const generaSuini = () => {
-    const vivi  = parseInt(parto.nati_vivi||0);
-    const morti = parseInt(parto.nati_morti||0);
-    const lista = [];
-    for (let i=1; i<=vivi; i++)  lista.push({nr:i,  bdn:"",sesso:"M",vivo:true, stato:"attivo",peso_nascita:"",note:""});
-    for (let i=1; i<=morti;i++)  lista.push({nr:vivi+i,bdn:"",sesso:"M",vivo:false,stato:"morto", peso_nascita:"",note:"nato morto"});
-    setSuini(lista);
-    setStep(2);
-  };
-
-  const aggiorna = (i,k,v) => setSuini(ss=>ss.map((s,idx)=>idx===i?{...s,[k]:v}:s));
-
-  const salva = () => {
-    if (!parto.madreId||!parto.data_parto) return;
-    onSave({
-      parto:{
-        ...parto,
-        madreId:parseInt(parto.madreId),
-        padreId:parto.padreId?parseInt(parto.padreId):null,
-        nati_vivi:parseInt(parto.nati_vivi),
-        nati_morti:parseInt(parto.nati_morti),
-        nati_totali:totale,
-        codice, anno,
-      },
-      suini: suini.map(s=>({...s,bdn:s.bdn||null,peso_nascita:s.peso_nascita?parseFloat(s.peso_nascita):null})),
-    });
+  const salva = async () => {
+    setSaving(true);
+    const payload = {
+      stato: form.stato,
+      vivo: false,
+      motivo_uscita: form.motivo_uscita||null,
+      data_uscita: form.data_uscita||null,
+      peso_vivo_uscita: form.peso_vivo_uscita?parseFloat(form.peso_vivo_uscita):null,
+      peso_carcassa: form.peso_carcassa?parseFloat(form.peso_carcassa):null,
+      resa_percent: resa,
+    };
+    await supabase.from("suini_lotto").update(payload).eq("id",unita.id);
+    setSaving(false);
+    onSave();
   };
 
   return (
-    <div style={{padding:"16px 16px 80px"}}>
-      <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
-        <button onClick={step===2?()=>setStep(1):onCancel} style={{background:"none",border:"none",cursor:"pointer",fontSize:22}}>←</button>
-        <div>
-          <div style={{fontSize:18,fontWeight:800}}>Nuovo parto suini</div>
-          <div style={{fontSize:13,color:C.muted}}>Passo {step} di 2</div>
-        </div>
+    <div style={{background:C.bg,borderRadius:16,padding:16,marginBottom:12,
+      border:`2px solid ${C.red}`}}>
+      <div style={{fontWeight:700,color:C.red,marginBottom:12}}>
+        📤 Registra uscita — {unita.codice_completo||`${lotto.codice_lotto}${String(unita.nr).padStart(2,"0")}`}
       </div>
-
-      {/* Anteprima tatuaggio lotto */}
-      <Card style={{background:C.suini+"12",borderLeft:`4px solid ${C.suini}`,marginBottom:16}}>
-        <div style={{fontSize:12,color:C.muted,fontWeight:600}}>🖋 TATUAGGIO DA APPLICARE</div>
-        <div style={{fontSize:40,fontWeight:900,color:C.suini,letterSpacing:2}}>{codice}</div>
-        <div style={{fontSize:12,color:C.muted}}>
-          Stesso numero per <strong>tutta la nidiata</strong> · anno {anno} · lotto progressivo automatico
+      <Field label="Motivo uscita" value={form.motivo_uscita}
+        onChange={v=>setForm(f=>({...f,motivo_uscita:v,
+          stato:v==="Macellato"?"macellato":v==="Deceduto"?"deceduto":
+                v==="Venduto"?"venduto":v==="Disperso"?"disperso":"macellato"}))}
+        options={["Macellato","Deceduto (malattia)","Deceduto (trauma)","Venduto vivo","Disperso","Altro"]}/>
+      <Field label="Data uscita" value={form.data_uscita}
+        onChange={v=>setForm(f=>({...f,data_uscita:v}))} type="date"/>
+      {form.motivo_uscita==="Macellato"&&<>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+          <Field label="Peso vivo (kg)" value={form.peso_vivo_uscita}
+            onChange={v=>setForm(f=>({...f,peso_vivo_uscita:v}))} type="number"/>
+          <Field label="Peso carcassa (kg)" value={form.peso_carcassa}
+            onChange={v=>setForm(f=>({...f,peso_carcassa:v}))} type="number"/>
         </div>
-      </Card>
-
-      {step===1&&(<>
-        <Field label="Madre" value={parto.madreId} onChange={v=>setParto(p=>({...p,madreId:v}))} options={madri} required/>
-        <Field label="Padre (opz.)" value={parto.padreId} onChange={v=>setParto(p=>({...p,padreId:v}))} options={maschi}/>
-        <Field label="Data parto" value={parto.data_parto} onChange={v=>setParto(p=>({...p,data_parto:v}))} type="date" required/>
-        <div style={{display:"flex",gap:10}}>
-          <div style={{flex:1}}><Field label="Nati vivi" value={parto.nati_vivi} onChange={v=>setParto(p=>({...p,nati_vivi:v}))} type="number"/></div>
-          <div style={{flex:1}}><Field label="Nati morti" value={parto.nati_morti} onChange={v=>setParto(p=>({...p,nati_morti:v}))} type="number"/></div>
-        </div>
-        <Card style={{background:C.primary+"10",borderLeft:`3px solid ${C.primary}`,marginBottom:12}}>
-          <div style={{display:"flex",justifyContent:"space-between"}}>
-            <span style={{color:C.muted}}>Totale nati:</span>
-            <span style={{fontWeight:800,fontSize:18,color:C.primary}}>{totale}</span>
-          </div>
-        </Card>
-        <Field label="Note" value={parto.note} onChange={v=>setParto(p=>({...p,note:v}))}/>
-        <Btn label="Avanti: registra i nati →" onClick={generaSuini} variant="primary" full icon="🐷 "/>
-      </>)}
-
-      {step===2&&(<>
-        <div style={{background:C.yellow+"15",border:`1px solid ${C.yellow}44`,borderRadius:10,
-          padding:"10px 14px",marginBottom:14,fontSize:13,color:C.text}}>
-          🖋 Tatua tutti i suinetti con il numero <strong>{codice}</strong> — è lo stesso per l'intera nidiata.
-          Il "nr." qui sotto serve solo all'app per distinguerli internamente (peso, sesso), non va scritto sulla pelle.
-        </div>
-
-        {suini.map((s,i)=>(
-          <div key={i} style={{background:!s.vivo?C.morto+"08":C.bg,borderRadius:12,padding:"12px 14px",marginBottom:10,border:`1.5px solid ${!s.vivo?C.morto:s.sesso==="M"?C.maschio:C.femmina}22`,borderLeft:`3px solid ${!s.vivo?C.morto:s.sesso==="M"?C.maschio:C.femmina}`}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-              <div style={{fontWeight:700,color:C.suini}}>{codice} / nr.{s.nr}</div>
-              {!s.vivo&&<Badge label="✝ NATO MORTO" color={C.morto}/>}
-            </div>
-            {s.vivo&&<>
-              <div style={{display:"flex",gap:10}}>
-                <div style={{flex:2}}><Field label="Marchio individuale" value={s.bdn} onChange={v=>aggiorna(i,"bdn",v)} placeholder="solo se destinato a riproduttore"/></div>
-                <div style={{flex:1}}><Field label="Sesso" value={s.sesso} onChange={v=>aggiorna(i,"sesso",v)} options={[{value:"M",label:"♂"},{value:"F",label:"♀"}]}/></div>
-              </div>
-              <Field label="Peso nascita (kg)" value={s.peso_nascita} onChange={v=>aggiorna(i,"peso_nascita",v)} type="number"/>
-            </>}
-            {!s.vivo&&<div style={{fontSize:12,color:C.morto,fontStyle:"italic"}}>Registrato come nato morto — nessun dato richiesto</div>}
-          </div>
-        ))}
-
-        <div style={{display:"flex",gap:10,marginTop:8}}>
-          <Btn label="Salva lotto" onClick={salva} variant="success" icon="✓ " full/>
-        </div>
-        <div style={{fontSize:12,color:C.muted,textAlign:"center",marginTop:8}}>
-          BDN e pesi possono essere aggiunti/modificati in seguito dalla scheda lotto
-        </div>
-      </>)}
-    </div>
-  );
-}
-
-// ─── FORM AGGIUNGI SUINI AL LOTTO ─────────────────────────────────────────────
-function FormAggiungiSuini({lotto, data, onSave, onCancel}) {
-  const ultimoNr = data.suini.filter(s=>s.lottoId===lotto.id).reduce((m,s)=>Math.max(m,s.nr),0);
-  const [suini, setSuini] = useState([{bdn:"",sesso:"M",vivo:true,stato:"attivo",peso_nascita:"",note:""}]);
-  const aggiorna = (i,k,v) => setSuini(ss=>ss.map((s,idx)=>idx===i?{...s,[k]:v}:s));
-  const salva = () => onSave(suini.map((s,i)=>({...s,nr:ultimoNr+i+1,lottoId:lotto.id,bdn:s.bdn||null,peso_nascita:s.peso_nascita?parseFloat(s.peso_nascita):null})));
-  return (
-    <div style={{padding:"16px 16px 80px"}}>
-      <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
-        <button onClick={onCancel} style={{background:"none",border:"none",cursor:"pointer",fontSize:22}}>←</button>
-        <span style={{fontSize:17,fontWeight:800}}>Aggiungi suini — {lotto.codice}</span>
-      </div>
-      {suini.map((s,i)=>(
-        <Card key={i} style={{borderLeft:`3px solid ${C.suini}`}}>
-          <div style={{fontWeight:700,color:C.suini,marginBottom:8}}>{lotto.codice} / nr.{ultimoNr+i+1}</div>
-          <div style={{display:"flex",gap:8,marginBottom:10}}>
-            {[{v:true,l:"✓ Vivo",c:C.green},{v:false,l:"✝ Morto",c:C.morto}].map(opt=>(
-              <button key={String(opt.v)} onClick={()=>aggiorna(i,"vivo",opt.v)} style={{flex:1,background:s.vivo===opt.v?opt.c:C.bg,color:s.vivo===opt.v?"#FFF":C.muted,border:`1.5px solid ${s.vivo===opt.v?opt.c:C.border}`,borderRadius:10,padding:"7px 0",fontWeight:700,fontSize:13,cursor:"pointer"}}>{opt.l}</button>
-            ))}
-          </div>
-          {s.vivo&&<>
-            <div style={{display:"flex",gap:10}}>
-              <div style={{flex:2}}><Field label="Marchio individuale" value={s.bdn} onChange={v=>aggiorna(i,"bdn",v)} placeholder="solo se riproduttore"/></div>
-              <div style={{flex:1}}><Field label="Sesso" value={s.sesso} onChange={v=>aggiorna(i,"sesso",v)} options={[{value:"M",label:"♂"},{value:"F",label:"♀"}]}/></div>
-            </div>
-            <Field label="Peso nascita (kg)" value={s.peso_nascita} onChange={v=>aggiorna(i,"peso_nascita",v)} type="number"/>
-          </>}
-        </Card>
-      ))}
-      <Btn label="+ Aggiungi altro" onClick={()=>setSuini(ss=>[...ss,{bdn:"",sesso:"M",vivo:true,stato:"attivo",peso_nascita:"",note:""}])} variant="outline" small icon="➕ "/>
-      <div style={{display:"flex",gap:10,marginTop:16}}>
-        <Btn label="Salva" onClick={salva} variant="success" icon="✓ "/>
+        {resa&&<div style={{background:C.green+"15",borderRadius:8,padding:"6px 12px",
+          fontSize:13,marginBottom:8}}>⚖️ Resa: <strong style={{color:C.green}}>{resa}%</strong></div>}
+      </>}
+      <div style={{display:"flex",gap:8,marginTop:8}}>
+        <Btn label={saving?"...":"Conferma uscita"} onClick={salva} variant="danger" disabled={saving}/>
         <Btn label="Annulla" onClick={onCancel} variant="ghost"/>
       </div>
     </div>
   );
 }
 
-// ─── LISTA LOTTI ──────────────────────────────────────────────────────────────
-function ListaLotti({data, onSeleziona, onNuovo}) {
-  const [cerca, setCerca] = useState("");
+// ─── CARD SINGOLA UNITÀ ───────────────────────────────────────────────────────
+function CardUnita({u, lotto, onUpdate, onUscita}) {
+  const [edit,setEdit] = useState(false);
+  const [form,setForm] = useState({
+    sesso:u.sesso||"",
+    destinazione:u.destinazione||"ingrasso",
+    matricola:u.matricola||u.bdn||"",
+  });
+  const [saving,setSaving] = useState(false);
+  const codice = u.codice_completo || `${lotto.codice_lotto}${String(u.nr).padStart(2,"0")}`;
+  const vivo = u.vivo!==false && u.stato==="attivo";
 
-  const lotti = useMemo(()=>
-    [...data.lotti]
-      .filter(l=>!cerca||l.codice.toLowerCase().includes(cerca.toLowerCase()))
-      .sort((a,b)=>b.data_parto.localeCompare(a.data_parto))
-  ,[data,cerca]);
+  const salva = async () => {
+    setSaving(true);
+    const isRiproduttore = form.destinazione==="riproduzione";
+    await supabase.from("suini_lotto").update({
+      sesso: form.sesso||null,
+      destinazione: form.destinazione,
+      matricola: form.matricola||null,
+      bdn: form.matricola||u.bdn||null,
+      stato: isRiproduttore?"riproduttore":u.stato,
+    }).eq("id",u.id);
+    setSaving(false);
+    setEdit(false);
+    onUpdate();
+  };
 
-  const totVivi     = data.suini.filter(s=>s.vivo&&s.stato==="attivo").length;
-  const totMacellati= data.suini.filter(s=>s.stato==="macellato").length;
+  return (
+    <div style={{background:vivo?C.card:"#F5F5F5",borderRadius:12,padding:12,
+      marginBottom:8,border:`1.5px solid ${vivo?C.border:"#DDD"}`,
+      borderLeft:`4px solid ${statColor(u.stato)}`,opacity:vivo?1:0.75}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+        <div>
+          <div style={{fontFamily:"monospace",fontSize:16,fontWeight:800,
+            color:vivo?C.primary:C.muted,letterSpacing:1}}>{codice}</div>
+          <div style={{display:"flex",gap:6,marginTop:4,flexWrap:"wrap"}}>
+            <Badge label={statLabel(u.stato)} color={statColor(u.stato)}/>
+            {u.sesso&&<Badge label={u.sesso==="M"?"♂ Maschio":"♀ Femmina"}
+              color={u.sesso==="M"?C.blue:C.suini}/>}
+            {u.destinazione&&u.destinazione!=="ingrasso"&&
+              <Badge label={u.destinazione} color={destColor(u.destinazione)}/>}
+            {u.matricola&&<Badge label={"🏷 "+u.matricola} color={C.green}/>}
+          </div>
+          {u.data_uscita&&<div style={{fontSize:11,color:C.muted,marginTop:3}}>
+            Uscito: {u.data_uscita}
+            {u.peso_vivo_uscita&&` · ${u.peso_vivo_uscita}kg vivo`}
+            {u.peso_carcassa&&` · ${u.peso_carcassa}kg carcassa`}
+            {u.resa_percent&&<strong style={{color:C.green}}> · resa {u.resa_percent}%</strong>}
+          </div>}
+        </div>
+        {vivo&&!edit&&(
+          <div style={{display:"flex",gap:6,flexShrink:0}}>
+            <button onClick={()=>setEdit(true)}
+              style={{background:C.blue+"20",border:"none",borderRadius:8,
+                padding:"5px 8px",cursor:"pointer",fontSize:12}}>✏️</button>
+            <button onClick={()=>onUscita(u)}
+              style={{background:C.red+"20",border:"none",borderRadius:8,
+                padding:"5px 8px",cursor:"pointer",fontSize:12}}>📤</button>
+          </div>
+        )}
+      </div>
+      {edit&&(
+        <div style={{marginTop:10,padding:"10px",background:C.bg,borderRadius:10}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+            <Field label="Sesso" value={form.sesso}
+              onChange={v=>setForm(f=>({...f,sesso:v}))}
+              options={["M","F"]}/>
+            <Field label="Destinazione" value={form.destinazione}
+              onChange={v=>setForm(f=>({...f,destinazione:v}))}
+              options={[{value:"ingrasso",label:"Ingrasso"},{value:"riproduzione",label:"Riproduzione"},{value:"macello",label:"Macello"}]}/>
+          </div>
+          {(form.destinazione==="riproduzione"||(u.matricola))&&
+            <Field label="Matricola individuale" value={form.matricola}
+              onChange={v=>setForm(f=>({...f,matricola:v}))}
+              placeholder="Solo per riproduttori o razze pregiate"/>}
+          <div style={{display:"flex",gap:8}}>
+            <Btn label={saving?"...":"Salva"} onClick={salva} variant="success" small disabled={saving}/>
+            <Btn label="Annulla" onClick={()=>setEdit(false)} variant="ghost" small/>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── SCHEDA LOTTO ─────────────────────────────────────────────────────────────
+function SchedaLotto({lotto, suini, animali, onBack, onUpdate}) {
+  const [cerca,setCerca] = useState("");
+  const [unitaUscita,setUnitaUscita] = useState(null);
+
+  const unita = useMemo(()=>
+    suini.filter(s=>s.lotto_id===lotto.id)
+      .sort((a,b)=>a.nr-b.nr)
+  ,[suini,lotto.id]);
+
+  const unitaFiltrate = useMemo(()=>{
+    if(!cerca.trim()) return unita;
+    const q=cerca.trim().toLowerCase();
+    return unita.filter(u=>{
+      const cod=(u.codice_completo||`${lotto.codice_lotto}${String(u.nr).padStart(2,"0")}`).toLowerCase();
+      return cod.includes(q)||(u.matricola||"").toLowerCase().includes(q);
+    });
+  },[unita,cerca,lotto.codice_lotto]);
+
+  const madre = animali.find(a=>a.id===lotto.madre_id);
+  const padre = animali.find(a=>a.id===lotto.padre_id);
+
+  // Statistiche
+  const totVivi     = unita.filter(u=>u.vivo!==false&&u.stato==="attivo").length;
+  const totMacellati= unita.filter(u=>u.stato==="macellato").length;
+  const totDeceduti = unita.filter(u=>u.stato==="deceduto").length;
+  const totRiprod   = unita.filter(u=>u.destinazione==="riproduzione").length;
+  const totM        = unita.filter(u=>u.sesso==="M").length;
+  const totF        = unita.filter(u=>u.sesso==="F").length;
 
   return (
     <div style={{paddingBottom:80}}>
       {/* Header */}
-      <div style={{background:`linear-gradient(135deg,${C.suini},#8B2252)`,borderRadius:"0 0 28px 28px",padding:"28px 20px 24px",marginBottom:20}}>
-        <div style={{fontSize:22,fontWeight:800,color:"#FFF"}}>🐷 Lotti Suini</div>
-        <div style={{fontSize:14,color:"rgba(255,255,255,0.8)",marginTop:4}}>
-          {data.lotti.length} lotti · {data.suini.filter(s=>s.vivo).length} capi vivi
+      <div style={{background:`linear-gradient(135deg,${C.suini},${C.primary})`,
+        padding:"20px 16px 24px",borderRadius:"0 0 24px 24px"}}>
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
+          <button onClick={onBack} style={{background:"rgba(255,255,255,0.2)",
+            border:"none",borderRadius:10,padding:"6px 10px",color:"#FFF",
+            cursor:"pointer",fontSize:18}}>←</button>
+          <div>
+            <div style={{fontSize:22,fontWeight:900,color:"#FFF",
+              fontFamily:"monospace",letterSpacing:2}}>{lotto.codice_lotto}</div>
+            <div style={{fontSize:13,color:"rgba(255,255,255,0.75)"}}>
+              Parto {lotto.data_parto}
+            </div>
+          </div>
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginTop:14}}>
+        {(madre||padre)&&(
+          <div style={{fontSize:13,color:"rgba(255,255,255,0.85)"}}>
+            {madre&&`♀ ${madre.nome||madre.bdn}`}
+            {madre&&padre&&" · "}
+            {padre&&`♂ ${padre.nome||padre.bdn}`}
+          </div>
+        )}
+      </div>
+
+      <div style={{padding:"16px"}}>
+        {/* Statistiche */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:16}}>
           {[
-            {l:"Lotti totali",  v:data.lotti.length,   c:"#FFF"},
-            {l:"Attivi",        v:totVivi,              c:"#ADFFB5"},
-            {l:"Macellati",     v:totMacellati,         c:"#FFD700"},
-          ].map(k=>(
-            <div key={k.l} style={{background:"rgba(255,255,255,0.15)",borderRadius:10,padding:"8px 10px",textAlign:"center"}}>
-              <div style={{fontSize:10,color:"rgba(255,255,255,0.7)",fontWeight:600}}>{k.l}</div>
-              <div style={{fontSize:18,fontWeight:800,color:k.c}}>{k.v}</div>
+            {label:"Vivi",val:totVivi,col:C.green},
+            {label:"Macellati",val:totMacellati,col:C.muted},
+            {label:"Deceduti",val:totDeceduti,col:C.red},
+            {label:"Riproduttori",val:totRiprod,col:C.blue},
+            {label:"Maschi",val:totM,col:C.blue},
+            {label:"Femmine",val:totF,col:C.suini},
+          ].map(s=>(
+            <div key={s.label} style={{background:C.card,borderRadius:12,
+              padding:"10px 8px",textAlign:"center",boxShadow:"0 1px 4px rgba(0,0,0,0.06)"}}>
+              <div style={{fontSize:20,fontWeight:800,color:s.col}}>{s.val}</div>
+              <div style={{fontSize:10,color:C.muted,fontWeight:600}}>{s.label}</div>
             </div>
           ))}
         </div>
-      </div>
 
-      <div style={{padding:"0 16px"}}>
-        <div style={{display:"flex",gap:10,marginBottom:14,alignItems:"center"}}>
-          <input placeholder="🔍  Cerca lotto..." value={cerca} onChange={e=>setCerca(e.target.value)} style={{...inputStyle,flex:1,marginBottom:0}}/>
-          <Btn label="+ Parto" onClick={onNuovo} small icon="🐣 "/>
+        {/* Ricerca per tatuaggio */}
+        <div style={{position:"relative",marginBottom:12}}>
+          <span style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",
+            fontSize:18,color:C.muted,pointerEvents:"none"}}>🔍</span>
+          <input type="text" value={cerca} onChange={e=>setCerca(e.target.value)}
+            placeholder="Cerca per tatuaggio (es. 2304CC1901) o matricola..."
+            style={{...inputStyle,border:`2px solid ${cerca?C.primary:C.border}`,
+              borderRadius:12,padding:"11px 40px 11px 42px"}}/>
+          {cerca&&<button onClick={()=>setCerca("")}
+            style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",
+              background:"none",border:"none",cursor:"pointer",fontSize:18,color:C.muted}}>✕</button>}
         </div>
 
-        {lotti.map(l=>{
-          const stats = statsLotto(l.id, data.suini);
-          const madre = data.riproduttori.find(r=>r.id===l.madreId);
-          const padre = data.riproduttori.find(r=>r.id===l.padreId);
+        {/* Gestione uscita */}
+        {unitaUscita&&(
+          <FormUscitaUnita unita={unitaUscita} lotto={lotto}
+            onSave={()=>{setUnitaUscita(null);onUpdate();}}
+            onCancel={()=>setUnitaUscita(null)}/>
+        )}
+
+        {/* Lista unità */}
+        <div style={{fontSize:13,fontWeight:700,color:C.muted,marginBottom:8}}>
+          UNITÀ DEL LOTTO ({unitaFiltrate.length}/{unita.length})
+        </div>
+        {unitaFiltrate.map(u=>(
+          <CardUnita key={u.id} u={u} lotto={lotto}
+            onUpdate={onUpdate} onUscita={setUnitaUscita}/>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── EXPORT EXCEL ─────────────────────────────────────────────────────────────
+function esportaExcel(lotti, suini, animali) {
+  const wb = XLSX.utils.book_new();
+
+  // Foglio riepilogo lotti
+  const righeRiep = lotti.map(l=>{
+    const us = suini.filter(s=>s.lotto_id===l.id);
+    const madre = animali.find(a=>a.id===l.madre_id);
+    const padre = animali.find(a=>a.id===l.padre_id);
+    return {
+      "Codice Lotto": l.codice_lotto||l.codice,
+      "Data Parto": l.data_parto,
+      "Madre BDN": madre?.bdn||"",
+      "Madre Nome": madre?.nome||"",
+      "Razza Madre": l.razza_madre||madre?.razza||"",
+      "Padre BDN": padre?.bdn||"",
+      "Razza Padre": l.razza_padre||padre?.razza||"",
+      "Nati Totali": l.nati_totali||us.length,
+      "Nati Vivi": l.nati_vivi||us.filter(u=>u.vivo!==false).length,
+      "Nati Morti": l.nati_morti||0,
+      "Vivi Attuali": us.filter(u=>u.vivo!==false&&u.stato==="attivo").length,
+      "Macellati": us.filter(u=>u.stato==="macellato").length,
+      "Deceduti": us.filter(u=>u.stato==="deceduto").length,
+      "Riproduttori": us.filter(u=>u.destinazione==="riproduzione").length,
+      "Maschi": us.filter(u=>u.sesso==="M").length,
+      "Femmine": us.filter(u=>u.sesso==="F").length,
+    };
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(righeRiep), "Riepilogo Lotti");
+
+  // Foglio dettaglio unità
+  const righeUnita = suini.map(u=>{
+    const lotto = lotti.find(l=>l.id===u.lotto_id);
+    const codice = u.codice_completo||`${lotto?.codice_lotto||""}${String(u.nr).padStart(2,"0")}`;
+    return {
+      "Tatuaggio": codice,
+      "Codice Lotto": lotto?.codice_lotto||lotto?.codice||"",
+      "Nr. Unità": u.nr,
+      "Sesso": u.sesso||"",
+      "Destinazione": u.destinazione||"ingrasso",
+      "Stato": u.stato||"",
+      "Matricola": u.matricola||u.bdn||"",
+      "Peso Nascita (kg)": u.peso_nascita||"",
+      "Data Uscita": u.data_uscita||"",
+      "Motivo Uscita": u.motivo_uscita||"",
+      "Peso Vivo Uscita (kg)": u.peso_vivo_uscita||"",
+      "Peso Carcassa (kg)": u.peso_carcassa||"",
+      "Resa %": u.resa_percent||"",
+    };
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(righeUnita), "Dettaglio Unità");
+
+  XLSX.writeFile(wb, `Lotti_Suini_${today()}.xlsx`);
+}
+
+// ─── LISTA LOTTI ──────────────────────────────────────────────────────────────
+function ListaLotti({lotti, suini, animali, onSeleziona, onNuovo}) {
+  const [cerca,setCerca] = useState("");
+
+  const lottiFiltrati = useMemo(()=>{
+    if(!cerca.trim()) return lotti;
+    const q=cerca.trim().toLowerCase();
+    return lotti.filter(l=>{
+      const cod=(l.codice_lotto||l.codice||"").toLowerCase();
+      if(cod.includes(q)) return true;
+      // Cerca anche per tatuaggio unità
+      return suini.some(u=>{
+        const codU=(u.codice_completo||`${l.codice_lotto}${String(u.nr).padStart(2,"0")}`).toLowerCase();
+        return u.lotto_id===l.id&&codU.includes(q);
+      });
+    });
+  },[lotti,suini,cerca]);
+
+  const totViviGlobal = suini.filter(u=>u.vivo!==false&&u.stato==="attivo").length;
+
+  return (
+    <div style={{paddingBottom:80}}>
+      {/* Header */}
+      <div style={{background:`linear-gradient(135deg,${C.suini},${C.primary})`,
+        borderRadius:"0 0 28px 28px",padding:"24px 20px 20px",marginBottom:0}}>
+        <div style={{fontSize:22,fontWeight:800,color:"#FFF"}}>🐷 Lotti Suini</div>
+        <div style={{fontSize:14,color:"rgba(255,255,255,0.75)",marginTop:4}}>
+          {lotti.length} lotti · <strong style={{color:"#FFF"}}>{totViviGlobal} suini vivi</strong> in totale
+        </div>
+      </div>
+
+      <div style={{padding:"16px"}}>
+        {/* Barra ricerca */}
+        <div style={{position:"relative",marginBottom:12}}>
+          <span style={{position:"absolute",left:12,top:"50%",
+            transform:"translateY(-50%)",fontSize:18,color:C.muted,pointerEvents:"none"}}>🔍</span>
+          <input type="text" value={cerca} onChange={e=>setCerca(e.target.value)}
+            placeholder="Cerca lotto (es. 2304CC19) o tatuaggio unità (es. 2304CC1901)..."
+            style={{...inputStyle,border:`2px solid ${cerca?C.suini:C.border}`,
+              borderRadius:12,padding:"11px 40px 11px 42px"}}/>
+          {cerca&&<button onClick={()=>setCerca("")}
+            style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",
+              background:"none",border:"none",cursor:"pointer",fontSize:18,color:C.muted}}>✕</button>}
+        </div>
+
+        {/* Azioni */}
+        <div style={{display:"flex",gap:10,marginBottom:16}}>
+          <Btn label="+ Nuovo parto" onClick={onNuovo} variant="primary" icon="🐣"/>
+          <Btn label="📊 Export Excel" onClick={()=>esportaExcel(lotti,suini,animali)} variant="outline" small/>
+        </div>
+
+        {/* Lista lotti */}
+        {lottiFiltrati.length===0?(
+          <div style={{textAlign:"center",padding:48,color:C.muted}}>
+            <div style={{fontSize:48,marginBottom:12}}>🐷</div>
+            <div style={{fontWeight:700,fontSize:16}}>
+              {cerca?"Nessun lotto trovato":"Nessun lotto registrato"}
+            </div>
+            <div style={{fontSize:14,marginTop:8}}>
+              {cerca?"Prova con un codice diverso":"Registra il primo parto"}
+            </div>
+          </div>
+        ):lottiFiltrati.map(l=>{
+          const us = suini.filter(s=>s.lotto_id===l.id);
+          const vivi     = us.filter(u=>u.vivo!==false&&u.stato==="attivo").length;
+          const macellati= us.filter(u=>u.stato==="macellato").length;
+          const deceduti = us.filter(u=>u.stato==="deceduto").length;
+          const riprod   = us.filter(u=>u.destinazione==="riproduzione").length;
+          const pct = us.length>0?Math.round(vivi/us.length*100):0;
+          const madre = animali.find(a=>a.id===l.madre_id);
+          const padre = animali.find(a=>a.id===l.padre_id);
           return (
-            <div key={l.id} onClick={()=>onSeleziona(l)} style={{background:C.card,borderRadius:16,padding:16,marginBottom:10,boxShadow:"0 2px 8px rgba(0,0,0,0.07)",border:`1px solid ${C.border}`,cursor:"pointer",borderLeft:`5px solid ${C.suini}`}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+            <div key={l.id} onClick={()=>onSeleziona(l)}
+              style={{background:C.card,borderRadius:16,padding:16,marginBottom:12,
+                boxShadow:"0 2px 8px rgba(0,0,0,0.08)",border:`1px solid ${C.border}`,
+                borderLeft:`5px solid ${C.suini}`,cursor:"pointer"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
                 <div>
-                  <div style={{fontSize:11,color:C.muted,fontWeight:600}}>🖋 TATUAGGIO</div>
-                  <div style={{fontSize:24,fontWeight:900,color:C.suini,letterSpacing:1}}>{l.codice}</div>
+                  <div style={{fontSize:22,fontWeight:900,color:C.suini,
+                    fontFamily:"monospace",letterSpacing:2}}>
+                    {l.codice_lotto||l.codice}
+                  </div>
                   <div style={{fontSize:13,color:C.muted}}>Parto {l.data_parto}</div>
+                  {(madre||padre)&&(
+                    <div style={{fontSize:12,color:C.muted,marginTop:2}}>
+                      {madre&&`♀ ${madre.nome||madre.bdn}`}
+                      {madre&&padre&&" · "}
+                      {padre&&`♂ ${padre.nome||padre.bdn}`}
+                    </div>
+                  )}
                 </div>
                 <div style={{textAlign:"right"}}>
-                  <div style={{fontSize:24,fontWeight:900,color:C.primary}}>{stats.vivi}</div>
-                  <div style={{fontSize:11,color:C.muted}}>vivi / {l.nati_totali} nati</div>
+                  <div style={{fontSize:28,fontWeight:900,color:C.green}}>{vivi}</div>
+                  <div style={{fontSize:11,color:C.muted}}>vivi / {us.length}</div>
                 </div>
               </div>
-
-              {/* Barra vivi/morti */}
-              <div style={{background:C.morto+"30",borderRadius:99,height:8,overflow:"hidden",marginBottom:8}}>
-                <div style={{background:C.green,width:`${l.nati_totali>0?stats.vivi/l.nati_totali*100:0}%`,height:"100%",borderRadius:99}}/>
-              </div>
-
+              {/* Barra progresso */}
+              {us.length>0&&(
+                <div style={{background:C.border,borderRadius:6,height:6,marginBottom:8,overflow:"hidden"}}>
+                  <div style={{background:C.green,width:`${pct}%`,height:"100%",borderRadius:6}}/>
+                </div>
+              )}
               <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                <Badge label={`${stats.vivi} vivi`} color={C.green}/>
-                {stats.morti>0&&<Badge label={`${stats.morti} morti`} color={C.morto}/>}
-                {stats.macellati>0&&<Badge label={`${stats.macellati} macellati`} color={C.muted}/>}
-                <Badge label={`${stats.conBdn} marchi individ.`} color={C.blue}/>
+                <Badge label={`${vivi} vivi`} color={C.green}/>
+                {macellati>0&&<Badge label={`${macellati} macellati`} color={C.muted}/>}
+                {deceduti>0&&<Badge label={`${deceduti} deceduti`} color={C.red}/>}
+                {riprod>0&&<Badge label={`${riprod} riproduttori`} color={C.blue}/>}
               </div>
-              {(madre||padre)&&(
-                <div style={{fontSize:12,color:C.muted,marginTop:6}}>
-                  {madre&&`♀ ${madre.nome}`}{padre&&` · ♂ ${padre.nome}`}
-                </div>
-              )}
-              {stats.pesoMedioSvez&&(
-                <div style={{fontSize:12,color:C.yellow,marginTop:2,fontWeight:600}}>⚖ Peso medio svezz.: {stats.pesoMedioSvez} kg</div>
-              )}
             </div>
           );
         })}
@@ -480,118 +511,216 @@ function ListaLotti({data, onSeleziona, onNuovo}) {
   );
 }
 
+// ─── FORM NUOVO PARTO ─────────────────────────────────────────────────────────
+function FormNuovoParto({animali, onSave, onCancel}) {
+  const [form,setForm] = useState({
+    madre_id:"",padre_id:"",
+    data_parto:today(),data_accoppiamento:"",
+    nati_totali:"",nati_morti:"0",
+    tipo_parto:"Naturale",note:"",
+  });
+  const [saving,setSaving] = useState(false);
+
+  const scrofe = animali.filter(a=>a.sesso==="F"&&a.specie==="suino"&&a.stato==="attivo");
+  const verri  = animali.filter(a=>a.sesso==="M"&&a.specie==="suino");
+
+  const madre  = form.madre_id?animali.find(a=>a.id===parseInt(form.madre_id)):null;
+  const padre  = form.padre_id?animali.find(a=>a.id===parseInt(form.padre_id)):null;
+  const vivi   = Math.max(0,(parseInt(form.nati_totali)||0)-(parseInt(form.nati_morti)||0));
+  const codice = generaCodLotto(
+    form.data_parto,
+    madre?.razza_calcolata||madre?.razza,
+    padre?.razza_calcolata||padre?.razza,
+    madre?.bdn
+  );
+
+  const dataPrevista = form.data_accoppiamento?(()=>{
+    const d=new Date(form.data_accoppiamento);
+    d.setMonth(d.getMonth()+3);
+    d.setDate(d.getDate()+24);
+    return d.toISOString().split("T")[0];
+  })():"";
+
+  const salva = async () => {
+    if(!form.madre_id||!form.data_parto||!form.nati_totali) return;
+    setSaving(true);
+
+    // 1. Crea lotto
+    const {data:nuovoLotto,error} = await supabase.from("lotti_suini").insert([{
+      codice: codice,
+      codice_lotto: codice,
+      anno: new Date(form.data_parto).getFullYear(),
+      data_parto: form.data_parto,
+      madre_id: parseInt(form.madre_id),
+      padre_id: form.padre_id?parseInt(form.padre_id):null,
+      razza_madre: madre?.razza_calcolata||madre?.razza||null,
+      razza_padre: padre?.razza_calcolata||padre?.razza||null,
+      nati_totali: parseInt(form.nati_totali)||0,
+      nati_vivi: vivi,
+      nati_morti: parseInt(form.nati_morti)||0,
+      note: form.note||null,
+      specie: "suino",
+    }]).select().single();
+
+    if(!error&&nuovoLotto&&vivi>0) {
+      // 2. Crea unità per ogni nato vivo
+      const unita = Array.from({length:vivi},(_,i)=>({
+        lotto_id: nuovoLotto.id,
+        nr: i+1,
+        codice_completo: codiceUnitá(codice, i+1),
+        vivo: true,
+        stato: "attivo",
+        destinazione: "ingrasso",
+      }));
+      await supabase.from("suini_lotto").insert(unita);
+
+      // 3. Crea anche evento riproduttivo
+      await supabase.from("eventi_riproduttivi").insert([{
+        animale_id: parseInt(form.madre_id),
+        tipo_evento: "parto",
+        data_evento: form.data_parto,
+        tipo_parto: form.tipo_parto||null,
+        nati_vivi: vivi,
+        nati_morti: parseInt(form.nati_morti)||0,
+        padre_id: form.padre_id?parseInt(form.padre_id):null,
+        data_accoppiamento: form.data_accoppiamento||null,
+        note: `Lotto ${codice}`,
+      }]);
+    }
+    setSaving(false);
+    onSave();
+  };
+
+  return (
+    <div style={{fontFamily:"'Segoe UI',system-ui,sans-serif",background:C.bg,
+      minHeight:"100vh",maxWidth:480,margin:"0 auto",padding:"16px 16px 80px"}}>
+      <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
+        <button onClick={onCancel} style={{background:"none",border:"none",cursor:"pointer",fontSize:22}}>←</button>
+        <span style={{fontSize:18,fontWeight:800}}>🐣 Nuovo parto suini</span>
+      </div>
+
+      {/* Anteprima codice lotto */}
+      {codice&&(
+        <div style={{background:C.suini+"12",border:`2px solid ${C.suini}`,
+          borderRadius:14,padding:"12px 16px",marginBottom:16,textAlign:"center"}}>
+          <div style={{fontSize:12,fontWeight:700,color:C.suini,marginBottom:4}}>
+            🏷️ CODICE LOTTO — TATUAGGIO BASE
+          </div>
+          <div style={{fontSize:32,fontWeight:900,color:C.suini,
+            fontFamily:"monospace",letterSpacing:3}}>{codice}</div>
+          <div style={{fontSize:11,color:C.muted,marginTop:4}}>
+            Unità: {codice}01 · {codice}02 · ... · {codice}{String(vivi||1).padStart(2,"0")}
+          </div>
+        </div>
+      )}
+
+      <Field label="Madre (scrofa) *" value={form.madre_id}
+        onChange={v=>setForm(f=>({...f,madre_id:v}))}
+        options={scrofe.map(a=>({value:a.id,label:`${a.nome||a.bdn} · ${a.razza||"—"}`}))} required/>
+      <Field label="Padre (verro)" value={form.padre_id}
+        onChange={v=>setForm(f=>({...f,padre_id:v}))}
+        options={verri.map(a=>({value:a.id,label:`${a.nome||a.bdn} · ${a.razza||"—"}`}))}/>
+      <Field label="Data parto *" value={form.data_parto}
+        onChange={v=>setForm(f=>({...f,data_parto:v}))} type="date" required/>
+      <Field label="Tipo parto" value={form.tipo_parto}
+        onChange={v=>setForm(f=>({...f,tipo_parto:v}))}
+        options={["Naturale","Assistito"]}/>
+
+      {/* Accoppiamento */}
+      <div style={{background:C.yellow+"10",border:`1px solid ${C.yellow}33`,
+        borderRadius:12,padding:"12px 14px",marginBottom:12}}>
+        <div style={{fontSize:12,fontWeight:700,color:C.yellow,marginBottom:8}}>
+          🐷 Accoppiamento (facoltativo)
+        </div>
+        <Field label="Data accoppiamento" value={form.data_accoppiamento}
+          onChange={v=>setForm(f=>({...f,data_accoppiamento:v}))} type="date"/>
+        {dataPrevista&&(
+          <div style={{fontSize:12,color:C.muted}}>
+            📅 Data prevista parto: <strong style={{color:C.primary}}>{dataPrevista}</strong>
+            <span style={{fontSize:11}}> (3 mesi + 3 sett. + 3 giorni)</span>
+          </div>
+        )}
+      </div>
+
+      {/* Nati */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+        <Field label="Nati totali *" value={form.nati_totali}
+          onChange={v=>setForm(f=>({...f,nati_totali:v}))} type="number" required/>
+        <Field label="Nati morti" value={form.nati_morti}
+          onChange={v=>setForm(f=>({...f,nati_morti:v}))} type="number"/>
+      </div>
+
+      {(form.nati_totali)&&(
+        <div style={{background:C.green+"12",border:`1px solid ${C.green}33`,
+          borderRadius:10,padding:"8px 14px",marginBottom:12,display:"flex",gap:16,fontSize:13}}>
+          <span>🟢 Vivi: <strong style={{color:C.green}}>{vivi}</strong></span>
+          <span>🔴 Morti: <strong style={{color:C.red}}>{parseInt(form.nati_morti)||0}</strong></span>
+          {codice&&<span>🏷️ Unità: {codice}01…{codice}{String(vivi).padStart(2,"0")}</span>}
+        </div>
+      )}
+
+      <Field label="Note" value={form.note}
+        onChange={v=>setForm(f=>({...f,note:v}))} placeholder="Osservazioni sul parto..."/>
+
+      <div style={{display:"flex",gap:10,marginTop:8}}>
+        <Btn label={saving?"Salvataggio...":"Registra parto e crea lotto"} icon="✓"
+          onClick={salva} variant="success"
+          disabled={saving||!form.madre_id||!form.data_parto||!form.nati_totali} full/>
+      </div>
+      <Btn label="Annulla" onClick={onCancel} variant="ghost" full/>
+    </div>
+  );
+}
+
 // ─── APP ROOT ─────────────────────────────────────────────────────────────────
 export default function LottiSuini() {
-  const [data, setData]   = useState({ riproduttori:[], lotti:[], suini:[] });
-  const [loading, setLoading] = useState(true);
-  const [view, setView]   = useState("lista");
-  const [selLotto, setSelLotto] = useState(null);
+  const [animali,setAnimali]   = useState([]);
+  const [lotti,setLotti]       = useState([]);
+  const [suini,setSuini]       = useState([]);
+  const [loading,setLoading]   = useState(true);
+  const [view,setView]         = useState("lista");  // lista | lotto | form
+  const [selLotto,setSelLotto] = useState(null);
 
   const carica = async () => {
     setLoading(true);
-    const [{ data: anim }, { data: lotti }, { data: suini }] = await Promise.all([
+    const [{data:anim},{data:lot},{data:sui}] = await Promise.all([
       supabase.from("animali").select("*").eq("specie","suino").order("nome"),
-      supabase.from("lotti_suini").select("*").order("data_parto", { ascending:false }),
+      supabase.from("lotti_suini").select("*").order("data_parto",{ascending:false}),
       supabase.from("suini_lotto").select("*").order("lotto_id").order("nr"),
     ]);
-    // Mappa snake_case → camelCase per compatibilità con i componenti UI
-    const lottiMapped = (lotti||[]).map(l=>({
-      ...l, madreId:l.madre_id, padreId:l.padre_id,
-    }));
-    const suiniMapped = (suini||[]).map(s=>({
-      ...s, lottoId:s.lotto_id,
-    }));
-    setData({
-      riproduttori: anim||[],
-      lotti: lottiMapped,
-      suini: suiniMapped,
-    });
+    setAnimali(anim||[]);
+    setLotti(lot||[]);
+    setSuini(sui||[]);
     setLoading(false);
   };
+  useEffect(()=>{carica();},[]);
 
-  useEffect(()=>{ carica(); },[]);
+  if(loading) return(
+    <div style={{fontFamily:"'Segoe UI',system-ui,sans-serif",background:C.bg,
+      minHeight:"100vh",maxWidth:480,margin:"0 auto"}}><Spinner/></div>
+  );
 
-  const addLotto = async ({ parto, suini }) => {
-    // Salva lotto
-    const { data: nuovoLotto, error: errLotto } = await supabase
-      .from("lotti_suini")
-      .insert([{
-        codice:     parto.codice,
-        anno:       parto.anno,
-        madre_id:   parto.madreId || null,
-        padre_id:   parto.padreId || null,
-        data_parto: parto.data_parto,
-        nati_totali:parto.nati_totali,
-        nati_vivi:  parto.nati_vivi,
-        nati_morti: parto.nati_morti,
-        note:       parto.note || null,
-      }])
-      .select().single();
-    if (errLotto || !nuovoLotto) return;
+  if(view==="form") return(
+    <FormNuovoParto animali={animali}
+      onSave={()=>{carica();setView("lista");}}
+      onCancel={()=>setView("lista")}/>
+  );
 
-    // Salva suini del lotto
-    if (suini.length > 0) {
-      await supabase.from("suini_lotto").insert(
-        suini.map(s => ({
-          lotto_id:         nuovoLotto.id,
-          nr:               s.nr,
-          bdn:              s.bdn || null,
-          sesso:            s.sesso,
-          vivo:             s.vivo,
-          stato:            s.stato || "attivo",
-          peso_nascita:     s.peso_nascita || null,
-          note:             s.note || null,
-        }))
-      );
-    }
-    await carica();
-    setView("lista");
-  };
-
-  const updateSuino = async (suino) => {
-    await supabase.from("suini_lotto").update({
-      bdn:               suino.bdn || null,
-      sesso:             suino.sesso,
-      stato:             suino.stato,
-      vivo:              suino.vivo,
-      peso_nascita:      suino.peso_nascita || null,
-      peso_svezzamento:  suino.peso_svezzamento || null,
-      peso_attuale:      suino.peso_attuale || null,
-      data_svezzamento:  suino.data_svezzamento || null,
-      note:              suino.note || null,
-    }).eq("id", suino.id);
-    await carica();
-  };
-
-  const addSuiniLotto = async (nuovi) => {
-    await supabase.from("suini_lotto").insert(
-      nuovi.map(s => ({
-        lotto_id:     s.lottoId,
-        nr:           s.nr,
-        bdn:          s.bdn || null,
-        sesso:        s.sesso,
-        vivo:         s.vivo,
-        stato:        s.stato || "attivo",
-        peso_nascita: s.peso_nascita || null,
-        note:         s.note || null,
-      }))
-    );
-    await carica();
-    setView("scheda");
-  };
-
-  const wrap = ch => (
-    <div style={{fontFamily:"'Segoe UI',system-ui,sans-serif",background:C.bg,minHeight:"100vh",maxWidth:480,margin:"0 auto"}}>
-      {loading
-        ? <div style={{textAlign:"center",padding:80,color:C.muted}}><div style={{fontSize:40,marginBottom:12}}>⏳</div><div>Caricamento lotti...</div></div>
-        : ch}
+  if(view==="lotto"&&selLotto) return(
+    <div style={{fontFamily:"'Segoe UI',system-ui,sans-serif",background:C.bg,
+      minHeight:"100vh",maxWidth:480,margin:"0 auto"}}>
+      <SchedaLotto lotto={selLotto} suini={suini} animali={animali}
+        onBack={()=>setView("lista")}
+        onUpdate={carica}/>
     </div>
   );
 
-  if (view==="nuovo")  return wrap(<FormNuovoLotto data={data} onSave={addLotto} onCancel={()=>setView("lista")}/>);
-  if (view==="add_suini"&&selLotto) return wrap(<FormAggiungiSuini lotto={selLotto} data={data} onSave={addSuiniLotto} onCancel={()=>setView("scheda")}/>);
-  if (view==="scheda"&&selLotto) return wrap(
-    <SchedaLotto lotto={selLotto} data={data} onBack={()=>setView("lista")} onUpdateSuino={updateSuino} onAddSuini={()=>setView("add_suini")}/>
+  return(
+    <div style={{fontFamily:"'Segoe UI',system-ui,sans-serif",background:C.bg,
+      minHeight:"100vh",maxWidth:480,margin:"0 auto"}}>
+      <ListaLotti lotti={lotti} suini={suini} animali={animali}
+        onSeleziona={l=>{setSelLotto(l);setView("lotto");}}
+        onNuovo={()=>setView("form")}/>
+    </div>
   );
-  return wrap(<ListaLotti data={data} onSeleziona={l=>{setSelLotto(l);setView("scheda");}} onNuovo={()=>setView("nuovo")}/>);
 }
