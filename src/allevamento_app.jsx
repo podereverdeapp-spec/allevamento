@@ -15,7 +15,7 @@ const today = ()=>new Date().toISOString().split("T")[0];
 // ─── DATI PER SPECIE ──────────────────────────────────────────────────────────
 const RAZZE = {
   bovino:["Chianina","Marchigiana","Maremmana","Limousine","Charolais","Frisona","Pezzata Rossa","Meticcia","Altra"],
-  suino: ["Large White","Landrace","Duroc","Cinta Senese","Mora Romagnola","Nero Casertano","Meticcia","Altra"],
+  suino: ["Large White","Landrace","Duroc","Cinta Senese","Mora Romagnola","Nero Casertano","Nero Apucalabro","Meticcia","Altra"],
   ovino: ["Sarda","Comisana","Massese","Appenninica","Merinizzata italiana","Sopravvissana","Suffolk","Meticcia","Altra"],
 };
 const CATEGORIE = {
