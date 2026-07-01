@@ -29,6 +29,30 @@ const SESSO_OPT = s => s==="suino"
 const STATI = ["attivo","venduto","macellato","deceduto","trasferito"];
 
 // Calcolo razza figlio
+// Mappa razza suino → lettera codice lotto
+const RAZZA_LETTERA = {
+  "Nero Apucalabro":"A","Cinta Senese":"C","Duroc":"D",
+  "Mora Romagnola":"G","Large White":"L","Meticcia":"M","Meticcio":"M",
+  "Nero Casertano":"N","Landrace":"R","Altra":"0",
+};
+function getRazzaLettera(razza) {
+  if(!razza) return "0";
+  // cerca corrispondenza case-insensitive
+  const r=razza.trim();
+  const match=Object.keys(RAZZA_LETTERA).find(k=>k.toLowerCase()===r.toLowerCase());
+  return match?RAZZA_LETTERA[match]:"0";
+}
+function generaCodLotto(dataParto, razzaMadre, razzaPadre, bdnMadre) {
+  if(!dataParto) return "";
+  const d=new Date(dataParto);
+  const aa=String(d.getFullYear()).slice(-2);
+  const mm=String(d.getMonth()+1).padStart(2,"0");
+  const lM=getRazzaLettera(razzaMadre);
+  const lP=getRazzaLettera(razzaPadre);
+  const ultime2=bdnMadre?String(bdnMadre).replace(/\D/g,"").slice(-2):"00";
+  return `${aa}${mm}${lM}${lP}${ultime2}`;
+}
+
 const calcolaRazza = (padre_id, madre_id, animali) => {
   if (!padre_id || !madre_id) return null;
   const p = animali.find(a=>a.id===parseInt(padre_id));
@@ -800,6 +824,37 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
                         </div>
                       </div>
                     )}
+                    {/* Sezione lotto — solo per suini, calcolato automaticamente */}
+                    {a.specie==="suino"&&(()=>{
+                      const padre=formParto.padre_id
+                        ?animali.find(x=>x.id===parseInt(formParto.padre_id)):null;
+                      const codLotto=generaCodLotto(
+                        formParto.data_evento,
+                        a.razza_calcolata||a.razza,
+                        padre?.razza_calcolata||padre?.razza,
+                        a.bdn
+                      );
+                      return codLotto?(
+                        <div style={{background:"#E8F5E9",border:"1.5px solid #4A7C59",
+                          borderRadius:12,padding:"10px 14px",marginBottom:12}}>
+                          <div style={{fontSize:11,fontWeight:700,color:"#4A7C59",marginBottom:4}}>
+                            🏷️ CODICE LOTTO GENERATO AUTOMATICAMENTE
+                          </div>
+                          <div style={{fontSize:28,fontWeight:900,color:"#2E5D3B",
+                            letterSpacing:2,fontFamily:"monospace"}}>
+                            {codLotto}
+                          </div>
+                          <div style={{fontSize:11,color:"#8B7355",marginTop:4}}>
+                            {String(new Date(formParto.data_evento||new Date()).getFullYear()).slice(-2)}
+                            {String(new Date(formParto.data_evento||new Date()).getMonth()+1).padStart(2,"0")}
+                            {" "}(anno+mese) ·{" "}
+                            {getRazzaLettera(a.razza_calcolata||a.razza)} (madre) ·{" "}
+                            {getRazzaLettera(padre?.razza_calcolata||padre?.razza||"")} (padre) ·{" "}
+                            {(a.bdn||"").replace(/\D/g,"").slice(-2)} (ultime 2 cifre matricola madre)
+                          </div>
+                        </div>
+                      ):null;
+                    })()}
                     {/* Sezione accoppiamento — solo per suini */}
                     {a.specie==="suino"&&(
                       <div style={{background:C.suini+"10",border:`1px solid ${C.suini}33`,
