@@ -1278,6 +1278,15 @@ function Sanitario({animali,eventi,loading,aggiungi}){
   const [cercaGruppo,setCercaGruppo]=useState("");
   const [formGruppo,setFormGruppo]=useState(null);
   const [savingGruppo,setSavingGruppo]=useState(false);
+  // Modalità lotto suini
+  const [modLotto,setModLotto]=useState(false);
+  const [lotti,setLotti]=useState([]);
+  const [suiniLotto,setSuiniLotto]=useState([]);
+  const [lottoSel,setLottoSel]=useState(null);
+  const [unitaSel,setUnitaSel]=useState([]);
+  const [cercaLotto,setCercaLotto]=useState("");
+  const [cercaUnita,setCercaUnita]=useState("");
+  const [savingLotto,setSavingLotto]=useState(false);
   const salva=async()=>{
     if(!form.animale_id||!form.descrizione)return;
     setSaving(true);
@@ -1310,6 +1319,40 @@ function Sanitario({animali,eventi,loading,aggiungi}){
     </div>
   );
   const tipoColor={vaccino:C.green,farmaco:C.blue,visita:C.yellow,intervento:C.red,altro:C.muted};
+
+  // Carica lotti quando si apre la modal lotto
+  const caricaLotti=async()=>{
+    const[{data:lot},{data:sui}]=await Promise.all([
+      supabase.from("lotti_suini").select("*").order("data_parto",{ascending:false}),
+      supabase.from("suini_lotto").select("*").order("lotto_id").order("nr"),
+    ]);
+    setLotti(lot||[]);
+    setSuiniLotto(sui||[]);
+  };
+
+  const salvaTrattamentoLotto=async()=>{
+    if(!formGruppo?.descrizione||unitaSel.length===0) return;
+    setSavingLotto(true);
+    const costoPerCapo=formGruppo.costo?parseFloat(formGruppo.costo)/unitaSel.length:null;
+    for(const uid of unitaSel){
+      await supabase.from("eventi_sanitari").insert([{
+        suini_lotto_id:uid,
+        animale_id:null,
+        tipo:formGruppo.tipo||"vaccino",
+        descrizione:formGruppo.descrizione,
+        data:formGruppo.data,
+        veterinario:formGruppo.veterinario||null,
+        prodotto:formGruppo.prodotto||null,
+        scadenza:formGruppo.scadenza||null,
+        costo:costoPerCapo,
+      }]);
+    }
+    setSavingLotto(false);
+    setModLotto(false);
+    setLottoSel(null);
+    setUnitaSel([]);
+    setFormGruppo(null);
+  };
 
   const salvaVaccinazioneGruppo=async()=>{
     if(!formGruppo.descrizione||selezionati.length===0) return;
@@ -1367,10 +1410,185 @@ function Sanitario({animali,eventi,loading,aggiungi}){
             tipo:"vaccino",descrizione:"",data:today(),
             veterinario:"",prodotto:"",scadenza:"",costo:""});}}
             variant="outline" small/>
+          <Btn label="🐷 Lotto" onClick={()=>{
+            setModLotto(true);
+            setFormGruppo({tipo:"vaccino",descrizione:"",data:today(),
+              veterinario:"",prodotto:"",scadenza:"",costo:""});
+            caricaLotti();}}
+            variant="outline" small/>
           <Btn label="+ Singolo" icon="+" onClick={()=>setForm({animale_id:"",tipo:"vaccino",
             descrizione:"",data:today(),veterinario:"",prodotto:"",scadenza:"",costo:""})} small/>
         </div>
       </div>
+
+      {/* MODAL TRATTAMENTO SU LOTTO SUINI */}
+      {modLotto&&formGruppo&&(
+        <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,
+          background:"rgba(0,0,0,0.6)",zIndex:200,overflowY:"auto"}}>
+          <div style={{background:C.bg,borderRadius:"20px 20px 0 0",
+            position:"absolute",bottom:0,left:0,right:0,maxHeight:"95vh",
+            overflowY:"auto",padding:"20px 16px 40px"}}>
+            <div style={{display:"flex",justifyContent:"space-between",
+              alignItems:"center",marginBottom:16}}>
+              <span style={{fontSize:18,fontWeight:800}}>🐷 Trattamento su lotto</span>
+              <button onClick={()=>{setModLotto(false);setLottoSel(null);setUnitaSel([]);}}
+                style={{background:C.border,border:"none",borderRadius:20,
+                  padding:"6px 12px",cursor:"pointer",fontSize:13}}>✕ Chiudi</button>
+            </div>
+
+            {/* STEP 1: Scegli lotto */}
+            {!lottoSel?(
+              <div style={{background:C.card,borderRadius:14,padding:14,marginBottom:12,
+                border:`1px solid ${C.border}`}}>
+                <div style={{fontSize:13,fontWeight:700,color:C.primary,marginBottom:8}}>
+                  STEP 1 — Seleziona il lotto
+                </div>
+                <div style={{position:"relative",marginBottom:10}}>
+                  <input type="text" value={cercaLotto} onChange={e=>setCercaLotto(e.target.value)}
+                    placeholder="Cerca per codice lotto (es. 2304CC19)..."
+                    style={{...{width:"100%",boxSizing:"border-box",border:`1.5px solid ${C.border}`,
+                      borderRadius:10,padding:"8px 10px",fontSize:14,background:"#FAFAF8",outline:"none"}}}/>
+                </div>
+                {lotti.filter(l=>{
+                  if(!cercaLotto.trim()) return true;
+                  return (l.codice_lotto||l.codice||"").toLowerCase().includes(cercaLotto.toLowerCase());
+                }).map(l=>{
+                  const us=suiniLotto.filter(s=>s.lotto_id===l.id&&s.vivo!==false&&s.stato==="attivo");
+                  return(
+                    <div key={l.id} onClick={()=>{setLottoSel(l);setUnitaSel(us.map(u=>u.id));}}
+                      style={{display:"flex",justifyContent:"space-between",alignItems:"center",
+                        padding:"10px 12px",borderRadius:10,marginBottom:6,cursor:"pointer",
+                        background:C.bg,border:`1.5px solid ${C.border}`}}>
+                      <div>
+                        <div style={{fontWeight:800,fontSize:15,fontFamily:"monospace",
+                          color:C.primary,letterSpacing:1}}>{l.codice_lotto||l.codice}</div>
+                        <div style={{fontSize:12,color:C.muted}}>Parto {l.data_parto}</div>
+                      </div>
+                      <div style={{textAlign:"right"}}>
+                        <div style={{fontWeight:700,color:C.green}}>{us.length} vivi</div>
+                        <div style={{fontSize:11,color:C.muted}}>tocca per selezionare</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ):(
+              <>
+                {/* Lotto selezionato: scelta unità */}
+                <div style={{background:C.card,borderRadius:14,padding:14,marginBottom:12,
+                  border:`1px solid ${C.border}`}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                    <div>
+                      <div style={{fontSize:13,fontWeight:700,color:C.primary}}>
+                        STEP 1 — Lotto selezionato
+                      </div>
+                      <div style={{fontWeight:900,fontSize:18,fontFamily:"monospace",
+                        color:C.suini,letterSpacing:1}}>{lottoSel.codice_lotto||lottoSel.codice}</div>
+                    </div>
+                    <button onClick={()=>{setLottoSel(null);setUnitaSel([]);}}
+                      style={{background:C.border,border:"none",borderRadius:8,
+                        padding:"5px 10px",cursor:"pointer",fontSize:12}}>Cambia</button>
+                  </div>
+                  <div style={{fontSize:12,fontWeight:700,color:C.muted,marginBottom:8}}>
+                    Seleziona le unità da trattare ({unitaSel.length} selezionate)
+                  </div>
+                  <div style={{position:"relative",marginBottom:8}}>
+                    <input type="text" value={cercaUnita} onChange={e=>setCercaUnita(e.target.value)}
+                      placeholder="Filtra per tatuaggio..." style={{...{width:"100%",
+                        boxSizing:"border-box",border:`1.5px solid ${C.border}`,borderRadius:10,
+                        padding:"7px 10px",fontSize:13,background:"#FAFAF8",outline:"none"}}}/>
+                  </div>
+                  <button onClick={()=>{
+                    const tutti=suiniLotto.filter(s=>s.lotto_id===lottoSel.id&&s.vivo!==false&&s.stato==="attivo");
+                    setUnitaSel(unitaSel.length===tutti.length?[]:tutti.map(u=>u.id));
+                  }} style={{background:C.primary+"15",border:`1px solid ${C.primary}33`,
+                    borderRadius:8,padding:"4px 12px",fontSize:12,fontWeight:600,
+                    color:C.primary,cursor:"pointer",marginBottom:10}}>
+                    {unitaSel.length===suiniLotto.filter(s=>s.lotto_id===lottoSel.id&&s.vivo!==false&&s.stato==="attivo").length
+                      ?"☐ Deseleziona tutte":"☑ Seleziona tutte le vive"}
+                  </button>
+                  <div style={{maxHeight:200,overflowY:"auto"}}>
+                    {suiniLotto.filter(s=>{
+                      if(s.lotto_id!==lottoSel.id) return false;
+                      if(s.vivo===false||s.stato!=="attivo") return false;
+                      const cod=(s.codice_completo||`${lottoSel.codice_lotto}${String(s.nr).padStart(2,"0")}`).toLowerCase();
+                      return !cercaUnita.trim()||cod.includes(cercaUnita.toLowerCase());
+                    }).map(u=>{
+                      const sel=unitaSel.includes(u.id);
+                      const cod=u.codice_completo||`${lottoSel.codice_lotto}${String(u.nr).padStart(2,"0")}`;
+                      return(
+                        <div key={u.id} onClick={()=>setUnitaSel(prev=>prev.includes(u.id)?prev.filter(x=>x!==u.id):[...prev,u.id])}
+                          style={{display:"flex",alignItems:"center",gap:10,padding:"7px 10px",
+                            borderRadius:10,marginBottom:4,cursor:"pointer",
+                            background:sel?"#E3F2FD":C.card,
+                            border:`1.5px solid ${sel?C.blue:C.border}`}}>
+                          <div style={{width:20,height:20,borderRadius:5,flexShrink:0,
+                            background:sel?C.blue:"transparent",
+                            border:`2px solid ${sel?C.blue:C.border}`,
+                            display:"flex",alignItems:"center",justifyContent:"center"}}>
+                            {sel&&<span style={{color:"#FFF",fontSize:13,fontWeight:800}}>✓</span>}
+                          </div>
+                          <div>
+                            <div style={{fontWeight:700,fontSize:13,fontFamily:"monospace"}}>{cod}</div>
+                            {u.sesso&&<span style={{fontSize:11,color:C.muted}}>{u.sesso==="M"?"♂":"♀"}</span>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* STEP 2: Dati trattamento */}
+                <div style={{background:C.card,borderRadius:14,padding:14,
+                  border:`1px solid ${C.border}`,marginBottom:12}}>
+                  <div style={{fontSize:13,fontWeight:700,color:C.primary,marginBottom:12}}>
+                    STEP 2 — Dati del trattamento
+                  </div>
+                  {[
+                    ["Tipo",formGruppo.tipo,v=>setFormGruppo(f=>({...f,tipo:v})),
+                      ["vaccino","farmaco","visita","intervento","altro"]],
+                    ["Descrizione *",formGruppo.descrizione,v=>setFormGruppo(f=>({...f,descrizione:v})),null],
+                    ["Data",formGruppo.data,v=>setFormGruppo(f=>({...f,data:v})),"date"],
+                    ["Prodotto",formGruppo.prodotto,v=>setFormGruppo(f=>({...f,prodotto:v})),null],
+                    ["Veterinario",formGruppo.veterinario,v=>setFormGruppo(f=>({...f,veterinario:v})),null],
+                    ["Costo totale (€)",formGruppo.costo,v=>setFormGruppo(f=>({...f,costo:v})),"number"],
+                  ].map(([label,val,onChange,opts])=>(
+                    <div key={label} style={{marginBottom:10}}>
+                      <div style={{fontSize:12,fontWeight:600,color:C.muted,marginBottom:3}}>{label}</div>
+                      {Array.isArray(opts)
+                        ?<select value={val||""} onChange={e=>onChange(e.target.value)}
+                            style={{width:"100%",boxSizing:"border-box",border:`1.5px solid ${C.border}`,
+                              borderRadius:10,padding:"9px 12px",fontSize:14,background:"#FAFAF8",outline:"none"}}>
+                            {opts.map(o=><option key={o} value={o}>{o}</option>)}
+                          </select>
+                        :<input type={opts||"text"} value={val||""} onChange={e=>onChange(e.target.value)}
+                            style={{width:"100%",boxSizing:"border-box",border:`1.5px solid ${C.border}`,
+                              borderRadius:10,padding:"9px 12px",fontSize:14,background:"#FAFAF8",outline:"none"}}/>
+                      }
+                    </div>
+                  ))}
+                  {formGruppo.costo&&unitaSel.length>0&&(
+                    <div style={{background:C.blue+"12",borderRadius:8,padding:"6px 10px",fontSize:12,color:C.blue}}>
+                      €{(parseFloat(formGruppo.costo)/unitaSel.length).toFixed(2)} per unità · {unitaSel.length} selezionate
+                    </div>
+                  )}
+                </div>
+
+                <button onClick={salvaTrattamentoLotto}
+                  disabled={savingLotto||unitaSel.length===0||!formGruppo.descrizione}
+                  style={{width:"100%",background:unitaSel.length>0&&formGruppo.descrizione?C.suini:"#CCC",
+                    color:"#FFF",border:"none",borderRadius:12,padding:"14px",
+                    fontSize:16,fontWeight:700,cursor:"pointer"}}>
+                  {savingLotto
+                    ?`Salvataggio... (${unitaSel.length} unità)`
+                    :unitaSel.length===0?"Seleziona almeno un'unità"
+                    :`✓ Registra trattamento su ${unitaSel.length} unità`}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* MODAL VACCINAZIONE DI GRUPPO */}
       {modGruppo&&formGruppo&&(
@@ -1531,8 +1749,10 @@ function Sanitario({animali,eventi,loading,aggiungi}){
           <div>Nessun risultato per "{cerca}"</div>
         </div>
       ):eventiFiltrati.map(e=>{
-        const a=animali.find(x=>x.id===e.animale_id);
+        const a=e.animale_id?animali.find(x=>x.id===e.animale_id):null;
         const col=tipoColor[e.tipo]||C.muted;
+        // Per eventi su lotto suini, componiamo un label dalla nota
+        const isLotto=!e.animale_id&&e.suini_lotto_id;
         return(
           <Card key={e.id}>
             <div style={{display:"flex",justifyContent:"space-between"}}>
@@ -1540,6 +1760,7 @@ function Sanitario({animali,eventi,loading,aggiungi}){
                 <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:6}}>
                   <Badge label={e.tipo?.toUpperCase()} color={col}/>
                   {a&&<span style={{fontSize:13,color:specieColor(a.specie),fontWeight:600}}>{a.nome||a.bdn}</span>}
+                {isLotto&&<span style={{fontSize:13,color:C.suini,fontWeight:600}}>🐷 Lotto (ID unità: {e.suini_lotto_id})</span>}
                 </div>
                 <div style={{fontWeight:600,fontSize:15}}>{e.descrizione}</div>
                 {e.prodotto&&<div style={{fontSize:13,color:C.muted}}>💊 {e.prodotto}</div>}
@@ -1568,6 +1789,15 @@ function Alimentazione({voci,loading,aggiungi,animali}){
   const [cercaGruppo,setCercaGruppo]=useState("");
   const [formGruppo,setFormGruppo]=useState(null);
   const [savingGruppo,setSavingGruppo]=useState(false);
+  // Modalità lotto suini
+  const [modLotto,setModLotto]=useState(false);
+  const [lotti,setLotti]=useState([]);
+  const [suiniLotto,setSuiniLotto]=useState([]);
+  const [lottoSel,setLottoSel]=useState(null);
+  const [unitaSel,setUnitaSel]=useState([]);
+  const [cercaLotto,setCercaLotto]=useState("");
+  const [cercaUnita,setCercaUnita]=useState("");
+  const [savingLotto,setSavingLotto]=useState(false);
 
   const salvaRazioneGruppo=async()=>{
     if(!formGruppo.tipo||!formGruppo.quantita||selezionati.length===0) return;
