@@ -168,6 +168,9 @@ export default function RegistroUscite() {
   const [loading,setLoading]=useState(true);
   const [subTab,setSubTab]=useState("attivi");
   const [formUscita,setFormUscita]=useState(null);
+  const [filtroSpecie,setFiltroSpecie]=useState("tutti");
+  const [cerca,setCerca]=useState("");
+  const [filtroUsciti,setFiltroUsciti]=useState("tutti");
 
   const carica=async()=>{
     setLoading(true);
@@ -178,8 +181,21 @@ export default function RegistroUscite() {
   };
   useEffect(()=>{carica();},[]);
 
-  const attivi  = animali.filter(a=>a.stato==="attivo");
-  const usciti  = animali.filter(a=>a.stato!=="attivo");
+  const tuttiAttivi = animali.filter(a=>a.stato==="attivo");
+  const attivi = tuttiAttivi.filter(a=>{
+    if(filtroSpecie!=="tutti"&&a.specie!==filtroSpecie) return false;
+    if(!cerca.trim()) return true;
+    const q=cerca.trim().toLowerCase();
+    return (a.bdn||"").toLowerCase().includes(q)||
+           (a.nome||"").toLowerCase().includes(q)||
+           (a.bdn||"").slice(-4).includes(q)||
+           (a.lotto_box||"").toLowerCase().includes(q);
+  });
+  const usciti = animali.filter(a=>{
+    if(a.stato==="attivo") return false;
+    if(filtroUsciti!=="tutti"&&a.specie!==filtroUsciti) return false;
+    return true;
+  });
   const macellati = usciti.filter(a=>a.motivo_uscita?.toLowerCase().includes("macellat"));
 
   const totPesoVivo    = macellati.reduce((s,a)=>s+(a.peso_vivo_uscita||0),0);
@@ -205,13 +221,13 @@ export default function RegistroUscite() {
         borderRadius:"0 0 28px 28px",padding:"24px 20px 20px",marginBottom:0}}>
         <div style={{fontSize:22,fontWeight:800,color:"#FFF"}}>📤 Registro Uscite</div>
         <div style={{fontSize:14,color:"rgba(255,255,255,0.75)",marginTop:4}}>
-          {usciti.length} usciti · {attivi.length} ancora in stalla
+          {usciti.length} usciti · {tuttiAttivi.length} ancora in stalla
         </div>
       </div>
 
       {/* Sub tab */}
       <div style={{display:"flex",background:C.card,borderBottom:`1.5px solid ${C.border}`}}>
-        {[["attivi",`📋 In stalla (${attivi.length})`],
+        {[["attivi",`📋 In stalla (${tuttiAttivi.length})`],
           ["usciti",`📤 Usciti (${usciti.length})`]].map(([id,label])=>(
           <button key={id} onClick={()=>setSubTab(id)}
             style={{flex:1,padding:"12px 4px",background:"none",border:"none",cursor:"pointer",
@@ -226,38 +242,96 @@ export default function RegistroUscite() {
       <div style={{padding:"16px"}}>
         {loading?<Spinner/>:(
           <>
-            {/* TAB ATTIVI - pronti per uscita */}
+            {/* TAB ATTIVI - filtro specie + ricerca + lista */}
             {subTab==="attivi"&&(
-              attivi.length===0?(
-                <div style={{textAlign:"center",padding:40,color:C.muted}}>
-                  <div style={{fontSize:40,marginBottom:8}}>🐄</div>
-                  <div>Nessun animale attivo</div>
+              <>
+                {/* Filtri specie */}
+                <div style={{display:"flex",gap:8,marginBottom:10,overflowX:"auto",paddingBottom:4}}>
+                  {["tutti","bovino","suino","ovino"].map(s=>(
+                    <button key={s} onClick={()=>{setFiltroSpecie(s);setCerca("");}}
+                      style={{background:filtroSpecie===s?specieColor(s)||C.primary:C.card,
+                        color:filtroSpecie===s?"#FFF":C.muted,
+                        border:`1.5px solid ${filtroSpecie===s?specieColor(s)||C.primary:C.border}`,
+                        borderRadius:20,padding:"5px 14px",fontSize:13,fontWeight:600,
+                        cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>
+                      {s==="tutti"?"🐾 Tutti":specieIcon(s)+" "+specieLabel(s)+"i"}
+                    </button>
+                  ))}
                 </div>
-              ):attivi.map(a=>(
-                <Card key={a.id}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                    <div style={{display:"flex",gap:10,alignItems:"center"}}>
-                      <div style={{background:specieColor(a.specie)+"20",
-                        borderRadius:10,padding:8,fontSize:22}}>
-                        {specieIcon(a.specie)}
-                      </div>
-                      <div>
-                        <div style={{fontWeight:700,fontSize:15}}>{a.nome||a.bdn||"—"}</div>
-                        <div style={{fontSize:12,color:C.muted}}>
-                          {a.bdn} · {a.razza_calcolata||a.razza||"—"}
-                        </div>
-                        <div style={{display:"flex",gap:6,marginTop:4,flexWrap:"wrap"}}>
-                          <Badge label={specieLabel(a.specie)} color={specieColor(a.specie)}/>
-                          <Badge label={a.sesso==="M"?"♂":"♀"} color={a.sesso==="M"?C.blue:"#B5547A"}/>
-                          {a.peso_attuale&&<Badge label={a.peso_attuale+"kg"} color={C.muted}/>}
-                        </div>
-                      </div>
-                    </div>
-                    <Btn label="Uscita" icon="📤" onClick={()=>setFormUscita(a)}
-                      variant="danger" small/>
+                {/* Barra ricerca */}
+                <div style={{position:"relative",marginBottom:12}}>
+                  <span style={{position:"absolute",left:12,top:"50%",
+                    transform:"translateY(-50%)",fontSize:18,color:C.muted,pointerEvents:"none"}}>🔍</span>
+                  <input type="text" value={cerca} onChange={e=>setCerca(e.target.value)}
+                    placeholder={filtroSpecie==="suino"
+                      ?"Cerca per nome, matricola, ultime 4 cifre o lotto..."
+                      :"Cerca per nome, matricola o ultime 4 cifre..."}
+                    style={{width:"100%",boxSizing:"border-box",
+                      border:`2px solid ${cerca?C.primary:C.border}`,
+                      borderRadius:12,padding:"11px 40px 11px 42px",
+                      fontSize:15,background:C.card,color:C.text,outline:"none",
+                      boxShadow:cerca?`0 0 0 3px ${C.primary}22`:"none"}}/>
+                  {cerca&&(
+                    <button onClick={()=>setCerca("")}
+                      style={{position:"absolute",right:12,top:"50%",
+                        transform:"translateY(-50%)",background:"none",
+                        border:"none",cursor:"pointer",fontSize:18,color:C.muted}}>✕</button>
+                  )}
+                </div>
+                {/* Contatore risultati */}
+                {(cerca||filtroSpecie!=="tutti")&&(
+                  <div style={{fontSize:13,fontWeight:600,marginBottom:10,
+                    color:attivi.length>0?C.green:C.red,
+                    background:attivi.length>0?C.green+"12":C.red+"12",
+                    borderRadius:8,padding:"4px 10px",display:"inline-block"}}>
+                    {attivi.length>0
+                      ?`✓ ${attivi.length} animale/i trovato/i`
+                      :"Nessun animale trovato"}
                   </div>
-                </Card>
-              ))
+                )}
+                {/* Lista animali */}
+                {tuttiAttivi.length===0?(
+                  <div style={{textAlign:"center",padding:40,color:C.muted}}>
+                    <div style={{fontSize:40,marginBottom:8}}>🐄</div>
+                    <div>Nessun animale attivo</div>
+                  </div>
+                ):attivi.length===0&&(cerca||filtroSpecie!=="tutti")?(
+                  <div style={{textAlign:"center",padding:32,color:C.muted}}>
+                    <div style={{fontSize:36,marginBottom:8}}>🔍</div>
+                    <div>Nessun risultato</div>
+                    <button onClick={()=>{setCerca("");setFiltroSpecie("tutti");}}
+                      style={{marginTop:10,background:C.primary,color:"#FFF",border:"none",
+                        borderRadius:10,padding:"8px 16px",cursor:"pointer",fontSize:13}}>
+                      Mostra tutti
+                    </button>
+                  </div>
+                ):attivi.map(a=>(
+                  <Card key={a.id} style={{borderLeft:`3px solid ${specieColor(a.specie)}`}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                      <div style={{display:"flex",gap:10,alignItems:"center",flex:1}}>
+                        <div style={{background:specieColor(a.specie)+"20",
+                          borderRadius:10,padding:8,fontSize:22,flexShrink:0}}>
+                          {specieIcon(a.specie)}
+                        </div>
+                        <div style={{flex:1}}>
+                          <div style={{fontWeight:700,fontSize:15}}>{a.nome||a.bdn||"—"}</div>
+                          <div style={{fontSize:12,color:C.muted}}>
+                            {a.bdn} · {a.razza_calcolata||a.razza||"—"}
+                          </div>
+                          <div style={{display:"flex",gap:6,marginTop:4,flexWrap:"wrap"}}>
+                            <Badge label={specieLabel(a.specie)} color={specieColor(a.specie)}/>
+                            <Badge label={a.sesso==="M"?"♂":"♀"} color={a.sesso==="M"?C.blue:"#B5547A"}/>
+                            {a.peso_attuale&&<Badge label={a.peso_attuale+"kg"} color={C.muted}/>}
+                            {a.lotto_box&&<Badge label={"Lotto: "+a.lotto_box} color={C.suini}/>}
+                          </div>
+                        </div>
+                      </div>
+                      <Btn label="Uscita" icon="📤" onClick={()=>setFormUscita(a)}
+                        variant="danger" small/>
+                    </div>
+                  </Card>
+                ))
+              </>
             )}
 
             {/* TAB USCITI */}
@@ -285,6 +359,19 @@ export default function RegistroUscite() {
                   </Card>
                 )}
 
+                {/* Filtro specie usciti */}
+                <div style={{display:"flex",gap:8,marginBottom:10,overflowX:"auto",paddingBottom:4}}>
+                  {["tutti","bovino","suino","ovino"].map(s=>(
+                    <button key={s} onClick={()=>setFiltroUsciti(s)}
+                      style={{background:filtroUsciti===s?specieColor(s)||C.primary:C.card,
+                        color:filtroUsciti===s?"#FFF":C.muted,
+                        border:`1.5px solid ${filtroUsciti===s?specieColor(s)||C.primary:C.border}`,
+                        borderRadius:20,padding:"5px 12px",fontSize:12,fontWeight:600,
+                        cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>
+                      {s==="tutti"?"🐾 Tutti":specieIcon(s)+" "+specieLabel(s)+"i"}
+                    </button>
+                  ))}
+                </div>
                 {usciti.length===0?(
                   <div style={{textAlign:"center",padding:40,color:C.muted}}>
                     <div style={{fontSize:40,marginBottom:8}}>📤</div>
