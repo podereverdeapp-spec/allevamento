@@ -3,7 +3,7 @@ import { useState } from "react";
 const C = {
   bg:"#F5F0E8", card:"#FFFFFF", primary:"#5C3D1E", accent:"#A0522D",
   green:"#4A7C59", muted:"#8B7355", border:"#D4C4A8", text:"#2D1B0E",
-  blue:"#2C6E9B", red:"#C0392B", yellow:"#D4A017",
+  blue:"#2C6E9B", red:"#C0392B", yellow:"#D4A017", suini:"#B5547A",
 };
 
 const SEZIONI = [
@@ -12,68 +12,64 @@ const SEZIONI = [
     contenuto:[
       {tipo:"h3",testo:"Primo accesso"},
       {tipo:"steps",passi:[
-        "Apri Chrome o Safari",
+        "Apri Chrome o Safari sul telefono o PC",
         "Vai su www.podereverdeapp.it",
-        "Tocca 'Registrati' → inserisci nome, email e password → 'Crea account'",
+        "Tocca 'Registrati' → inserisci nome, email, password → 'Crea account'",
         "Accedi subito — nessuna conferma email necessaria",
       ]},
-      {tipo:"h3",testo:"Installa l'app sul telefono (accesso rapido)"},
+      {tipo:"h3",testo:"Installa sul telefono (accesso rapido senza browser)"},
       {tipo:"bullets",voci:[
-        "Android: Chrome → menu ⋮ → 'Aggiungi a schermata Home'",
-        "iPhone: Safari → icona 📤 → 'Aggiungi a schermata Home'",
+        "Android — Chrome: menu ⋮ → 'Aggiungi a schermata Home'",
+        "iPhone — Safari: icona 📤 → 'Aggiungi a schermata Home'",
       ]},
-      {tipo:"nota",testo:"Tutti i dati vengono salvati automaticamente nel database condiviso. Ogni operatore vede gli stessi dati in tempo reale da qualsiasi dispositivo."},
+      {tipo:"nota",testo:"Tutti i dati vengono salvati automaticamente nel database condiviso. Ogni operatore vede gli stessi dati in tempo reale da qualsiasi dispositivo. ⚠️ Usa sempre il browser in modalità normale (non in incognito) per restare connesso."},
     ]
   },
   {
-    id:"navigazione", icon:"🗺️", titolo:"Navigazione — i moduli",
+    id:"navigazione", icon:"🗺️", titolo:"Navigazione — tutti i moduli",
     contenuto:[
-      {tipo:"p",testo:"In basso ci sono i pulsanti per le diverse sezioni:"},
+      {tipo:"p",testo:"In basso ci sono i pulsanti per le sezioni principali. Scorri la barra per vederli tutti."},
       {tipo:"tabella",righe:[
-        ["🏠 Home","Dashboard con riepilogo capi, allerte magazzino, ultimi eventi"],
-        ["🏷️ Animali","Anagrafica completa + registro riproduttori"],
-        ["💉 Salute","Registro sanitario: vaccini, farmaci, visite"],
-        ["🌾 Dieta","Somministrazioni mangimi e foraggi"],
-        ["📦 Magazzino","Scorte con allerta livello minimo"],
-        ["📊 Report","Riepilogo costi e consistenza per specie"],
+        ["🐄 Gestione","Anagrafica animali, sanitario, alimentazione, magazzino, report, riproduttori"],
         ["🧬 Pedigree","Albero genealogico a 3 generazioni"],
-        ["🏆 Selezione","Ranking genetico con KPI reali"],
+        ["🐷 Lotti","Gestione lotti suini con tatuaggio automatico"],
+        ["🏆 Selezione","Ranking genetico con KPI reali (IIP, prolificità, % vivi)"],
         ["📊 Costi","Costi aggregati da tutte le fonti"],
         ["🧾 Origine","Costo di origine per singolo animale"],
         ["📤 Uscite","Macellazioni, vendite, morti — con resa %"],
         ["🏭 Struttura","Macchinari, ammortamenti, costi fissi"],
-        ["🐷 Lotti Suini","Gestione nidiate e tatuaggi suini"],
+        ["📥 Esporta","Export Excel granulare — scegli cosa esportare"],
         ["📖 Guida","Questo manuale"],
       ]},
     ]
   },
   {
-    id:"animali", icon:"🐄", titolo:"Scheda animale — consultare e modificare",
+    id:"animali", icon:"🐄", titolo:"Scheda animale — cercare, consultare, modificare",
     contenuto:[
       {tipo:"h3",testo:"Trovare un animale"},
       {tipo:"bullets",voci:[
-        "Apri 🏷️ Animali",
-        "Usa la barra di ricerca in cima: digita il BDN completo, le ultime 4 cifre del codice, oppure il nome",
-        "Usa i filtri specie (bovino/suino/ovino) e 'Solo attivi'",
-        "Ogni card mostra: nome, BDN, razza, data nascita, data ingresso, prezzo acquisto o costo nascita",
+        "Vai in 🐄 Gestione → tab 🏷️ Animali",
+        "Usa la barra di ricerca: digita BDN completo, ultime 4 cifre del codice, nome o razza",
+        "Usa i filtri specie (bovino / suino / ovino) e 'Solo attivi'",
       ]},
-      {tipo:"h3",testo:"Aprire la scheda completa"},
+      {tipo:"h3",testo:"Aprire la scheda"},
       {tipo:"p",testo:"Tocca il pulsante colorato '📋 Apri scheda completa' su ogni card. La scheda ha 3 tab:"},
       {tipo:"tabella",righe:[
-        ["📋 Info","Tutti i dati: BDN, razza, sesso, nascita, peso, provenienza, azienda, prezzo acquisto, stato, vaccinazioni ricevute, note"],
-        ["🧬 Genealogia","Padre, madre, discendenti diretti con link alle schede"],
-        ["📅 Eventi","Storico parti con modifica/eliminazione"],
+        ["📋 Info","BDN, razza, sesso, nascita, peso, provenienza, azienda origine, prezzo acquisto, costo nascita, stato, vaccinazioni ricevute"],
+        ["🧬 Genealogia","Padre, madre, discendenti diretti — cliccabili"],
+        ["📅 Eventi","Storico parti con pulsanti ✏️ modifica e 🗑️ elimina"],
       ]},
       {tipo:"h3",testo:"Modificare i dati"},
-      {tipo:"p",testo:"Dalla scheda, tocca ✏️ in alto a destra. Il form si apre precompilato — modifica ciò che vuoi e tocca Salva."},
+      {tipo:"p",testo:"Dalla scheda tocca ✏️ in alto a destra → modifica quello che vuoi → Salva."},
       {tipo:"h3",testo:"Registrare un nuovo animale"},
       {tipo:"steps",passi:[
         "Tocca '+ Aggiungi' in cima alla lista",
-        "Seleziona la SPECIE — i campi cambiano automaticamente per bovini/suini/ovini",
-        "Inserisci BDN/Matricola, nome (facoltativo), razza, categoria, sesso, data nascita",
-        "Per acquistati: seleziona provenienza 'Acquistato' → appare il campo prezzo acquisto e azienda di origine",
-        "Collega padre e madre dalla lista animali per tracciare la genealogia",
-        "La RAZZA del figlio viene calcolata automaticamente: stessa razza padre e madre = razza pura / razze diverse = METICCIA",
+        "Seleziona SPECIE — i campi cambiano per bovino / suino / ovino",
+        "Inserisci BDN / Matricola, nome (facoltativo), razza, categoria, sesso, data nascita",
+        "Per acquistati: provenienza 'Acquistato' → compilare prezzo acquisto e azienda di origine",
+        "Per maschi destinati alla riproduzione: attiva il toggle '♂ Riproduttore'",
+        "Collega padre e madre dalla lista per la genealogia",
+        "La razza del figlio viene calcolata: stessa razza → pura; razze diverse → METICCIA",
         "Tocca Salva",
       ]},
     ]
@@ -81,180 +77,236 @@ const SEZIONI = [
   {
     id:"riproduttori", icon:"♂", titolo:"Registro riproduttori",
     contenuto:[
-      {tipo:"h3",testo:"Come registrare un maschio come riproduttore"},
+      {tipo:"h3",testo:"Registrare un maschio come riproduttore"},
       {tipo:"steps",passi:[
         "Cerca il maschio nella lista Animali",
-        "Apri la scheda → tocca ✏️ Modifica",
+        "Apri la scheda → ✏️ Modifica",
         "Attiva il toggle '♂ Riproduttore' (compare solo per i maschi)",
-        "Tocca Salva",
+        "Salva",
       ]},
-      {tipo:"h3",testo:"Consultare il registro"},
-      {tipo:"p",testo:"In cima alla lista Animali tocca il pulsante '♂ Riproduttori'. Vedi tutti i maschi registrati divisi per specie (bovino/suino/ovino) con nome, razza, età e numero di figli già registrati."},
-      {tipo:"h3",testo:"Registrazione parto: scelta del padre"},
-      {tipo:"nota",testo:"Nel form parto, il campo 'Padre' mostra SOLO i maschi registrati come riproduttori della stessa specie. Se non ne hai ancora nessuno registrato, mostra tutti i maschi come alternativa."},
+      {tipo:"h3",testo:"Consultare il registro riproduttori"},
+      {tipo:"p",testo:"In cima alla lista Animali tocca '♂ Riproduttori'. Vedi tutti i maschi registrati divisi per specie con nome, razza, età e numero di figli già registrati. Tocca una card per aprire la scheda."},
+      {tipo:"nota",testo:"Nel form parto, il campo 'Padre' mostra SOLO i maschi registrati come riproduttori della stessa specie. Se non ne hai ancora, mostra tutti i maschi come alternativa."},
     ]
   },
   {
-    id:"parto", icon:"🐣", titolo:"Registrare un parto",
+    id:"parto_bovini_ovini", icon:"🐣", titolo:"Registrare un parto (bovini e ovini)",
     contenuto:[
-      {tipo:"h3",testo:"Parto attuale (crea schede figli)"},
+      {tipo:"h3",testo:"Nuovo parto (crea schede figli)"},
       {tipo:"steps",passi:[
         "Apri la scheda della MADRE",
-        "Vai al tab '📅 Eventi'",
-        "Tocca '🐣 Nuovo parto'",
+        "Tab '📅 Eventi' → '🐣 Nuovo parto'",
         "Inserisci data, tipo parto, N° nati TOTALI e N° nati morti",
-        "I nati vivi vengono calcolati automaticamente (totali − morti)",
-        "Scegli il padre dalla lista riproduttori",
-        "Per ogni nato vivo: inserisci BDN/tatuaggio, sesso, peso nascita",
+        "I nati vivi sono calcolati automaticamente (totali − morti)",
+        "Seleziona il padre dalla lista riproduttori",
+        "Per ogni nato vivo: BDN, sesso, peso nascita",
         "Tocca 'Registra parto'",
       ]},
-      {tipo:"nota",testo:"✅ Le schede dei nati vengono create AUTOMATICAMENTE con i dati ereditati dalla madre: specie, razza calcolata (pura o meticcia), data nascita, madre, padre, provenienza 'Nato in azienda'."},
-      {tipo:"h3",testo:"Parto storico (solo statistiche, no schede figli)"},
+      {tipo:"nota",testo:"Le schede dei nati vengono create AUTOMATICAMENTE con razza calcolata, madre, padre, data nascita e provenienza 'Nato in azienda'."},
+      {tipo:"h3",testo:"Parto storico (solo statistiche)"},
       {tipo:"bullets",voci:[
-        "Tocca '📅 Parto storico' invece di 'Nuovo parto'",
-        "Inserisci: data, nati totali, nati morti — nati vivi calcolati automaticamente",
-        "Nessun BDN richiesto — utile per parti già avvenuti con figli non più in azienda",
-        "I dati alimentano il calcolo IIP e la Selezione Genetica",
+        "Tocca '📅 Parto storico'",
+        "Inserisci: data, nati totali, nati morti",
+        "Nessun BDN richiesto — utile per parti già avvenuti con figli non in azienda",
+        "Alimenta automaticamente la Selezione Genetica per il calcolo IIP",
       ]},
       {tipo:"h3",testo:"Modificare o eliminare un parto"},
-      {tipo:"bullets",voci:[
-        "Nel tab 📅 Eventi della madre, ogni parto ha i pulsanti ✏️ (modifica) e 🗑️ (elimina)",
-        "La modifica aggiorna solo i dati statistici — le schede dei figli già creati non vengono toccate",
-        "L'eliminazione rimuove solo l'evento — le schede animali rimangono",
+      {tipo:"p",testo:"Nel tab 📅 Eventi: ogni parto mostra ✏️ (modifica dati) e 🗑️ (elimina evento). La modifica aggiorna solo i dati statistici — le schede dei figli già creati non vengono toccate."},
+    ]
+  },
+  {
+    id:"parto_suini", icon:"🐷", titolo:"Gestione parto e lotti suini",
+    contenuto:[
+      {tipo:"h3",testo:"Identificazione suini — due sistemi normativi"},
+      {tipo:"tabella",righe:[
+        ["Matricola individuale","Razze pregiate (Cinta Senese, Nero Apucalabro, Mora Romagnola, Nero Casertano) e riproduttori (verri e scrofe)"],
+        ["Codice lotto (tatuaggio)","Animali da ingrasso — tutti i suinetti di un parto portano lo stesso numero tatuato sull'orecchio"],
       ]},
+      {tipo:"h3",testo:"Codice lotto — come viene generato"},
+      {tipo:"p",testo:"Il codice è composto da: AA (anno) + MM (mese) + lettera razza madre + lettera razza padre + ultime 2 cifre matricola madre."},
+      {tipo:"tabella",righe:[
+        ["A","Nero Apucalabro"],
+        ["C","Cinta Senese"],
+        ["D","Duroc"],
+        ["G","Mora Romagnola"],
+        ["L","Large White"],
+        ["M","Meticcio"],
+        ["N","Nero Casertano"],
+        ["R","Landrace"],
+        ["0","Altra"],
+      ]},
+      {tipo:"nota",testo:"Esempio: madre Cinta Senese matricola 392019 + padre Cinta Senese + parto 22/04/2023 → codice lotto 2304CC19. Unità: 2304CC1901, 2304CC1902, ..."},
+      {tipo:"h3",testo:"Registrare un parto suini dalla sezione Lotti"},
+      {tipo:"steps",passi:[
+        "Vai in 🐷 Lotti → '+ Nuovo parto'",
+        "Scegli madre e padre → il codice lotto appare subito automaticamente",
+        "Inserisci data parto, nati totali, nati morti → i vivi si calcolano",
+        "Facoltativo: data accoppiamento → calcola data prevista parto (+3 mesi +3 sett. +3 giorni)",
+        "Tocca 'Registra parto e crea lotto'",
+        "L'app crea il lotto + N unità (una per ogni nato vivo) + evento riproduttivo sulla madre",
+      ]},
+      {tipo:"h3",testo:"Gestire le unità di un lotto"},
+      {tipo:"bullets",voci:[
+        "Tocca un lotto nella lista → si apre la scheda con tutte le unità",
+        "Cerca per tatuaggio completo (es. 2304CC1901) o parziale",
+        "Su ogni unità (✏️): assegna sesso, destinazione (ingrasso / riproduzione / macello), matricola individuale",
+        "Pulsante 📤 per registrare uscita: motivo, data, peso vivo, peso carcassa, resa % calcolata",
+        "La scheda lotto mostra in sintesi: vivi / macellati / deceduti / riproduttori / maschi / femmine",
+      ]},
+      {tipo:"h3",testo:"Trovare un suinetto per tatuaggio"},
+      {tipo:"p",testo:"Nella lista lotti: usa la barra di ricerca in cima — digita il tatuaggio completo (es. 2304CC1901) o il codice lotto (es. 2304CC19) per trovare subito l'unità."},
     ]
   },
   {
     id:"sanitario", icon:"💉", titolo:"Registro sanitario",
     contenuto:[
-      {tipo:"h3",testo:"Evento singolo (un animale)"},
-      {tipo:"steps",passi:[
-        "Vai in 💉 Salute → tocca '+ Singolo'",
-        "Seleziona l'animale, scegli tipo (vaccino/farmaco/visita/intervento)",
-        "Compila descrizione, data, prodotto, veterinario, costo",
-        "Tocca Salva",
+      {tipo:"h3",testo:"Tre modalità di registrazione"},
+      {tipo:"tabella",righe:[
+        ["+ Singolo","Un singolo animale — apri, compila, salva"],
+        ["💉 Gruppo","Più animali dell'anagrafica (bovini, ovini, suini con matricola) — selezione multipla con spunte"],
+        ["🐷 Lotto","Suinetti di un lotto specifico — selezione per lotto poi per unità"],
       ]},
-      {tipo:"h3",testo:"Evento di gruppo (vaccino o trattamento su più animali)"},
+      {tipo:"h3",testo:"Evento di gruppo"},
       {tipo:"steps",passi:[
-        "Vai in 💉 Salute → tocca '💉 Gruppo'",
-        "STEP 1: seleziona gli animali con le spunte — cerca per BDN o nome, 'Seleziona tutti' per la mandria intera",
-        "STEP 2: compila UN SOLO form — tipo, descrizione, prodotto, veterinario, data, costo totale",
-        "Il costo viene diviso automaticamente per il numero di animali selezionati",
+        "Tocca '💉 Gruppo'",
+        "STEP 1: seleziona gli animali con le spunte (cerca per BDN, ultime 4 cifre o nome)",
+        "Usa 'Seleziona tutti' per trattare l'intera mandria",
+        "STEP 2: compila tipo, descrizione, prodotto, veterinario, data, costo totale",
+        "Il costo viene diviso automaticamente per il numero di animali",
         "Tocca 'Registra evento su N animali'",
       ]},
-      {tipo:"h3",testo:"Ricerca eventi sanitari"},
-      {tipo:"p",testo:"Usa la barra di ricerca in cima per trovare eventi per BDN (anche ultime 4 cifre), nome animale, tipo evento o nome prodotto."},
-      {tipo:"h3",testo:"Vaccinazioni nella scheda animale"},
-      {tipo:"p",testo:"Nella scheda di ogni animale (tab 📋 Info) compare la sezione 'Vaccinazioni' con tutti i vaccini ricevuti, date e richiami."},
+      {tipo:"h3",testo:"Trattamento su lotto suini"},
+      {tipo:"steps",passi:[
+        "Tocca '🐷 Lotto'",
+        "STEP 1: scegli il lotto dalla lista (cerca per codice lotto)",
+        "Seleziona le unità da trattare (o 'Seleziona tutte le vive')",
+        "STEP 2: compila i dati del trattamento",
+        "Tocca 'Registra trattamento su N unità'",
+      ]},
+      {tipo:"h3",testo:"Ricerca eventi"},
+      {tipo:"p",testo:"Usa la barra di ricerca in cima: cerca per BDN, ultime 4 cifre, nome animale, tipo evento o prodotto farmaceutico."},
+      {tipo:"nota",testo:"Le vaccinazioni compaiono automaticamente nella scheda di ogni animale (tab 📋 Info → sezione Vaccinazioni)."},
     ]
   },
   {
     id:"alimentazione", icon:"🌾", titolo:"Alimentazione",
     contenuto:[
-      {tipo:"h3",testo:"Razione singola"},
-      {tipo:"p",testo:"Vai in 🌾 Dieta → '+ Singolo'. Seleziona specie, tipo mangime, quantità, unità, data, costo."},
-      {tipo:"h3",testo:"Razione di gruppo (stesso mangime a più animali)"},
+      {tipo:"h3",testo:"Due modalità"},
+      {tipo:"tabella",righe:[
+        ["+ Singolo","Razione per un singolo animale o specie"],
+        ["🌾 Gruppo","Stessa razione su più animali con selezione multipla"],
+      ]},
+      {tipo:"h3",testo:"Razione di gruppo"},
       {tipo:"steps",passi:[
-        "Vai in 🌾 Dieta → tocca '🌾 Gruppo'",
-        "STEP 1: seleziona gli animali con le spunte",
-        "STEP 2: compila tipo mangime, quantità PER CAPO, unità, data, costo totale",
-        "Il costo viene diviso per il numero di capi selezionati",
-        "Mostra anteprima: quantità totale distribuita (es. 3 kg × 45 = 135 kg)",
+        "Tocca '🌾 Gruppo'",
+        "STEP 1: seleziona gli animali",
+        "STEP 2: tipo mangime, quantità PER CAPO, unità, data, costo totale",
+        "Il costo viene diviso per i capi — vedi anteprima quantità totale (es. 3 kg × 45 = 135 kg)",
         "Tocca 'Registra razione su N animali'",
       ]},
     ]
   },
   {
-    id:"uscite", icon:"📤", titolo:"Registrare un'uscita",
+    id:"uscite", icon:"📤", titolo:"Registro uscite",
     contenuto:[
-      {tipo:"h3",testo:"Tipi di uscita"},
-      {tipo:"bullets",voci:[
-        "🔪 Macellato — con peso vivo, peso carcassa, resa % calcolata automaticamente",
-        "✝️ Morto (cause naturali o malattia)",
-        "💰 Venduto vivo",
-        "🚨 Furto / 🏃 Scappato / 🔄 Trasferito",
-      ]},
+      {tipo:"h3",testo:"Come registrare un'uscita"},
       {tipo:"steps",passi:[
-        "Vai in 📤 Uscite → tab 'In stalla'",
-        "Trova l'animale → tocca '📤 Uscita'",
+        "Vai in 📤 Uscite",
+        "Usa i filtri specie (bovini / suini / ovini) per restringere la lista",
+        "Cerca per BDN, ultime 4 cifre, nome, lotto o razza",
+        "Tab 'In stalla': trova l'animale → tocca '📤 Uscita'",
         "Scegli motivo, data, peso vivo",
-        "Se macellato: inserisci peso carcassa → la RESA % si calcola automaticamente",
+        "Se macellato: inserisci peso carcassa → resa % calcolata automaticamente",
         "I giorni di permanenza in stalla vengono calcolati automaticamente",
         "Tocca 'Registra uscita'",
       ]},
-      {tipo:"nota",testo:"I dati di uscita si aggiornano anche sulla scheda anagrafica dell'animale (tab Info → sezione Gestione)."},
-    ]
-  },
-  {
-    id:"lotti_suini", icon:"🐷", titolo:"Lotti suini e sistema tatuaggio",
-    contenuto:[
-      {tipo:"h3",testo:"Sistema di identificazione"},
-      {tipo:"p",testo:"Ogni nidiata di suinetti riceve un codice numerico da tatuatrice: 2 cifre anno + 3 cifre progressivo. Esempio: 24001 = primo lotto del 2024."},
-      {tipo:"nota",testo:"Lo stesso numero va tatuato su TUTTA la nidiata. È il numero del lotto — non il numero individuale del singolo suinetto."},
-      {tipo:"tabella",righe:[
-        ["Tatuaggio lotto (es. 24001)","Stesso per tutta la nidiata — scritto sulla pelle"],
-        ["Nr. interno (1, 2, 3…)","Solo nell'app per distinguere i capi — non va tatuato"],
-        ["Marchio individuale","Solo per capi scelti come riproduttori"],
+      {tipo:"h3",testo:"Tipi di uscita"},
+      {tipo:"bullets",voci:[
+        "🔪 Macellato — con peso vivo, peso carcassa, resa %",
+        "✝️ Morto (cause naturali o malattia)",
+        "💰 Venduto vivo",
+        "🚨 Furto · 🏃 Scappato · 🔄 Trasferito",
       ]},
-      {tipo:"h3",testo:"Registrare un parto suini"},
-      {tipo:"steps",passi:[
-        "Vai in 🐷 Lotti Suini → '+ Parto'",
-        "L'app assegna automaticamente il codice tatuaggio — appare grande e visibile",
-        "STEP 1: inserisci madre, padre, data, nati vivi, nati morti",
-        "STEP 2: per ogni suinetto vivo inserisci sesso e peso nascita (BDN solo se diventerà riproduttore)",
-        "Salva — il codice è pronto da tatuare sull'intera nidiata",
-      ]},
+      {tipo:"h3",testo:"Tab 'Usciti'"},
+      {tipo:"p",testo:"Storico di tutti gli animali usciti con filtro per specie. Mostra riepilogo macellazioni: peso vivo totale, carcassa totale, resa media."},
     ]
   },
   {
     id:"pedigree", icon:"🧬", titolo:"Pedigree e genealogia",
     contenuto:[
-      {tipo:"h3",testo:"Come funziona"},
-      {tipo:"p",testo:"Il modulo Pedigree legge automaticamente i dati genealogici registrati nelle schede. Non serve inserire nulla di aggiuntivo."},
+      {tipo:"p",testo:"Il modulo Pedigree legge automaticamente i dati genealogici delle schede. Non serve inserire nulla in più."},
       {tipo:"bullets",voci:[
         "Albero visuale a 3 generazioni (soggetto → genitori → nonni)",
         "Nodi cliccabili: tocca un antenato per aprirne la scheda",
         "Badge 'pedigree ✓' sugli animali con genealogia tracciata",
-        "Storico parti con nati vivi/morti e collegamento ai figli",
-        "Discendenti diretti elencati con link alle loro schede",
+        "Storico parti con nati vivi/morti",
+        "Discendenti diretti con link alle schede",
       ]},
-      {tipo:"nota",testo:"Per avere un albero completo, collega padre e madre nella scheda di ogni animale."},
+      {tipo:"nota",testo:"Per un albero completo, collega sempre padre e madre nella scheda di ogni animale."},
     ]
   },
   {
-    id:"selezione", icon:"🏆", titolo:"Selezione genetica — ranking",
+    id:"selezione", icon:"🏆", titolo:"Selezione genetica",
     contenuto:[
-      {tipo:"h3",testo:"KPI calcolati automaticamente dagli eventi parto"},
+      {tipo:"h3",testo:"KPI calcolati automaticamente"},
       {tipo:"tabella",righe:[
         ["N° parti","Totale parti registrati per femmina"],
-        ["IIP medio","Intervallo inter-parto in giorni e mesi (meno = meglio)"],
-        ["% nati vivi","Percentuale nati vivi sul totale"],
+        ["IIP medio","Intervallo inter-parto in giorni E mesi (meno = meglio)"],
+        ["% nati vivi","Nati vivi su totale nati"],
         ["Prolificità","Media nati vivi per parto"],
-        ["Peso medio nati","Peso medio dei nati alla nascita"],
         ["Longevità","Anni di carriera riproduttiva"],
       ]},
-      {tipo:"h3",testo:"Come migliorare il ranking"},
+      {tipo:"h3",testo:"Massimizzare l'accuratezza del ranking"},
       {tipo:"bullets",voci:[
-        "Registra tutti i parti (presenti e storici) nella scheda di ogni fattrice",
-        "Per i parti storici usa il pulsante '📅 Parto storico' — bastano data, nati totali e nati morti",
-        "Più parti registri, più accurato è l'indice",
+        "Registra TUTTI i parti (presenti e storici) nella scheda di ogni fattrice",
+        "Per parti storici usa '📅 Parto storico' — bastano data, totali, morti",
+        "Più parti hai registrati, più accurato è il ranking",
+        "Il ranking si aggiorna in tempo reale appena aggiungi nuovi eventi",
       ]},
-      {tipo:"nota",testo:"Il ranking si aggiorna in tempo reale appena aggiungi nuovi eventi parto."},
     ]
   },
   {
     id:"costi", icon:"💰", titolo:"Gestione costi",
     contenuto:[
-      {tipo:"h3",testo:"Le 3 sezioni costi"},
       {tipo:"tabella",righe:[
         ["📊 Costi","Aggregazione automatica da tutte le fonti: costi generali + per animale + alimentazione + sanitario"],
-        ["🧾 Costo Origine","Per ogni animale: prezzo acquisto + costi individuali accumulati = totale con €/kg"],
-        ["🏭 Struttura","Macchinari con ammortamento automatico (quota annua, residuo, %) + costi fissi"],
+        ["🧾 Costo Origine","Per ogni animale: prezzo acquisto + costi individuali = totale con €/kg"],
+        ["🏭 Struttura","Macchinari con ammortamento automatico + costi fissi periodici"],
       ]},
-      {tipo:"h3",testo:"Costo di nascita per animali nati in azienda"},
-      {tipo:"p",testo:"Nella scheda di un animale nato in azienda puoi aggiungere un 'valore allevamento' dal modulo Costo Origine → Aggiungi costo. Compare direttamente nella card della lista animali."},
       {tipo:"h3",testo:"Ammortamenti automatici"},
-      {tipo:"p",testo:"Inserisci in 🏭 Struttura: nome macchinario, costo storico, anno acquisto, anni di ammortamento. L'app calcola automaticamente quota annua, totale ammortizzato e valore residuo con barra di avanzamento."},
+      {tipo:"p",testo:"In 🏭 Struttura → Macchinari: inserisci nome, costo storico, anno acquisto, anni di ammortamento. L'app calcola quota annua, totale ammortizzato e valore residuo con barra di avanzamento."},
+      {tipo:"h3",testo:"Costo nascita per animali nati in azienda"},
+      {tipo:"p",testo:"In 🧾 Costo Origine apri la scheda di un animale nato → 'Aggiungi costo' → voce 'valore allevamento'. Compare nella card e nel calcolo €/kg."},
+    ]
+  },
+  {
+    id:"export", icon:"📥", titolo:"Esportare dati in Excel",
+    contenuto:[
+      {tipo:"p",testo:"Il tab 📥 Esporta permette di generare un file Excel su misura con solo i dati che ti servono."},
+      {tipo:"h3",testo:"Come funziona"},
+      {tipo:"steps",passi:[
+        "Vai in 📥 Esporta",
+        "Imposta opzionalmente un filtro data (Da / A) — si applica a sanitario, alimentazione, parti, costi",
+        "Spunta le sezioni da includere (o usa 'Seleziona tutto')",
+        "Tocca '📥 Genera Excel (N fogli)' — il file viene scaricato automaticamente",
+      ]},
+      {tipo:"h3",testo:"Sezioni esportabili"},
+      {tipo:"tabella",righe:[
+        ["🐄 Anagrafica Bovini","Tutti i dati di ogni bovino: BDN, razza, pesi, provenienza, uscita, resa"],
+        ["🐷 Anagrafica Suini","Come sopra per i suini con matricola"],
+        ["🐑 Anagrafica Ovini","Come sopra per gli ovini"],
+        ["📤 Uscite","Tutti gli animali usciti con giorni permanenza e resa macellazione"],
+        ["🐣 Parti","Registro completo parti per specie con padre, madre, nati"],
+        ["💉 Sanitario","Tutti gli eventi sanitari inclusi i trattamenti su lotti suini"],
+        ["🌾 Alimentazione","Tutte le somministrazioni"],
+        ["📋 Lotti Riepilogo","Un lotto per riga: vivi/macellati/deceduti/riproduttori/maschi/femmine"],
+        ["🏷️ Lotti Unità","Una riga per ogni suinetto con tatuaggio, stato, pesi, resa"],
+        ["🏆 KPI Selezione","IIP giorni e mesi, prolificità, % vivi per ogni fattrice"],
+        ["🧾 Costi Animale","Costi per singolo animale"],
+        ["📊 Costi Generali","Costi fissi aziendali"],
+        ["🏭 Macchinari","Con quota annua, totale ammortizzato e valore residuo calcolati"],
+      ]},
+      {tipo:"nota",testo:"Il file Excel scaricato contiene un foglio separato per ogni sezione selezionata. Il nome del file include la data di export."},
     ]
   },
 ];
@@ -337,7 +389,7 @@ export default function Guida() {
         borderRadius:"0 0 28px 28px",padding:"28px 20px 24px",marginBottom:20}}>
         <div style={{fontSize:22,fontWeight:800,color:"#FFF"}}>📖 Guida per Allevatori</div>
         <div style={{fontSize:14,color:"rgba(255,255,255,0.75)",marginTop:4}}>
-          App Allevamento — Podere Verde · v22
+          App Allevamento — Podere Verde · v28
         </div>
       </div>
       <div style={{padding:"0 16px"}}>
@@ -361,7 +413,7 @@ export default function Guida() {
           </button>
         ))}
         <div style={{textAlign:"center",padding:"20px 0",fontSize:12,color:C.muted}}>
-          App Allevamento v22 · Podere Verde · podereverdeapp.it
+          App Allevamento v28 · Podere Verde · podereverdeapp.it
         </div>
       </div>
     </div>
