@@ -11,6 +11,7 @@ import RegistroUscite      from "./registro_uscite";
 import CostiGenerali       from "./costi_generali";
 import CostiComplessivi    from "./costi_complessivi";
 import Guida               from "./Guida";
+import ExportManager       from "./ExportManager";
 import { exportCompleto }  from "./exportExcel";
 import "./App.css";
 
@@ -25,6 +26,7 @@ const TABS = [
   { id:"origine",     label:"Origine",    icon:"🧾" },
   { id:"uscite",      label:"Uscite",     icon:"📤" },
   { id:"generali",    label:"Struttura",  icon:"🏭" },
+  { id:"export",      label:"Esporta",    icon:"📥" },
   { id:"guida",       label:"Guida",      icon:"📖" },
 ];
 
@@ -124,6 +126,7 @@ export default function App() {
         {tab==="origine"     && <CostoOrigine      supabase={supabase}/>}
         {tab==="uscite"      && <RegistroUscite    supabase={supabase}/>}
         {tab==="generali"    && <CostiGenerali     supabase={supabase}/>}
+        {tab==="export"     && <ExportManager/>}
         {tab==="guida"       && <Guida/>}
       </div>
 

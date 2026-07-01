@@ -1,0 +1,557 @@
+import { useState } from "react";
+import * as XLSX from "xlsx";
+import { supabase } from "./supabase";
+
+const C = {
+  bg:"#F5F0E8", card:"#FFFFFF", primary:"#5C3D1E", accent:"#A0522D",
+  green:"#4A7C59", red:"#C0392B", yellow:"#D4A017", blue:"#2C6E9B",
+  text:"#2D1B0E", muted:"#8B7355", border:"#D4C4A8",
+  bovini:"#8B6914", suini:"#B5547A", ovini:"#4A7C59",
+};
+
+const today = () => new Date().toISOString().split("T")[0];
+
+// ─── Helpers foglio Excel ──────────────────────────────────────────────────────
+function creaFoglio(dati, colonne) {
+  if(!dati||dati.length===0) return XLSX.utils.json_to_sheet([{"Nessun dato":""}]);
+  const righe = dati.map(d => {
+    const r = {};
+    colonne.forEach(c => { r[c.label] = d[c.key] ?? ""; });
+    return r;
+  });
+  return XLSX.utils.json_to_sheet(righe);
+}
+
+function scarica(wb, nomeFile) {
+  XLSX.writeFile(wb, `${nomeFile}_${today()}.xlsx`);
+}
+
+// ─── GENERATORI FOGLI ─────────────────────────────────────────────────────────
+function foglio_anagrafica(animali) {
+  return creaFoglio(animali, [
+    {key:"bdn",              label:"BDN / Matricola"},
+    {key:"nome",             label:"Nome"},
+    {key:"specie",           label:"Specie"},
+    {key:"razza",            label:"Razza"},
+    {key:"razza_calcolata",  label:"Razza calcolata"},
+    {key:"sesso",            label:"Sesso"},
+    {key:"categoria",        label:"Categoria"},
+    {key:"nascita",          label:"Data nascita"},
+    {key:"peso_nascita",     label:"Peso nascita (kg)"},
+    {key:"peso_attuale",     label:"Peso attuale (kg)"},
+    {key:"provenienza",      label:"Provenienza"},
+    {key:"origine",          label:"Azienda origine"},
+    {key:"prezzo_acquisto",  label:"Prezzo acquisto (€)"},
+    {key:"data_ingresso",    label:"Data ingresso"},
+    {key:"lotto_box",        label:"Lotto / Box"},
+    {key:"destinazione",     label:"Destinazione"},
+    {key:"stato",            label:"Stato"},
+    {key:"data_uscita",      label:"Data uscita"},
+    {key:"motivo_uscita",    label:"Motivo uscita"},
+    {key:"peso_vivo_uscita", label:"Peso vivo uscita (kg)"},
+    {key:"peso_carcassa",    label:"Peso carcassa (kg)"},
+    {key:"resa_percent",     label:"Resa %"},
+    {key:"note_sanitarie",   label:"Note sanitarie"},
+    {key:"note",             label:"Note"},
+  ]);
+}
+
+function foglio_sanitario(eventi, animali, suiniLotto, lotti) {
+  const dati = eventi.map(e => {
+    const a = e.animale_id ? animali.find(x=>x.id===e.animale_id) : null;
+    const u = e.suini_lotto_id ? suiniLotto.find(x=>x.id===e.suini_lotto_id) : null;
+    const l = u ? lotti.find(x=>x.id===u.lotto_id) : null;
+    return {
+      data:        e.data,
+      specie:      a?.specie || (u?"suino (lotto)":""),
+      animale:     a ? (a.nome||a.bdn||"") : (u ? `${l?.codice_lotto||l?.codice||""}${String(u.nr).padStart(2,"0")}` : ""),
+      bdn:         a?.bdn || "",
+      tipo:        e.tipo,
+      descrizione: e.descrizione,
+      prodotto:    e.prodotto||"",
+      veterinario: e.veterinario||"",
+      scadenza:    e.scadenza||"",
+      costo:       e.costo||"",
+      note:        e.note||"",
+    };
+  });
+  return creaFoglio(dati, [
+    {key:"data",        label:"Data"},
+    {key:"specie",      label:"Specie"},
+    {key:"animale",     label:"Animale / Tatuaggio"},
+    {key:"bdn",         label:"BDN"},
+    {key:"tipo",        label:"Tipo"},
+    {key:"descrizione", label:"Descrizione"},
+    {key:"prodotto",    label:"Prodotto / Farmaco"},
+    {key:"veterinario", label:"Veterinario"},
+    {key:"scadenza",    label:"Scadenza richiamo"},
+    {key:"costo",       label:"Costo (€)"},
+  ]);
+}
+
+function foglio_alimentazione(voci) {
+  return creaFoglio(voci, [
+    {key:"data",     label:"Data"},
+    {key:"specie",   label:"Specie"},
+    {key:"tipo",     label:"Tipo mangime / foraggio"},
+    {key:"quantita", label:"Quantità"},
+    {key:"unita",    label:"Unità"},
+    {key:"costo",    label:"Costo (€)"},
+    {key:"note",     label:"Note"},
+  ]);
+}
+
+function foglio_parti(eventi, animali) {
+  const dati = eventi.filter(e=>e.tipo_evento==="parto").map(e => {
+    const madre = animali.find(a=>a.id===e.animale_id);
+    const padre = e.padre_id ? animali.find(a=>a.id===e.padre_id) : null;
+    return {
+      data_parto:         e.data_evento,
+      madre_bdn:          madre?.bdn||"",
+      madre_nome:         madre?.nome||"",
+      specie:             madre?.specie||"",
+      razza_madre:        madre?.razza||"",
+      padre_bdn:          padre?.bdn||"",
+      padre_nome:         padre?.nome||"",
+      tipo_parto:         e.tipo_parto||"",
+      nati_vivi:          e.nati_vivi||0,
+      nati_morti:         e.nati_morti||0,
+      nati_totali:        (e.nati_vivi||0)+(e.nati_morti||0),
+      data_accoppiamento: e.data_accoppiamento||"",
+      note:               e.note||"",
+    };
+  });
+  return creaFoglio(dati, [
+    {key:"data_parto",         label:"Data parto"},
+    {key:"specie",             label:"Specie"},
+    {key:"madre_bdn",          label:"BDN Madre"},
+    {key:"madre_nome",         label:"Nome Madre"},
+    {key:"razza_madre",        label:"Razza Madre"},
+    {key:"padre_bdn",          label:"BDN Padre"},
+    {key:"padre_nome",         label:"Nome Padre"},
+    {key:"tipo_parto",         label:"Tipo parto"},
+    {key:"nati_totali",        label:"Nati totali"},
+    {key:"nati_vivi",          label:"Nati vivi"},
+    {key:"nati_morti",         label:"Nati morti"},
+    {key:"data_accoppiamento", label:"Data accoppiamento"},
+    {key:"note",               label:"Note"},
+  ]);
+}
+
+function foglio_uscite(animali) {
+  const usciti = animali.filter(a=>a.stato!=="attivo");
+  const dati = usciti.map(a => ({
+    bdn:              a.bdn||"",
+    nome:             a.nome||"",
+    specie:           a.specie||"",
+    razza:            a.razza_calcolata||a.razza||"",
+    sesso:            a.sesso||"",
+    nascita:          a.nascita||"",
+    data_ingresso:    a.data_ingresso||"",
+    data_uscita:      a.data_uscita||"",
+    giorni_permanenza:a.data_uscita&&a.data_ingresso
+      ?Math.round((new Date(a.data_uscita)-new Date(a.data_ingresso))/86400000):"",
+    stato:            a.stato||"",
+    motivo_uscita:    a.motivo_uscita||"",
+    peso_vivo_uscita: a.peso_vivo_uscita||"",
+    peso_carcassa:    a.peso_carcassa||"",
+    resa_percent:     a.resa_percent||"",
+    note:             a.note||"",
+  }));
+  return creaFoglio(dati, [
+    {key:"bdn",              label:"BDN / Matricola"},
+    {key:"nome",             label:"Nome"},
+    {key:"specie",           label:"Specie"},
+    {key:"razza",            label:"Razza"},
+    {key:"sesso",            label:"Sesso"},
+    {key:"nascita",          label:"Data nascita"},
+    {key:"data_ingresso",    label:"Data ingresso"},
+    {key:"data_uscita",      label:"Data uscita"},
+    {key:"giorni_permanenza",label:"Giorni permanenza"},
+    {key:"stato",            label:"Stato"},
+    {key:"motivo_uscita",    label:"Motivo uscita"},
+    {key:"peso_vivo_uscita", label:"Peso vivo (kg)"},
+    {key:"peso_carcassa",    label:"Peso carcassa (kg)"},
+    {key:"resa_percent",     label:"Resa %"},
+    {key:"note",             label:"Note"},
+  ]);
+}
+
+function foglio_lotti_riepilogo(lotti, suiniLotto, animali) {
+  const dati = lotti.map(l => {
+    const us = suiniLotto.filter(s=>s.lotto_id===l.id);
+    const madre = animali.find(a=>a.id===l.madre_id);
+    const padre = animali.find(a=>a.id===l.padre_id);
+    return {
+      codice:      l.codice_lotto||l.codice||"",
+      data_parto:  l.data_parto||"",
+      madre_bdn:   madre?.bdn||"",
+      madre_nome:  madre?.nome||"",
+      razza_madre: l.razza_madre||madre?.razza||"",
+      padre_bdn:   padre?.bdn||"",
+      razza_padre: l.razza_padre||padre?.razza||"",
+      nati_totali: l.nati_totali||us.length,
+      nati_vivi:   l.nati_vivi||us.filter(u=>u.vivo!==false).length,
+      nati_morti:  l.nati_morti||0,
+      vivi_attuali:us.filter(u=>u.vivo!==false&&u.stato==="attivo").length,
+      macellati:   us.filter(u=>u.stato==="macellato").length,
+      deceduti:    us.filter(u=>u.stato==="deceduto").length,
+      venduti:     us.filter(u=>u.stato==="venduto").length,
+      riproduttori:us.filter(u=>u.destinazione==="riproduzione").length,
+      maschi:      us.filter(u=>u.sesso==="M").length,
+      femmine:     us.filter(u=>u.sesso==="F").length,
+      note:        l.note||"",
+    };
+  });
+  return creaFoglio(dati, [
+    {key:"codice",      label:"Codice lotto"},
+    {key:"data_parto",  label:"Data parto"},
+    {key:"madre_bdn",   label:"BDN Madre"},
+    {key:"madre_nome",  label:"Nome Madre"},
+    {key:"razza_madre", label:"Razza Madre"},
+    {key:"padre_bdn",   label:"BDN Padre"},
+    {key:"razza_padre", label:"Razza Padre"},
+    {key:"nati_totali", label:"Nati totali"},
+    {key:"nati_vivi",   label:"Nati vivi"},
+    {key:"nati_morti",  label:"Nati morti"},
+    {key:"vivi_attuali",label:"Vivi attuali"},
+    {key:"macellati",   label:"Macellati"},
+    {key:"deceduti",    label:"Deceduti"},
+    {key:"venduti",     label:"Venduti"},
+    {key:"riproduttori",label:"Riproduttori"},
+    {key:"maschi",      label:"Maschi"},
+    {key:"femmine",     label:"Femmine"},
+    {key:"note",        label:"Note"},
+  ]);
+}
+
+function foglio_lotti_unita(suiniLotto, lotti) {
+  const dati = suiniLotto.map(u => {
+    const l = lotti.find(x=>x.id===u.lotto_id);
+    const cod = u.codice_completo || `${l?.codice_lotto||l?.codice||""}${String(u.nr).padStart(2,"0")}`;
+    return {
+      tatuaggio:       cod,
+      codice_lotto:    l?.codice_lotto||l?.codice||"",
+      nr:              u.nr,
+      sesso:           u.sesso||"",
+      destinazione:    u.destinazione||"ingrasso",
+      stato:           u.stato||"",
+      matricola:       u.matricola||u.bdn||"",
+      peso_nascita:    u.peso_nascita||"",
+      data_uscita:     u.data_uscita||"",
+      motivo_uscita:   u.motivo_uscita||"",
+      peso_vivo_uscita:u.peso_vivo_uscita||"",
+      peso_carcassa:   u.peso_carcassa||"",
+      resa_percent:    u.resa_percent||"",
+    };
+  });
+  return creaFoglio(dati, [
+    {key:"tatuaggio",       label:"Tatuaggio (cod. lotto + nr.)"},
+    {key:"codice_lotto",    label:"Codice lotto"},
+    {key:"nr",              label:"Nr. unità"},
+    {key:"sesso",           label:"Sesso"},
+    {key:"destinazione",    label:"Destinazione"},
+    {key:"stato",           label:"Stato"},
+    {key:"matricola",       label:"Matricola individuale"},
+    {key:"peso_nascita",    label:"Peso nascita (kg)"},
+    {key:"data_uscita",     label:"Data uscita"},
+    {key:"motivo_uscita",   label:"Motivo uscita"},
+    {key:"peso_vivo_uscita",label:"Peso vivo uscita (kg)"},
+    {key:"peso_carcassa",   label:"Peso carcassa (kg)"},
+    {key:"resa_percent",    label:"Resa %"},
+  ]);
+}
+
+function foglio_kpi(animali, eventiRiprod) {
+  const daysBetween = (d1,d2) => Math.round((new Date(d2)-new Date(d1))/86400000);
+  const fattrici = animali.filter(a=>a.sesso==="F");
+  const dati = fattrici.map(a => {
+    const mieiParti = eventiRiprod
+      .filter(e=>e.animale_id===a.id&&e.tipo_evento==="parto")
+      .sort((x,y)=>x.data_evento?.localeCompare(y.data_evento));
+    if(mieiParti.length===0) return null;
+    const iipVals = [];
+    for(let i=1;i<mieiParti.length;i++) {
+      if(mieiParti[i-1].data_evento&&mieiParti[i].data_evento)
+        iipVals.push(daysBetween(mieiParti[i-1].data_evento,mieiParti[i].data_evento));
+    }
+    const totVivi  = mieiParti.reduce((s,p)=>s+(p.nati_vivi||0),0);
+    const totMorti = mieiParti.reduce((s,p)=>s+(p.nati_morti||0),0);
+    const totNati  = totVivi+totMorti;
+    return {
+      bdn:          a.bdn||"",
+      nome:         a.nome||"",
+      specie:       a.specie||"",
+      razza:        a.razza_calcolata||a.razza||"",
+      n_parti:      mieiParti.length,
+      nati_vivi:    totVivi,
+      nati_morti:   totMorti,
+      pct_vivi:     totNati>0?Math.round(totVivi/totNati*1000)/10:"",
+      prolificita:  mieiParti.length>0?Math.round(totVivi/mieiParti.length*10)/10:"",
+      iip_medio_gg: iipVals.length>0?Math.round(iipVals.reduce((a,b)=>a+b,0)/iipVals.length):"",
+      iip_medio_mesi:iipVals.length>0?Math.round(iipVals.reduce((a,b)=>a+b,0)/iipVals.length/30.4*10)/10:"",
+      primo_parto:  mieiParti[0]?.data_evento||"",
+      ultimo_parto: mieiParti[mieiParti.length-1]?.data_evento||"",
+    };
+  }).filter(Boolean);
+  return creaFoglio(dati, [
+    {key:"bdn",             label:"BDN"},
+    {key:"nome",            label:"Nome"},
+    {key:"specie",          label:"Specie"},
+    {key:"razza",           label:"Razza"},
+    {key:"n_parti",         label:"N. parti"},
+    {key:"nati_vivi",       label:"Tot. nati vivi"},
+    {key:"nati_morti",      label:"Tot. nati morti"},
+    {key:"pct_vivi",        label:"% nati vivi"},
+    {key:"prolificita",     label:"Prolificità media (vivi/parto)"},
+    {key:"iip_medio_gg",    label:"IIP medio (giorni)"},
+    {key:"iip_medio_mesi",  label:"IIP medio (mesi)"},
+    {key:"primo_parto",     label:"Primo parto"},
+    {key:"ultimo_parto",    label:"Ultimo parto"},
+  ]);
+}
+
+function foglio_costi_animale(costi, animali) {
+  const dati = costi.map(c => {
+    const a = animali.find(x=>x.id===c.animale_id);
+    return { ...c, animale: a?.nome||a?.bdn||"", specie: a?.specie||"", bdn: a?.bdn||"" };
+  });
+  return creaFoglio(dati, [
+    {key:"data",        label:"Data"},
+    {key:"specie",      label:"Specie"},
+    {key:"animale",     label:"Animale"},
+    {key:"bdn",         label:"BDN"},
+    {key:"voce",        label:"Voce"},
+    {key:"importo",     label:"Importo (€)"},
+    {key:"descrizione", label:"Descrizione"},
+  ]);
+}
+
+function foglio_costi_generali(costi) {
+  return creaFoglio(costi, [
+    {key:"voce",        label:"Voce"},
+    {key:"importo",     label:"Importo (€)"},
+    {key:"specie",      label:"Specie"},
+    {key:"data_inizio", label:"Dal"},
+    {key:"data_fine",   label:"Al"},
+    {key:"descrizione", label:"Descrizione"},
+    {key:"fornitore",   label:"Fornitore"},
+  ]);
+}
+
+function foglio_macchinari(macchinari) {
+  const anno = new Date().getFullYear();
+  const dati = macchinari.map(m => {
+    const quotaAnnua = m.costo_storico&&m.anni_ammortamento ? m.costo_storico/m.anni_ammortamento : 0;
+    const anniTrasc  = anno - (m.anno_acquisto||anno);
+    const ammTot     = Math.min(m.costo_storico||0, quotaAnnua*anniTrasc);
+    const residuo    = Math.max(0, (m.costo_storico||0)-ammTot);
+    return { ...m, quota_annua: Math.round(quotaAnnua), ammortizzato: Math.round(ammTot), valore_residuo: Math.round(residuo) };
+  });
+  return creaFoglio(dati, [
+    {key:"nome",              label:"Macchinario"},
+    {key:"categoria",         label:"Categoria"},
+    {key:"costo_storico",     label:"Costo storico (€)"},
+    {key:"anno_acquisto",     label:"Anno acquisto"},
+    {key:"anni_ammortamento", label:"Anni ammortamento"},
+    {key:"quota_annua",       label:"Quota annua (€)"},
+    {key:"ammortizzato",      label:"Tot. ammortizzato (€)"},
+    {key:"valore_residuo",    label:"Valore residuo (€)"},
+    {key:"note",              label:"Note"},
+  ]);
+}
+
+// ─── SEZIONI DISPONIBILI ──────────────────────────────────────────────────────
+const SEZIONI = [
+  { id:"anagrafica_bovini",  label:"Anagrafica Bovini",         icon:"🐄", gruppo:"ANAGRAFICA" },
+  { id:"anagrafica_suini",   label:"Anagrafica Suini",          icon:"🐷", gruppo:"ANAGRAFICA" },
+  { id:"anagrafica_ovini",   label:"Anagrafica Ovini",          icon:"🐑", gruppo:"ANAGRAFICA" },
+  { id:"uscite",             label:"Registro Uscite",           icon:"📤", gruppo:"MOVIMENTI" },
+  { id:"parti",              label:"Registro Parti",            icon:"🐣", gruppo:"MOVIMENTI" },
+  { id:"sanitario",          label:"Registro Sanitario",        icon:"💉", gruppo:"REGISTRI" },
+  { id:"alimentazione",      label:"Alimentazione",             icon:"🌾", gruppo:"REGISTRI" },
+  { id:"lotti_riepilogo",    label:"Lotti Suini — Riepilogo",   icon:"📋", gruppo:"LOTTI SUINI" },
+  { id:"lotti_unita",        label:"Lotti Suini — Unità",       icon:"🏷️", gruppo:"LOTTI SUINI" },
+  { id:"kpi_selezione",      label:"Selezione Genetica (KPI)",  icon:"🏆", gruppo:"GENETICA" },
+  { id:"costi_animale",      label:"Costi per Animale",         icon:"🧾", gruppo:"COSTI" },
+  { id:"costi_generali",     label:"Costi Generali",            icon:"📊", gruppo:"COSTI" },
+  { id:"macchinari",         label:"Macchinari / Ammortamenti", icon:"🏭", gruppo:"COSTI" },
+];
+
+// ─── COMPONENTE PRINCIPALE ────────────────────────────────────────────────────
+export default function ExportManager() {
+  const [sel,setSel]       = useState(new Set(SEZIONI.map(s=>s.id)));
+  const [loading,setLoading] = useState(false);
+  const [dataDa,setDataDa] = useState("");
+  const [dataA,setDataA]   = useState(today());
+
+  const toggle = id => setSel(prev => {
+    const n = new Set(prev);
+    n.has(id) ? n.delete(id) : n.add(id);
+    return n;
+  });
+  const selAll  = () => setSel(new Set(SEZIONI.map(s=>s.id)));
+  const deselAll= () => setSel(new Set());
+
+  const gruppi = [...new Set(SEZIONI.map(s=>s.gruppo))];
+
+  const genera = async () => {
+    if(sel.size===0) return;
+    setLoading(true);
+    try {
+      // Carico solo i dati necessari
+      const [
+        {data:animali},{data:sanitari},{data:alim},{data:evRiprod},
+        {data:costiAnim},{data:costiGen},{data:macchinari},
+        {data:lotti},{data:suiniLotto}
+      ] = await Promise.all([
+        supabase.from("animali").select("*").order("specie").order("nome"),
+        supabase.from("eventi_sanitari").select("*").order("data",{ascending:false}),
+        supabase.from("alimentazione").select("*").order("data",{ascending:false}),
+        supabase.from("eventi_riproduttivi").select("*").order("data_evento",{ascending:false}),
+        supabase.from("costi_animale").select("*").order("data",{ascending:false}),
+        supabase.from("costi_generali").select("*").order("data_inizio",{ascending:false}),
+        supabase.from("macchinari").select("*").order("nome"),
+        supabase.from("lotti_suini").select("*").order("data_parto",{ascending:false}),
+        supabase.from("suini_lotto").select("*").order("lotto_id").order("nr"),
+      ]);
+
+      const an = animali||[];
+      // Filtra per data se specificata
+      const filtraData = (arr, campo) => arr.filter(r => {
+        if(dataDa&&r[campo]&&r[campo]<dataDa) return false;
+        if(dataA&&r[campo]&&r[campo]>dataA)   return false;
+        return true;
+      });
+
+      const wb = XLSX.utils.book_new();
+
+      if(sel.has("anagrafica_bovini"))
+        XLSX.utils.book_append_sheet(wb, foglio_anagrafica(an.filter(a=>a.specie==="bovino")), "Bovini");
+      if(sel.has("anagrafica_suini"))
+        XLSX.utils.book_append_sheet(wb, foglio_anagrafica(an.filter(a=>a.specie==="suino")), "Suini anagrafica");
+      if(sel.has("anagrafica_ovini"))
+        XLSX.utils.book_append_sheet(wb, foglio_anagrafica(an.filter(a=>a.specie==="ovino")), "Ovini");
+      if(sel.has("uscite"))
+        XLSX.utils.book_append_sheet(wb, foglio_uscite(an), "Uscite");
+      if(sel.has("parti"))
+        XLSX.utils.book_append_sheet(wb, foglio_parti(filtraData(evRiprod||[],"data_evento"), an), "Parti");
+      if(sel.has("sanitario"))
+        XLSX.utils.book_append_sheet(wb, foglio_sanitario(filtraData(sanitari||[],"data"), an, suiniLotto||[], lotti||[]), "Sanitario");
+      if(sel.has("alimentazione"))
+        XLSX.utils.book_append_sheet(wb, foglio_alimentazione(filtraData(alim||[],"data")), "Alimentazione");
+      if(sel.has("lotti_riepilogo"))
+        XLSX.utils.book_append_sheet(wb, foglio_lotti_riepilogo(lotti||[], suiniLotto||[], an), "Lotti riepilogo");
+      if(sel.has("lotti_unita"))
+        XLSX.utils.book_append_sheet(wb, foglio_lotti_unita(suiniLotto||[], lotti||[]), "Lotti unità");
+      if(sel.has("kpi_selezione"))
+        XLSX.utils.book_append_sheet(wb, foglio_kpi(an, evRiprod||[]), "KPI Selezione genetica");
+      if(sel.has("costi_animale"))
+        XLSX.utils.book_append_sheet(wb, foglio_costi_animale(filtraData(costiAnim||[],"data"), an), "Costi animali");
+      if(sel.has("costi_generali"))
+        XLSX.utils.book_append_sheet(wb, foglio_costi_generali(costiGen||[]), "Costi generali");
+      if(sel.has("macchinari"))
+        XLSX.utils.book_append_sheet(wb, foglio_macchinari(macchinari||[]), "Macchinari");
+
+      scarica(wb, `Podere_Verde_Export_${dataDa||"tutto"}_${dataA}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{fontFamily:"'Segoe UI',system-ui,sans-serif",background:C.bg,
+      minHeight:"100vh",maxWidth:480,margin:"0 auto",paddingBottom:80}}>
+
+      {/* Header */}
+      <div style={{background:`linear-gradient(135deg,${C.primary},${C.accent})`,
+        borderRadius:"0 0 28px 28px",padding:"24px 20px 20px",marginBottom:20}}>
+        <div style={{fontSize:22,fontWeight:800,color:"#FFF"}}>📥 Esporta Dati</div>
+        <div style={{fontSize:14,color:"rgba(255,255,255,0.75)",marginTop:4}}>
+          Seleziona le sezioni da includere nel file Excel
+        </div>
+      </div>
+
+      <div style={{padding:"0 16px"}}>
+
+        {/* Filtro date */}
+        <div style={{background:C.card,borderRadius:16,padding:16,marginBottom:16,
+          border:`1px solid ${C.border}`}}>
+          <div style={{fontSize:13,fontWeight:700,color:C.muted,marginBottom:10}}>
+            📅 FILTRO DATA (opzionale)
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            {[["Da:",dataDa,setDataDa],["A:",dataA,setDataA]].map(([lbl,val,set])=>(
+              <div key={lbl}>
+                <div style={{fontSize:11,fontWeight:600,color:C.muted,marginBottom:4}}>{lbl}</div>
+                <input type="date" value={val} onChange={e=>set(e.target.value)}
+                  style={{width:"100%",boxSizing:"border-box",border:`1.5px solid ${C.border}`,
+                    borderRadius:10,padding:"8px 10px",fontSize:14,background:"#FAFAF8",
+                    color:C.text,outline:"none"}}/>
+              </div>
+            ))}
+          </div>
+          <div style={{fontSize:11,color:C.muted,marginTop:8}}>
+            Si applica a: registro sanitario, alimentazione, parti, costi animali
+          </div>
+        </div>
+
+        {/* Selezione sezioni */}
+        <div style={{display:"flex",gap:10,marginBottom:14}}>
+          <button onClick={selAll}
+            style={{background:C.primary,color:"#FFF",border:"none",borderRadius:10,
+              padding:"7px 14px",fontSize:13,fontWeight:600,cursor:"pointer"}}>
+            ☑ Seleziona tutto
+          </button>
+          <button onClick={deselAll}
+            style={{background:C.card,color:C.muted,border:`1.5px solid ${C.border}`,
+              borderRadius:10,padding:"7px 14px",fontSize:13,fontWeight:600,cursor:"pointer"}}>
+            ☐ Deseleziona tutto
+          </button>
+        </div>
+
+        {gruppi.map(gruppo=>(
+          <div key={gruppo} style={{marginBottom:16}}>
+            <div style={{fontSize:11,fontWeight:800,color:C.muted,letterSpacing:1.2,
+              textTransform:"uppercase",marginBottom:8}}>{gruppo}</div>
+            {SEZIONI.filter(s=>s.gruppo===gruppo).map(s=>(
+              <div key={s.id} onClick={()=>toggle(s.id)}
+                style={{display:"flex",alignItems:"center",gap:12,
+                  background:sel.has(s.id)?C.primary+"10":C.card,
+                  border:`1.5px solid ${sel.has(s.id)?C.primary:C.border}`,
+                  borderRadius:12,padding:"10px 14px",marginBottom:8,cursor:"pointer"}}>
+                <div style={{width:22,height:22,borderRadius:6,flexShrink:0,
+                  background:sel.has(s.id)?C.primary:"transparent",
+                  border:`2px solid ${sel.has(s.id)?C.primary:C.border}`,
+                  display:"flex",alignItems:"center",justifyContent:"center"}}>
+                  {sel.has(s.id)&&<span style={{color:"#FFF",fontSize:14,fontWeight:800}}>✓</span>}
+                </div>
+                <span style={{fontSize:18}}>{s.icon}</span>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:600,fontSize:14,
+                    color:sel.has(s.id)?C.primary:C.text}}>{s.label}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ))}
+
+        {/* Pulsante genera */}
+        <button onClick={genera} disabled={loading||sel.size===0}
+          style={{width:"100%",background:sel.size>0?C.green:"#CCC",color:"#FFF",
+            border:"none",borderRadius:14,padding:"16px",fontSize:17,fontWeight:800,
+            cursor:sel.size>0?"pointer":"default",marginTop:8,
+            boxShadow:sel.size>0?"0 4px 16px rgba(74,124,89,0.35)":"none"}}>
+          {loading
+            ?"⏳ Generazione in corso..."
+            :sel.size===0
+              ?"Seleziona almeno una sezione"
+              :`📥 Genera Excel (${sel.size} fogli)`}
+        </button>
+        <div style={{textAlign:"center",fontSize:12,color:C.muted,marginTop:10}}>
+          Il file viene scaricato automaticamente sul tuo dispositivo
+        </div>
+      </div>
+    </div>
+  );
+}
