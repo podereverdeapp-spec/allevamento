@@ -404,6 +404,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
       nati_morti:morti,
       nati_mummificati:parseInt(formParto.nati_mummificati)||0,
       padre_id:formParto.padre_id?parseInt(formParto.padre_id):null,
+      data_accoppiamento:formParto.data_accoppiamento||null,
       note:formParto.note||null,
     };
 
@@ -799,6 +800,50 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
                         </div>
                       </div>
                     )}
+                    {/* Sezione accoppiamento — solo per suini */}
+                    {a.specie==="suino"&&(
+                      <div style={{background:C.suini+"10",border:`1px solid ${C.suini}33`,
+                        borderRadius:12,padding:"12px 14px",marginBottom:12}}>
+                        <div style={{fontSize:12,fontWeight:700,color:C.suini,marginBottom:10}}>
+                          🐷 Accoppiamento (facoltativo)
+                        </div>
+                        <Field label="Data accoppiamento"
+                          value={formParto.data_accoppiamento}
+                          onChange={v=>{
+                            // Calcola data prevista parto: +3 mesi +3 settimane +3 giorni
+                            let prevista="";
+                            if(v){
+                              const d=new Date(v);
+                              d.setMonth(d.getMonth()+3);
+                              d.setDate(d.getDate()+24); // 3 settimane + 3 giorni
+                              prevista=d.toISOString().split("T")[0];
+                            }
+                            setFormParto(f=>({...f,data_accoppiamento:v,_data_prevista:prevista}));
+                          }}
+                          type="date"/>
+                        {formParto.data_accoppiamento&&formParto._data_prevista&&(
+                          <div style={{background:C.suini+"15",borderRadius:8,
+                            padding:"8px 12px",fontSize:13}}>
+                            <div style={{color:C.suini,fontWeight:600}}>
+                              📅 Data prevista parto:
+                              <strong style={{fontSize:16,marginLeft:8}}>{formParto._data_prevista}</strong>
+                            </div>
+                            <div style={{fontSize:11,color:C.muted,marginTop:2}}>
+                              3 mesi + 3 settimane + 3 giorni dopo l'accoppiamento
+                            </div>
+                            {formParto.data_evento&&formParto.data_evento!==formParto._data_prevista&&(
+                              <div style={{fontSize:11,color:C.yellow,marginTop:4}}>
+                                ⚠️ Data effettiva: {formParto.data_evento}
+                                {(()=>{
+                                  const diff=Math.round((new Date(formParto.data_evento)-new Date(formParto._data_prevista))/86400000);
+                                  return diff!==0?` (${diff>0?"+":""}${diff} giorni rispetto alla previsione)`:null;
+                                })()}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
                     <Field label="Data parto" value={formParto.data_evento}
                       onChange={v=>setFormParto(f=>({...f,data_evento:v}))} type="date" required/>
                     <Field label="Tipo parto" value={formParto.tipo_parto}
@@ -892,12 +937,14 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
                     <Btn label="🐣 Nuovo parto" onClick={()=>setFormParto({
                       data_evento:today(),tipo_parto:"Naturale",
                       nati_totali:"",nati_morti:"0",nati_mummificati:"0",
-                      padre_id:"",nati:[],note:"",storico:false})}
+                      padre_id:"",nati:[],note:"",storico:false,
+                      data_accoppiamento:""})}
                       variant="success" small/>
                     <Btn label="📅 Parto storico" onClick={()=>setFormParto({
                       data_evento:"",tipo_parto:"Naturale",
                       nati_totali:"",nati_morti:"0",nati_mummificati:"0",
-                      padre_id:"",nati:[],note:"",storico:true})}
+                      padre_id:"",nati:[],note:"",storico:true,
+                      data_accoppiamento:""})}
                       variant="outline" small/>
                   </div>
                 )
@@ -918,6 +965,11 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
                         <div style={{fontSize:13,marginTop:4}}>
                           🟢 {e.nati_vivi} vivi
                           {e.nati_morti>0&&<span style={{color:C.red}}> · 🔴 {e.nati_morti} morti</span>}
+                          {e.data_accoppiamento&&(
+                            <div style={{fontSize:11,color:C.suini,marginTop:3}}>
+                              🐷 Accoppiamento: {e.data_accoppiamento}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -932,6 +984,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
                             nati_mummificati:String(e.nati_mummificati||0),
                             padre_id:e.padre_id||"",
                             note:e.note||"",
+                            data_accoppiamento:e.data_accoppiamento||"",
                             nati:[],storico:false,
                           })}
                           style={{background:C.blue+"20",border:"none",borderRadius:8,
