@@ -298,6 +298,7 @@ function Dashboard({animali,eventi_sanitari,magazzino,onNav}){
 function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttivi,aggiungiEvento,aggiornaEvento,eliminaEvento,ricaricaEventi,sanitari,totalePerAnimale}){
   const [filtro,setFiltro]=useState("tutti");
   const [cerca,setCerca]=useState("");
+  const [vistaRiproduttori,setVistaRiproduttori]=useState(false);
   const [form,setForm]=useState(null);         // null=lista, obj=form edit/new
   const [dettaglio,setDettaglio]=useState(null); // mostra scheda completa
   const [saving,setSaving]=useState(false);
@@ -315,7 +316,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
     lotto_box:"",destinazione:"",
     stato:"attivo",data_uscita:"",
     motivo_uscita:"",peso_vivo_uscita:"",peso_carcassa:"",
-    note_sanitarie:"",note:"",vivo:true,
+    note_sanitarie:"",note:"",vivo:true,riproduttore:false,
   };
 
   const lista=animali.filter(a=>{
@@ -371,6 +372,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
       note_sanitarie:form.note_sanitarie||null,
       note:form.note||null,
       vivo:form.stato==="attivo",
+      riproduttore:form.riproduttore||false,
     };
     let err;
     if(form.id){const r=await aggiorna(form.id,payload);err=r.error;}
@@ -522,6 +524,31 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
             ?["Riproduzione","Ingrasso","Macello","Vendita","Carne","Latte","Lana","Non definita"]
             :["Riproduzione","Ingrasso","Vendita","Macello","Autoconsumo","Non definita"]}/>
         <Field label="Stato" value={form.stato} onChange={v=>setForm(f=>({...f,stato:v}))} options={STATI} required/>
+        {/* Toggle riproduttore solo per maschi */}
+        {(form.sesso==="M")&&(
+          <div onClick={()=>setForm(f=>({...f,riproduttore:!f.riproduttore}))}
+            style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",
+              background:form.riproduttore?C.blue+"15":C.bg,
+              border:`1.5px solid ${form.riproduttore?C.blue:C.border}`,
+              borderRadius:12,padding:"10px 14px",marginBottom:12}}>
+            <div style={{width:40,height:22,borderRadius:11,flexShrink:0,
+              background:form.riproduttore?C.blue:C.border,
+              position:"relative",transition:"background 0.2s"}}>
+              <div style={{width:18,height:18,borderRadius:9,background:"#FFF",
+                position:"absolute",top:2,
+                left:form.riproduttore?20:2,transition:"left 0.2s"}}/>
+            </div>
+            <div>
+              <div style={{fontWeight:700,fontSize:14,
+                color:form.riproduttore?C.blue:C.muted}}>
+                ♂ Riproduttore
+              </div>
+              <div style={{fontSize:11,color:C.muted}}>
+                {form.riproduttore?"Incluso nel registro riproduttori":"Non incluso nel registro riproduttori"}
+              </div>
+            </div>
+          </div>
+        )}
 
         {form.stato!=="attivo"&&(<>
           <Sezione label="Dati Uscita"/>
@@ -811,9 +838,24 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
                         </div>
                       );
                     })()}
-                    <Field label="Padre" value={formParto.padre_id}
-                      onChange={v=>setFormParto(f=>({...f,padre_id:v}))}
-                      options={animali.filter(x=>x.specie===a.specie&&x.sesso==="M").map(x=>({value:x.id,label:`${x.nome||x.bdn}`}))}/>
+                    {(()=>{
+                      const riprod=animali.filter(x=>x.specie===a.specie&&x.sesso==="M"&&x.riproduttore);
+                      const tutti=animali.filter(x=>x.specie===a.specie&&x.sesso==="M");
+                      const opzioni=(riprod.length>0?riprod:tutti).map(x=>({value:x.id,label:`${x.nome||x.bdn}${x.riproduttore?" ♂":""}`}));
+                      return(
+                        <div>
+                          <Field label={`Padre${riprod.length>0?" (riproduttori registrati)":"  (nessun riproduttore — mostro tutti i maschi)"}`}
+                            value={formParto.padre_id}
+                            onChange={v=>setFormParto(f=>({...f,padre_id:v}))}
+                            options={opzioni}/>
+                          {riprod.length>0&&(
+                            <div style={{fontSize:11,color:C.muted,marginTop:-8,marginBottom:8}}>
+                              Solo ♂ registrati come riproduttori · {riprod.length} disponibili
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
                     {/* Campi per ogni nato vivo (solo creazione, non storico) */}
                     {!formParto.id&&!formParto.storico&&(formParto.nati||[]).map((n,i)=>(
                       <div key={i} style={{background:C.bg,borderRadius:10,padding:10,marginBottom:8}}>
@@ -914,9 +956,86 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
   return(
     <div style={{padding:"16px 16px 80px"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-        <span style={{fontSize:20,fontWeight:800}}>Anagrafica</span>
+        <div>
+          <span style={{fontSize:20,fontWeight:800}}>Anagrafica</span>
+          <button onClick={()=>setVistaRiproduttori(v=>!v)}
+            style={{marginLeft:10,background:vistaRiproduttori?C.blue:C.card,
+              color:vistaRiproduttori?"#FFF":C.blue,
+              border:`1.5px solid ${C.blue}`,borderRadius:20,
+              padding:"4px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>
+            ♂ Riproduttori
+          </button>
+        </div>
         <Btn label="Aggiungi" icon="+" onClick={()=>setForm({...empty})} small/>
       </div>
+
+      {/* ── VISTA RIPRODUTTORI ──────────────────────────────────────── */}
+      {vistaRiproduttori&&(()=>{
+        const riprod=animali.filter(a=>a.sesso==="M"&&a.riproduttore&&a.stato==="attivo");
+        const perSpecie=["bovino","suino","ovino"].map(sp=>({
+          specie:sp,
+          lista:riprod.filter(a=>a.specie===sp),
+        })).filter(g=>g.lista.length>0);
+        return(
+          <div style={{marginBottom:16}}>
+            <div style={{background:C.blue+"12",border:`1px solid ${C.blue}33`,
+              borderRadius:12,padding:"10px 14px",marginBottom:12,fontSize:13}}>
+              ♂ <strong>{riprod.length}</strong> riproduttori attivi registrati ·
+              Per aggiungerne uno: cerca il maschio → apri scheda → ✏️ Modifica → attiva il toggle "♂ Riproduttore"
+            </div>
+            {perSpecie.length===0?(
+              <div style={{textAlign:"center",padding:32,color:C.muted}}>
+                <div style={{fontSize:40,marginBottom:8}}>♂</div>
+                <div>Nessun riproduttore registrato</div>
+                <div style={{fontSize:13,marginTop:8}}>
+                  Apri la scheda di un maschio → ✏️ Modifica → attiva "♂ Riproduttore"
+                </div>
+              </div>
+            ):perSpecie.map(({specie,lista})=>(
+              <div key={specie} style={{marginBottom:16}}>
+                <div style={{fontSize:13,fontWeight:800,color:C.muted,
+                  textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>
+                  {specieIcon(specie)} {specieLabel(specie)} · {lista.length} maschi
+                </div>
+                {lista.map(a=>{
+                  const nFigli=animali.filter(x=>x.padre_id===a.id).length;
+                  const eta=a.nascita?Math.floor((new Date()-new Date(a.nascita))/365.25/86400000):null;
+                  return(
+                    <div key={a.id}
+                      style={{background:C.card,borderRadius:14,padding:12,marginBottom:8,
+                        border:`1.5px solid ${C.blue}44`,borderLeft:`4px solid ${C.blue}`,
+                        cursor:"pointer"}}
+                      onClick={()=>setDettaglio(a)}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                        <div>
+                          <div style={{fontWeight:800,fontSize:15}}>{a.nome||a.bdn}</div>
+                          <div style={{fontSize:12,color:C.muted}}>
+                            {a.bdn} · {a.razza_calcolata||a.razza||"—"}
+                          </div>
+                          <div style={{display:"flex",gap:6,marginTop:4,flexWrap:"wrap"}}>
+                            <Badge label={a.razza_calcolata||a.razza||"—"} color={specieColor(a.specie)}/>
+                            {eta&&<Badge label={`${eta} anni`} color={C.muted}/>}
+                            {nFigli>0&&<Badge label={`${nFigli} figli reg.`} color={C.green}/>}
+                          </div>
+                        </div>
+                        <div style={{textAlign:"right",fontSize:12,color:C.muted}}>
+                          {a.nascita&&<div>🎂 {a.nascita}</div>}
+                          <div style={{marginTop:4}}>
+                            <span style={{background:C.blue+"20",color:C.blue,
+                              borderRadius:8,padding:"3px 8px",fontSize:11,fontWeight:700}}>
+                              ♂ Riproduttore
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        );
+      })()}
       {/* Barra di ricerca */}
       <div style={{position:"relative",marginBottom:12}}>
         <span style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",
@@ -983,6 +1102,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
                   {a.categoria&&<Badge label={a.categoria} color={C.muted}/>}
                   <Badge label={a.sesso==="M"?"♂ M":"♀ F"} color={a.sesso==="M"?C.blue:"#B5547A"}/>
                   {a.stato!=="attivo"&&<Badge label={a.stato.toUpperCase()} color={C.red}/>}
+                  {a.riproduttore&&<Badge label="♂ Riproduttore" color={C.blue}/>}
                 </div>
               </div>
             </div>
