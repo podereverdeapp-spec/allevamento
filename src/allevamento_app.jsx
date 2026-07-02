@@ -366,16 +366,16 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
   const risolviGenitoreEsterno=async(bdn_ext,sesso_ger,specie)=>{
     if(!bdn_ext||!bdn_ext.trim()) return null;
     const bdn=bdn_ext.trim();
-    // Cerca se esiste già
-    const{data:esistente}=await supabase.from("animali").select("id").eq("bdn",bdn).maybeSingle();
-    if(esistente) return esistente.id;
+    // Cerca se esiste già (compatibile con tutte le versioni Supabase)
+    const{data:lista}=await supabase.from("animali").select("id").eq("bdn",bdn).limit(1);
+    if(lista&&lista.length>0) return lista[0].id;
     // Crea scheda minima
-    const{data:nuovo}=await supabase.from("animali").insert([{
+    const{data:nuovi}=await supabase.from("animali").insert([{
       bdn, specie, sesso:sesso_ger,
       provenienza:"Esterno", stato:"storico", vivo:false,
       note:"Genitore esterno — scheda creata automaticamente",
-    }]).select("id").single();
-    return nuovo?.id||null;
+    }]).select("id");
+    return nuovi&&nuovi.length>0?nuovi[0].id:null;
   };
 
   const salva=async()=>{
