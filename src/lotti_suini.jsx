@@ -5,23 +5,20 @@ import { supabase } from "./supabase";
 const C = {
   bg:"#F5F0E8", card:"#FFFFFF", primary:"#5C3D1E", accent:"#A0522D",
   green:"#4A7C59", red:"#C0392B", yellow:"#D4A017", blue:"#2C6E9B",
-  text:"#2D1B0E", muted:"#8B7355", border:"#D4C4A8",
-  suini:"#B5547A", morto:"#888888",
+  text:"#2D1B0E", muted:"#8B7355", border:"#D4C4A8", suini:"#B5547A",
 };
 const today = () => new Date().toISOString().split("T")[0];
 
-// Mappa razza → lettera per codice lotto
 const RAZZA_LETTERA = {
-  "Nero Apucalabro":"A","Cinta Senese":"C","Duroc":"D",
-  "Mora Romagnola":"G","Large White":"L","Meticcia":"M","Meticcio":"M",
-  "Nero Casertano":"N","Landrace":"R","Altra":"0",
+  "Nero Apucalabro":"A","Cinta Senese":"C","Duroc":"D","Mora Romagnola":"G",
+  "Large White":"L","Meticcia":"M","Meticcio":"M","Nero Casertano":"N","Landrace":"R","Altra":"0",
 };
 const getRazzaLettera = r => {
   if(!r) return "0";
   const match = Object.keys(RAZZA_LETTERA).find(k=>k.toLowerCase()===r.trim().toLowerCase());
   return match ? RAZZA_LETTERA[match] : "0";
 };
-const generaCodLotto = (dataParto, razzaMadre, razzaPadre, bdnMadre) => {
+export const generaCodLotto = (dataParto, razzaMadre, razzaPadre, bdnMadre) => {
   if(!dataParto) return "";
   const d = new Date(dataParto);
   const aa = String(d.getFullYear()).slice(-2);
@@ -31,30 +28,29 @@ const generaCodLotto = (dataParto, razzaMadre, razzaPadre, bdnMadre) => {
   const ultime2 = (bdnMadre||"").replace(/[^0-9]/g,"").slice(-2).padStart(2,"0");
   return `${aa}${mm}${lM}${lP}${ultime2}`;
 };
-const codiceUnitá = (codLotto, nr) => `${codLotto}${String(nr).padStart(2,"0")}`;
+const codiceUnita = (codLotto, nr) => `${codLotto}${String(nr).padStart(2,"0")}`;
 
 // ─── UI BASE ──────────────────────────────────────────────────────────────────
 const inputStyle = {width:"100%",boxSizing:"border-box",border:`1.5px solid ${C.border}`,
   borderRadius:10,padding:"10px 12px",fontSize:15,background:"#FAFAF8",color:C.text,outline:"none"};
 const Card = ({children,style={}}) => (
-  <div style={{background:C.card,borderRadius:16,padding:16,marginBottom:12,
-    boxShadow:"0 2px 8px rgba(0,0,0,0.08)",border:`1px solid ${C.border}`,...style}}>
+  <div style={{background:C.card,borderRadius:16,padding:14,marginBottom:10,
+    boxShadow:"0 2px 6px rgba(0,0,0,0.07)",border:`1px solid ${C.border}`,...style}}>
     {children}
   </div>
 );
 const Badge = ({label,color}) => (
   <span style={{background:color+"22",color,border:`1px solid ${color}44`,
-    borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:700}}>{label}</span>
+    borderRadius:20,padding:"2px 9px",fontSize:11,fontWeight:700}}>{label}</span>
 );
 const Btn = ({label,onClick,variant="primary",small=false,icon,disabled=false,full=false}) => {
-  const bg = {primary:C.primary,danger:C.red,success:C.green,
-    ghost:"transparent",outline:"transparent",yellow:C.yellow}[variant]||C.primary;
-  const fg = variant==="ghost"||variant==="outline"?C.text:"#FFF";
+  const bg={primary:C.primary,danger:C.red,success:C.green,ghost:"transparent",
+    outline:"transparent",blue:C.blue}[variant]||C.primary;
+  const fg=variant==="ghost"||variant==="outline"?C.text:"#FFF";
   return (
     <button onClick={onClick} disabled={disabled}
       style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,
-        background:bg,color:fg,
-        border:variant==="outline"?`1.5px solid ${C.primary}`:"none",
+        background:bg,color:fg,border:variant==="outline"?`1.5px solid ${C.primary}`:"none",
         borderRadius:10,padding:small?"6px 12px":"10px 18px",
         fontSize:small?13:15,fontWeight:600,cursor:disabled?"default":"pointer",
         width:full?"100%":"auto",opacity:disabled?0.5:1}}>
@@ -73,8 +69,7 @@ const Field = ({label,value,onChange,type="text",options,required,placeholder}) 
          {options.map(o=><option key={o.value??o} value={o.value??o}>{o.label??o}</option>)}
        </select>
       :<input type={type} value={value??""} placeholder={placeholder||""}
-         onChange={e=>onChange(e.target.value)} style={inputStyle}/>
-    }
+         onChange={e=>onChange(e.target.value)} style={inputStyle}/>}
   </div>
 );
 const Spinner = () => (
@@ -82,152 +77,218 @@ const Spinner = () => (
     <div style={{fontSize:36,marginBottom:12}}>⏳</div><div>Caricamento lotti...</div>
   </div>
 );
-const statColor = s => ({attivo:C.green,macellato:C.muted,deceduto:C.red,venduto:C.blue,disperso:C.yellow}[s]||C.muted);
-const statLabel = s => ({attivo:"Vivo",macellato:"Macellato",deceduto:"Deceduto",venduto:"Venduto",disperso:"Disperso"}[s]||s);
-const destColor = d => ({ingrasso:C.yellow,riproduzione:C.blue,macello:C.muted}[d]||C.muted);
 
-// ─── FORM USCITA UNITÀ ────────────────────────────────────────────────────────
-function FormUscitaUnita({unita, lotto, onSave, onCancel}) {
-  const [form,setForm] = useState({
-    stato:"macellato",
-    motivo_uscita:"Macellato",
-    data_uscita:today(),
-    peso_vivo_uscita:"",
-    peso_carcassa:"",
-  });
+// ─── FORM ASSEGNA BDN ────────────────────────────────────────────────────────
+function FormAssegnaBDN({unita, lotto, animali, onSave, onCancel}) {
+  const [bdn,setBdn] = useState("");
+  const [nome,setNome] = useState("");
   const [saving,setSaving] = useState(false);
-  const resa = form.peso_carcassa&&form.peso_vivo_uscita
-    ? Math.round(parseFloat(form.peso_carcassa)/parseFloat(form.peso_vivo_uscita)*1000)/10
-    : null;
+  const codice = unita.codice_completo||codiceUnita(lotto.codice_lotto||lotto.codice, unita.nr);
+  const madre = animali.find(a=>a.id===lotto.madre_id);
+  const padre = animali.find(a=>a.id===lotto.padre_id);
 
   const salva = async () => {
+    if(!bdn.trim()) return;
     setSaving(true);
-    const payload = {
-      stato: form.stato,
+    // 1. Crea scheda animale individuale con dati ereditati
+    await supabase.from("animali").insert([{
+      bdn: bdn.trim(),
+      nome: nome||null,
+      specie: "suino",
+      sesso: unita.sesso||null,
+      nascita: lotto.data_parto||null,
+      razza: lotto.razza_madre||madre?.razza||null,
+      razza_calcolata: lotto.razza_madre||madre?.razza||null,
+      madre_id: lotto.madre_id||null,
+      padre_id: lotto.padre_id||null,
+      peso_nascita: unita.peso_nascita||null,
+      provenienza: "Nato in azienda",
+      data_ingresso: lotto.data_parto||null,
+      stato: "attivo", vivo: true,
+      note: `Da lotto ${lotto.codice_lotto||lotto.codice} unità ${codice}`,
+    }]);
+    // 2. Aggiorna unità lotto: segna come "uscita con BDN"
+    await supabase.from("suini_lotto").update({
+      bdn: bdn.trim(),
+      matricola: bdn.trim(),
+      stato: "registrato_individuale",
       vivo: false,
-      motivo_uscita: form.motivo_uscita||null,
-      data_uscita: form.data_uscita||null,
-      peso_vivo_uscita: form.peso_vivo_uscita?parseFloat(form.peso_vivo_uscita):null,
-      peso_carcassa: form.peso_carcassa?parseFloat(form.peso_carcassa):null,
-      resa_percent: resa,
-    };
-    await supabase.from("suini_lotto").update(payload).eq("id",unita.id);
+      destinazione: "riproduzione",
+      motivo_uscita: "Registrato come animale individuale — BDN: "+bdn.trim(),
+      data_uscita: today(),
+    }).eq("id", unita.id);
     setSaving(false);
     onSave();
   };
 
   return (
-    <div style={{background:C.bg,borderRadius:16,padding:16,marginBottom:12,
-      border:`2px solid ${C.red}`}}>
-      <div style={{fontWeight:700,color:C.red,marginBottom:12}}>
-        📤 Registra uscita — {unita.codice_completo||`${lotto.codice_lotto}${String(unita.nr).padStart(2,"0")}`}
+    <div style={{background:"#E3F2FD",border:`2px solid ${C.blue}`,
+      borderRadius:14,padding:14,marginBottom:10}}>
+      <div style={{fontWeight:700,color:C.blue,marginBottom:10,fontSize:14}}>
+        🏷️ Assegna BDN/ID a {codice}
       </div>
-      <Field label="Motivo uscita" value={form.motivo_uscita}
-        onChange={v=>setForm(f=>({...f,motivo_uscita:v,
-          stato:v==="Macellato"?"macellato":v==="Deceduto"?"deceduto":
-                v==="Venduto"?"venduto":v==="Disperso"?"disperso":"macellato"}))}
-        options={["Macellato","Deceduto (malattia)","Deceduto (trauma)","Venduto vivo","Disperso","Altro"]}/>
-      <Field label="Data uscita" value={form.data_uscita}
-        onChange={v=>setForm(f=>({...f,data_uscita:v}))} type="date"/>
-      {form.motivo_uscita==="Macellato"&&<>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-          <Field label="Peso vivo (kg)" value={form.peso_vivo_uscita}
-            onChange={v=>setForm(f=>({...f,peso_vivo_uscita:v}))} type="number"/>
-          <Field label="Peso carcassa (kg)" value={form.peso_carcassa}
-            onChange={v=>setForm(f=>({...f,peso_carcassa:v}))} type="number"/>
-        </div>
-        {resa&&<div style={{background:C.green+"15",borderRadius:8,padding:"6px 12px",
-          fontSize:13,marginBottom:8}}>⚖️ Resa: <strong style={{color:C.green}}>{resa}%</strong></div>}
-      </>}
-      <div style={{display:"flex",gap:8,marginTop:8}}>
-        <Btn label={saving?"...":"Conferma uscita"} onClick={salva} variant="danger" disabled={saving}/>
-        <Btn label="Annulla" onClick={onCancel} variant="ghost"/>
+      <div style={{fontSize:12,color:C.muted,marginBottom:10}}>
+        L'unità uscirà dal lotto ed entrerà nel Registro Suini con i dati ereditati:
+        nascita {lotto.data_parto} · madre {madre?.nome||madre?.bdn||"—"} · padre {padre?.nome||padre?.bdn||"—"}
+        {unita.peso_nascita&&` · peso nascita ${unita.peso_nascita}kg`}
+      </div>
+      <Field label="BDN / Matricola *" value={bdn} onChange={setBdn}
+        placeholder="Es. IT058990123456 o 334966" required/>
+      <Field label="Nome (facoltativo)" value={nome} onChange={setNome}
+        placeholder="Es. NERO, BELINDA..."/>
+      <div style={{display:"flex",gap:8}}>
+        <Btn label={saving?"...":"✓ Registra e trasferisci"} onClick={salva}
+          variant="blue" disabled={saving||!bdn.trim()} small/>
+        <Btn label="Annulla" onClick={onCancel} variant="ghost" small/>
       </div>
     </div>
   );
 }
 
-// ─── CARD SINGOLA UNITÀ ───────────────────────────────────────────────────────
-function CardUnita({u, lotto, onUpdate, onUscita}) {
-  const [edit,setEdit] = useState(false);
+// ─── FORM USCITA UNITÀ ────────────────────────────────────────────────────────
+function FormUscitaUnita({unita, lotto, onSave, onCancel}) {
   const [form,setForm] = useState({
-    sesso:u.sesso||"",
-    destinazione:u.destinazione||"ingrasso",
-    matricola:u.matricola||u.bdn||"",
+    motivo:"Macellato", stato:"macellato",
+    data_uscita:today(),
+    peso_vivo_uscita:"", peso_carcassa:"",
   });
   const [saving,setSaving] = useState(false);
-  const codice = u.codice_completo || `${lotto.codice_lotto}${String(u.nr).padStart(2,"0")}`;
-  const vivo = u.vivo!==false && u.stato==="attivo";
+  const codice = unita.codice_completo||codiceUnita(lotto.codice_lotto||lotto.codice, unita.nr);
+
+  // Accrescimento giornaliero
+  const giorni = lotto.data_parto&&form.data_uscita
+    ? Math.round((new Date(form.data_uscita)-new Date(lotto.data_parto))/86400000) : null;
+  const pesoNascita = unita.peso_nascita||0;
+  const accrescimento = giorni&&giorni>0&&form.peso_vivo_uscita
+    ? Math.round((parseFloat(form.peso_vivo_uscita)-pesoNascita)/giorni*1000)/1000 : null;
+  const resa = form.peso_carcassa&&form.peso_vivo_uscita
+    ? Math.round(parseFloat(form.peso_carcassa)/parseFloat(form.peso_vivo_uscita)*1000)/10 : null;
+
+  const MOTIVI = [
+    {label:"Macellato",stato:"macellato"},
+    {label:"Morto (malattia)",stato:"deceduto"},
+    {label:"Morto (causa naturale)",stato:"deceduto"},
+    {label:"Venduto vivo",stato:"venduto"},
+    {label:"Predato",stato:"deceduto"},
+    {label:"Smarrito",stato:"disperso"},
+    {label:"Altro",stato:"uscito"},
+  ];
 
   const salva = async () => {
     setSaving(true);
-    const isRiproduttore = form.destinazione==="riproduzione";
     await supabase.from("suini_lotto").update({
-      sesso: form.sesso||null,
-      destinazione: form.destinazione,
-      matricola: form.matricola||null,
-      bdn: form.matricola||u.bdn||null,
-      stato: isRiproduttore?"riproduttore":u.stato,
-    }).eq("id",u.id);
+      stato: form.stato,
+      vivo: false,
+      motivo_uscita: form.motivo,
+      data_uscita: form.data_uscita||null,
+      peso_vivo_uscita: form.peso_vivo_uscita?parseFloat(form.peso_vivo_uscita):null,
+      peso_carcassa: form.peso_carcassa?parseFloat(form.peso_carcassa):null,
+      resa_percent: resa,
+    }).eq("id", unita.id);
     setSaving(false);
-    setEdit(false);
-    onUpdate();
+    onSave();
   };
+
+  return (
+    <div style={{background:"#FFEBEE",border:`2px solid ${C.red}`,
+      borderRadius:14,padding:14,marginBottom:10}}>
+      <div style={{fontWeight:700,color:C.red,marginBottom:10,fontSize:14}}>
+        📤 Registra uscita — {codice}
+      </div>
+      <Field label="Motivo uscita" value={form.motivo}
+        onChange={v=>{
+          const m=MOTIVI.find(x=>x.label===v);
+          setForm(f=>({...f,motivo:v,stato:m?.stato||"uscito"}));
+        }}
+        options={MOTIVI.map(m=>m.label)}/>
+      <Field label="Data uscita" value={form.data_uscita}
+        onChange={v=>setForm(f=>({...f,data_uscita:v}))} type="date"/>
+      {giorni>0&&<div style={{fontSize:12,color:C.blue,marginBottom:8}}>
+        📅 {giorni} giorni di permanenza
+      </div>}
+      {(form.motivo==="Macellato"||form.motivo==="Venduto vivo")&&(
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+          <Field label="Peso vivo (kg)" value={form.peso_vivo_uscita}
+            onChange={v=>setForm(f=>({...f,peso_vivo_uscita:v}))} type="number"/>
+          {form.motivo==="Macellato"&&
+            <Field label="Peso carcassa (kg)" value={form.peso_carcassa}
+              onChange={v=>setForm(f=>({...f,peso_carcassa:v}))} type="number"/>}
+        </div>
+      )}
+      {resa&&<div style={{fontSize:12,color:C.green,marginBottom:8}}>
+        ⚖️ Resa: <strong>{resa}%</strong>
+      </div>}
+      {accrescimento&&<div style={{fontSize:12,color:C.primary,marginBottom:8}}>
+        📈 Accrescimento: <strong>{accrescimento} kg/giorno</strong>
+        {pesoNascita>0&&` (da ${pesoNascita}kg)`}
+      </div>}
+      <div style={{display:"flex",gap:8}}>
+        <Btn label={saving?"...":"✓ Conferma"} onClick={salva}
+          variant="danger" disabled={saving} small/>
+        <Btn label="Annulla" onClick={onCancel} variant="ghost" small/>
+      </div>
+    </div>
+  );
+}
+
+// ─── CARD UNITÀ ───────────────────────────────────────────────────────────────
+function CardUnita({u, lotto, animali, onUpdate}) {
+  const [modal,setModal] = useState(null); // null | "bdn" | "uscita"
+  const codice = u.codice_completo||codiceUnita(lotto.codice_lotto||lotto.codice, u.nr);
+  const vivo = u.vivo!==false&&u.stato==="attivo";
+  const sessoColor = s=>({M:C.blue,F:C.suini,Castrato:C.muted}[s]||C.muted);
+
+  if(modal==="bdn") return (
+    <FormAssegnaBDN unita={u} lotto={lotto} animali={animali}
+      onSave={()=>{setModal(null);onUpdate();}}
+      onCancel={()=>setModal(null)}/>
+  );
+  if(modal==="uscita") return (
+    <FormUscitaUnita unita={u} lotto={lotto}
+      onSave={()=>{setModal(null);onUpdate();}}
+      onCancel={()=>setModal(null)}/>
+  );
 
   return (
     <div style={{background:vivo?C.card:"#F5F5F5",borderRadius:12,padding:12,
       marginBottom:8,border:`1.5px solid ${vivo?C.border:"#DDD"}`,
-      borderLeft:`4px solid ${statColor(u.stato)}`,opacity:vivo?1:0.75}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+      borderLeft:`4px solid ${vivo?C.suini:C.muted}`,opacity:vivo?1:0.65}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <div>
           <div style={{fontFamily:"monospace",fontSize:16,fontWeight:800,
             color:vivo?C.primary:C.muted,letterSpacing:1}}>{codice}</div>
           <div style={{display:"flex",gap:6,marginTop:4,flexWrap:"wrap"}}>
-            <Badge label={statLabel(u.stato)} color={statColor(u.stato)}/>
-            {u.sesso&&<Badge label={u.sesso==="M"?"♂ Maschio":"♀ Femmina"}
-              color={u.sesso==="M"?C.blue:C.suini}/>}
-            {u.destinazione&&u.destinazione!=="ingrasso"&&
-              <Badge label={u.destinazione} color={destColor(u.destinazione)}/>}
-            {u.matricola&&<Badge label={"🏷 "+u.matricola} color={C.green}/>}
+            {u.sesso&&<Badge label={u.sesso==="M"?"♂ M":u.sesso==="F"?"♀ F":"✂ Castrato"}
+              color={sessoColor(u.sesso)}/>}
+            {u.peso_nascita&&<Badge label={u.peso_nascita+"kg"} color={C.muted}/>}
+            {!vivo&&<Badge label={u.motivo_uscita||u.stato} color={C.muted}/>}
+            {u.bdn&&u.stato==="registrato_individuale"&&
+              <Badge label={"→ BDN: "+u.bdn} color={C.green}/>}
           </div>
-          {u.data_uscita&&<div style={{fontSize:11,color:C.muted,marginTop:3}}>
-            Uscito: {u.data_uscita}
-            {u.peso_vivo_uscita&&` · ${u.peso_vivo_uscita}kg vivo`}
-            {u.peso_carcassa&&` · ${u.peso_carcassa}kg carcassa`}
-            {u.resa_percent&&<strong style={{color:C.green}}> · resa {u.resa_percent}%</strong>}
-          </div>}
+          {u.data_uscita&&(
+            <div style={{fontSize:11,color:C.muted,marginTop:3}}>
+              Uscito: {u.data_uscita}
+              {u.peso_vivo_uscita&&` · ${u.peso_vivo_uscita}kg vivo`}
+              {u.peso_carcassa&&` · ${u.peso_carcassa}kg carcassa`}
+              {u.resa_percent&&<strong style={{color:C.green}}> · resa {u.resa_percent}%</strong>}
+            </div>
+          )}
         </div>
-        {vivo&&!edit&&(
+        {vivo&&(
           <div style={{display:"flex",gap:6,flexShrink:0}}>
-            <button onClick={()=>setEdit(true)}
+            <button onClick={()=>setModal("bdn")}
               style={{background:C.blue+"20",border:"none",borderRadius:8,
-                padding:"5px 8px",cursor:"pointer",fontSize:12}}>✏️</button>
-            <button onClick={()=>onUscita(u)}
+                padding:"6px 8px",cursor:"pointer",fontSize:12,fontWeight:700,color:C.blue}}>
+              🏷️ BDN
+            </button>
+            <button onClick={()=>setModal("uscita")}
               style={{background:C.red+"20",border:"none",borderRadius:8,
-                padding:"5px 8px",cursor:"pointer",fontSize:12}}>📤</button>
+                padding:"6px 8px",cursor:"pointer",fontSize:12,fontWeight:700,color:C.red}}>
+              📤
+            </button>
           </div>
         )}
       </div>
-      {edit&&(
-        <div style={{marginTop:10,padding:"10px",background:C.bg,borderRadius:10}}>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-            <Field label="Sesso" value={form.sesso}
-              onChange={v=>setForm(f=>({...f,sesso:v}))}
-              options={["M","F"]}/>
-            <Field label="Destinazione" value={form.destinazione}
-              onChange={v=>setForm(f=>({...f,destinazione:v}))}
-              options={[{value:"ingrasso",label:"Ingrasso"},{value:"riproduzione",label:"Riproduzione"},{value:"macello",label:"Macello"}]}/>
-          </div>
-          {(form.destinazione==="riproduzione"||(u.matricola))&&
-            <Field label="Matricola individuale" value={form.matricola}
-              onChange={v=>setForm(f=>({...f,matricola:v}))}
-              placeholder="Solo per riproduttori o razze pregiate"/>}
-          <div style={{display:"flex",gap:8}}>
-            <Btn label={saving?"...":"Salva"} onClick={salva} variant="success" small disabled={saving}/>
-            <Btn label="Annulla" onClick={()=>setEdit(false)} variant="ghost" small/>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -235,47 +296,43 @@ function CardUnita({u, lotto, onUpdate, onUscita}) {
 // ─── SCHEDA LOTTO ─────────────────────────────────────────────────────────────
 function SchedaLotto({lotto, suini, animali, onBack, onUpdate}) {
   const [cerca,setCerca] = useState("");
-  const [unitaUscita,setUnitaUscita] = useState(null);
 
   const unita = useMemo(()=>
-    suini.filter(s=>s.lotto_id===lotto.id)
-      .sort((a,b)=>a.nr-b.nr)
+    suini.filter(s=>s.lotto_id===lotto.id).sort((a,b)=>a.nr-b.nr)
   ,[suini,lotto.id]);
 
   const unitaFiltrate = useMemo(()=>{
     if(!cerca.trim()) return unita;
     const q=cerca.trim().toLowerCase();
     return unita.filter(u=>{
-      const cod=(u.codice_completo||`${lotto.codice_lotto}${String(u.nr).padStart(2,"0")}`).toLowerCase();
-      return cod.includes(q)||(u.matricola||"").toLowerCase().includes(q);
+      const cod=(u.codice_completo||"").toLowerCase();
+      return cod.includes(q)||String(u.nr).padStart(2,"0")===q.padStart(2,"0");
     });
-  },[unita,cerca,lotto.codice_lotto]);
+  },[unita,cerca]);
 
   const madre = animali.find(a=>a.id===lotto.madre_id);
   const padre = animali.find(a=>a.id===lotto.padre_id);
-
-  // Statistiche
-  const totVivi     = unita.filter(u=>u.vivo!==false&&u.stato==="attivo").length;
-  const totMacellati= unita.filter(u=>u.stato==="macellato").length;
-  const totDeceduti = unita.filter(u=>u.stato==="deceduto").length;
-  const totRiprod   = unita.filter(u=>u.destinazione==="riproduzione").length;
-  const totM        = unita.filter(u=>u.sesso==="M").length;
-  const totF        = unita.filter(u=>u.sesso==="F").length;
+  const vivi = unita.filter(u=>u.vivo!==false&&u.stato==="attivo").length;
+  const macellati = unita.filter(u=>u.stato==="macellato").length;
+  const deceduti = unita.filter(u=>["deceduto","disperso"].includes(u.stato)).length;
+  const conBDN = unita.filter(u=>u.stato==="registrato_individuale").length;
+  const maschi = unita.filter(u=>u.sesso==="M").length;
+  const femmine = unita.filter(u=>u.sesso==="F").length;
+  const castrati = unita.filter(u=>u.sesso==="Castrato").length;
 
   return (
     <div style={{paddingBottom:80}}>
-      {/* Header */}
       <div style={{background:`linear-gradient(135deg,${C.suini},${C.primary})`,
         padding:"20px 16px 24px",borderRadius:"0 0 24px 24px"}}>
-        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:8}}>
           <button onClick={onBack} style={{background:"rgba(255,255,255,0.2)",
             border:"none",borderRadius:10,padding:"6px 10px",color:"#FFF",
             cursor:"pointer",fontSize:18}}>←</button>
           <div>
             <div style={{fontSize:22,fontWeight:900,color:"#FFF",
-              fontFamily:"monospace",letterSpacing:2}}>{lotto.codice_lotto}</div>
-            <div style={{fontSize:13,color:"rgba(255,255,255,0.75)"}}>
-              Parto {lotto.data_parto}
+              fontFamily:"monospace",letterSpacing:2}}>{lotto.codice_lotto||lotto.codice}</div>
+            <div style={{fontSize:13,color:"rgba(255,255,255,0.8)"}}>
+              {lotto.tipo_provenienza==="acquistato"?"📦 Acquistato":"🐣 Parto"} {lotto.data_parto}
             </div>
           </div>
         </div>
@@ -288,237 +345,60 @@ function SchedaLotto({lotto, suini, animali, onBack, onUpdate}) {
         )}
       </div>
 
-      <div style={{padding:"16px"}}>
+      <div style={{padding:"14px"}}>
         {/* Statistiche */}
-        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:16}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:14}}>
           {[
-            {label:"Vivi",val:totVivi,col:C.green},
-            {label:"Macellati",val:totMacellati,col:C.muted},
-            {label:"Deceduti",val:totDeceduti,col:C.red},
-            {label:"Riproduttori",val:totRiprod,col:C.blue},
-            {label:"Maschi",val:totM,col:C.blue},
-            {label:"Femmine",val:totF,col:C.suini},
+            {l:"Vivi nel lotto",v:vivi,c:C.green},
+            {l:"Macellati",v:macellati,c:C.muted},
+            {l:"Deceduti/Dispersi",v:deceduti,c:C.red},
+            {l:"Trasferiti a registro",v:conBDN,c:C.blue},
+            {l:"Maschi",v:maschi,c:C.blue},
+            {l:"Femmine",v:femmine,c:C.suini},
           ].map(s=>(
-            <div key={s.label} style={{background:C.card,borderRadius:12,
-              padding:"10px 8px",textAlign:"center",boxShadow:"0 1px 4px rgba(0,0,0,0.06)"}}>
-              <div style={{fontSize:20,fontWeight:800,color:s.col}}>{s.val}</div>
-              <div style={{fontSize:10,color:C.muted,fontWeight:600}}>{s.label}</div>
+            <div key={s.l} style={{background:C.card,borderRadius:12,padding:"10px 6px",
+              textAlign:"center",boxShadow:"0 1px 4px rgba(0,0,0,0.05)"}}>
+              <div style={{fontSize:20,fontWeight:800,color:s.c}}>{s.v}</div>
+              <div style={{fontSize:9,color:C.muted,fontWeight:600}}>{s.l}</div>
             </div>
           ))}
         </div>
 
-        {/* Ricerca per tatuaggio */}
+        {/* Ricerca */}
         <div style={{position:"relative",marginBottom:12}}>
           <span style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",
-            fontSize:18,color:C.muted,pointerEvents:"none"}}>🔍</span>
+            fontSize:16,color:C.muted}}>🔍</span>
           <input type="text" value={cerca} onChange={e=>setCerca(e.target.value)}
-            placeholder="Cerca per tatuaggio (es. 2304CC1901) o matricola..."
+            placeholder="Cerca per tatuaggio (es. 2304CC1905) o numero..."
             style={{...inputStyle,border:`2px solid ${cerca?C.primary:C.border}`,
-              borderRadius:12,padding:"11px 40px 11px 42px"}}/>
+              borderRadius:12,padding:"10px 38px"}}/>
           {cerca&&<button onClick={()=>setCerca("")}
-            style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",
-              background:"none",border:"none",cursor:"pointer",fontSize:18,color:C.muted}}>✕</button>}
+            style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",
+              background:"none",border:"none",cursor:"pointer",fontSize:16}}>✕</button>}
         </div>
 
-        {/* Gestione uscita */}
-        {unitaUscita&&(
-          <FormUscitaUnita unita={unitaUscita} lotto={lotto}
-            onSave={()=>{setUnitaUscita(null);onUpdate();}}
-            onCancel={()=>setUnitaUscita(null)}/>
-        )}
-
-        {/* Lista unità */}
-        <div style={{fontSize:13,fontWeight:700,color:C.muted,marginBottom:8}}>
-          UNITÀ DEL LOTTO ({unitaFiltrate.length}/{unita.length})
+        <div style={{fontSize:12,fontWeight:700,color:C.muted,marginBottom:8}}>
+          UNITÀ DEL LOTTO — {unitaFiltrate.length} / {unita.length}
+          {castrati>0&&` · ${castrati} castrati`}
         </div>
+
         {unitaFiltrate.map(u=>(
-          <CardUnita key={u.id} u={u} lotto={lotto}
-            onUpdate={onUpdate} onUscita={setUnitaUscita}/>
+          <CardUnita key={u.id} u={u} lotto={lotto} animali={animali} onUpdate={onUpdate}/>
         ))}
-      </div>
-    </div>
-  );
-}
 
-// ─── EXPORT EXCEL ─────────────────────────────────────────────────────────────
-function esportaExcel(lotti, suini, animali) {
-  const wb = XLSX.utils.book_new();
-
-  // Foglio riepilogo lotti
-  const righeRiep = lotti.map(l=>{
-    const us = suini.filter(s=>s.lotto_id===l.id);
-    const madre = animali.find(a=>a.id===l.madre_id);
-    const padre = animali.find(a=>a.id===l.padre_id);
-    return {
-      "Codice Lotto": l.codice_lotto||l.codice,
-      "Data Parto": l.data_parto,
-      "Madre BDN": madre?.bdn||"",
-      "Madre Nome": madre?.nome||"",
-      "Razza Madre": l.razza_madre||madre?.razza||"",
-      "Padre BDN": padre?.bdn||"",
-      "Razza Padre": l.razza_padre||padre?.razza||"",
-      "Nati Totali": l.nati_totali||us.length,
-      "Nati Vivi": l.nati_vivi||us.filter(u=>u.vivo!==false).length,
-      "Nati Morti": l.nati_morti||0,
-      "Vivi Attuali": us.filter(u=>u.vivo!==false&&u.stato==="attivo").length,
-      "Macellati": us.filter(u=>u.stato==="macellato").length,
-      "Deceduti": us.filter(u=>u.stato==="deceduto").length,
-      "Riproduttori": us.filter(u=>u.destinazione==="riproduzione").length,
-      "Maschi": us.filter(u=>u.sesso==="M").length,
-      "Femmine": us.filter(u=>u.sesso==="F").length,
-    };
-  });
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(righeRiep), "Riepilogo Lotti");
-
-  // Foglio dettaglio unità
-  const righeUnita = suini.map(u=>{
-    const lotto = lotti.find(l=>l.id===u.lotto_id);
-    const codice = u.codice_completo||`${lotto?.codice_lotto||""}${String(u.nr).padStart(2,"0")}`;
-    return {
-      "Tatuaggio": codice,
-      "Codice Lotto": lotto?.codice_lotto||lotto?.codice||"",
-      "Nr. Unità": u.nr,
-      "Sesso": u.sesso||"",
-      "Destinazione": u.destinazione||"ingrasso",
-      "Stato": u.stato||"",
-      "Matricola": u.matricola||u.bdn||"",
-      "Peso Nascita (kg)": u.peso_nascita||"",
-      "Data Uscita": u.data_uscita||"",
-      "Motivo Uscita": u.motivo_uscita||"",
-      "Peso Vivo Uscita (kg)": u.peso_vivo_uscita||"",
-      "Peso Carcassa (kg)": u.peso_carcassa||"",
-      "Resa %": u.resa_percent||"",
-    };
-  });
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(righeUnita), "Dettaglio Unità");
-
-  XLSX.writeFile(wb, `Lotti_Suini_${today()}.xlsx`);
-}
-
-// ─── FORM LOTTO ACQUISTATO ───────────────────────────────────────────────────
-function FormLottoAcquistato({onSave, onCancel}) {
-  const [form,setForm] = useState({
-    data_acquisto:today(), fornitore:"",
-    n_capi:"", razza:"Cinta Senese",
-    prezzo_acquisto:"", note:"",
-    codice_manuale:"",
-  });
-  const [saving,setSaving] = useState(false);
-
-  // Genera codice automatico: AAМM + AQ + progressivo
-  const codiceAuto = form.data_acquisto?(()=>{
-    const d = new Date(form.data_acquisto);
-    const aa = String(d.getFullYear()).slice(-2);
-    const mm = String(d.getMonth()+1).padStart(2,"0");
-    return `${aa}${mm}AQ`;
-  })():"";
-  const codice = form.codice_manuale || codiceAuto;
-
-  const salva = async () => {
-    if(!form.data_acquisto||!form.n_capi) return;
-    setSaving(true);
-    const nCapi = parseInt(form.n_capi)||0;
-
-    const{data:nuovoLotto,error} = await supabase.from("lotti_suini").insert([{
-      codice: codice,
-      codice_lotto: codice,
-      anno: new Date(form.data_acquisto).getFullYear(),
-      data_parto: form.data_acquisto,
-      tipo_provenienza: "acquistato",
-      fornitore: form.fornitore||null,
-      prezzo_acquisto: form.prezzo_acquisto?parseFloat(form.prezzo_acquisto):null,
-      nati_totali: nCapi, nati_vivi: nCapi, nati_morti: 0,
-      razza_madre: form.razza||null,
-      note: form.note||null,
-      specie: "suino",
-    }]).select().single();
-
-    if(!error&&nuovoLotto&&nCapi>0){
-      const unita = Array.from({length:nCapi},(_,i)=>({
-        lotto_id: nuovoLotto.id,
-        nr: i+1,
-        codice_completo: codiceUnitá(codice, i+1),
-        vivo: true, stato:"attivo", destinazione:"ingrasso",
-      }));
-      await supabase.from("suini_lotto").insert(unita);
-    }
-    setSaving(false);
-    onSave();
-  };
-
-  return (
-    <div style={{fontFamily:"'Segoe UI',system-ui,sans-serif",background:C.bg,
-      minHeight:"100vh",maxWidth:480,margin:"0 auto",padding:"16px 16px 80px"}}>
-      <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
-        <button onClick={onCancel} style={{background:"none",border:"none",cursor:"pointer",fontSize:22}}>←</button>
-        <span style={{fontSize:18,fontWeight:800}}>📦 Lotto acquistato</span>
-      </div>
-
-      {/* Anteprima codice */}
-      {codice&&(
-        <div style={{background:"#E3F2FD",border:`2px solid ${C.blue}`,
-          borderRadius:14,padding:"12px 16px",marginBottom:16,textAlign:"center"}}>
-          <div style={{fontSize:11,fontWeight:700,color:C.blue,marginBottom:4}}>
-            🏷️ CODICE LOTTO — TATUAGGIO BASE
+        {vivi===0&&unita.length>0&&(
+          <div style={{textAlign:"center",padding:20,background:C.green+"15",
+            borderRadius:12,marginTop:8,fontSize:13,color:C.green,fontWeight:600}}>
+            ✓ Tutte le unità sono uscite dal lotto
           </div>
-          <div style={{fontSize:30,fontWeight:900,color:C.blue,
-            fontFamily:"monospace",letterSpacing:3}}>{codice}</div>
-          {form.n_capi&&parseInt(form.n_capi)>0&&(
-            <div style={{fontSize:11,color:C.muted,marginTop:4}}>
-              Unità: {codice}01 · {codice}02 · ... · {codice}{String(parseInt(form.n_capi)).padStart(2,"0")}
-            </div>
-          )}
-        </div>
-      )}
-
-      <Field label="Data acquisto *" value={form.data_acquisto}
-        onChange={v=>setForm(f=>({...f,data_acquisto:v}))} type="date" required/>
-      <Field label="Fornitore / Azienda" value={form.fornitore}
-        onChange={v=>setForm(f=>({...f,fornitore:v}))} placeholder="Es. Az. Agr. Rossi"/>
-      <Field label="N° capi acquistati *" value={form.n_capi}
-        onChange={v=>setForm(f=>({...f,n_capi:v}))} type="number" required/>
-      <Field label="Razza" value={form.razza}
-        onChange={v=>setForm(f=>({...f,razza:v}))}
-        options={["Cinta Senese","Nero Apucalabro","Nero Casertano","Mora Romagnola","Duroc","Large White","Landrace","Meticcia","Altra"]}/>
-      <Field label="Prezzo acquisto totale (€)" value={form.prezzo_acquisto}
-        onChange={v=>setForm(f=>({...f,prezzo_acquisto:v}))} type="number"/>
-
-      {/* Codice manuale opzionale */}
-      <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:12,
-        padding:"10px 14px",marginBottom:12}}>
-        <div style={{fontSize:12,fontWeight:600,color:C.muted,marginBottom:6}}>
-          🖋 Codice tatuaggio (opzionale — lascia vuoto per generazione automatica)
-        </div>
-        <input type="text" value={form.codice_manuale}
-          onChange={e=>setForm(f=>({...f,codice_manuale:e.target.value.toUpperCase()}))}
-          placeholder={`Automatico: ${codiceAuto} · oppure inserisci il codice del fornitore`}
-          style={{width:"100%",boxSizing:"border-box",border:`1.5px solid ${C.border}`,
-            borderRadius:10,padding:"9px 12px",fontSize:14,fontFamily:"monospace",
-            background:"#FAFAF8",outline:"none"}}/>
+        )}
       </div>
-
-      <Field label="Note" value={form.note}
-        onChange={v=>setForm(f=>({...f,note:v}))} placeholder="Provenienza, certificati, note varie..."/>
-
-      <button onClick={salva}
-        disabled={saving||!form.data_acquisto||!form.n_capi}
-        style={{width:"100%",background:form.data_acquisto&&form.n_capi?C.blue:"#CCC",
-          color:"#FFF",border:"none",borderRadius:14,padding:"15px",
-          fontSize:16,fontWeight:800,cursor:"pointer",marginTop:8}}>
-        {saving?"Salvataggio..."
-          :!form.n_capi?"Inserisci il numero di capi"
-          :`📦 Crea lotto ${codice} con ${form.n_capi} unità`}
-      </button>
-      <button onClick={onCancel} style={{width:"100%",background:"none",border:"none",
-        color:C.muted,cursor:"pointer",padding:"12px",marginTop:4,fontSize:14}}>
-        Annulla
-      </button>
     </div>
   );
 }
 
 // ─── LISTA LOTTI ──────────────────────────────────────────────────────────────
-function ListaLotti({lotti, suini, animali, onSeleziona, onNuovo, onAcquisto}) {
+function ListaLotti({lotti, suini, animali, onSeleziona, onAcquisto}) {
   const [cerca,setCerca] = useState("");
 
   const lottiFiltrati = useMemo(()=>{
@@ -527,80 +407,80 @@ function ListaLotti({lotti, suini, animali, onSeleziona, onNuovo, onAcquisto}) {
     return lotti.filter(l=>{
       const cod=(l.codice_lotto||l.codice||"").toLowerCase();
       if(cod.includes(q)) return true;
-      // Cerca anche per tatuaggio unità
-      return suini.some(u=>{
-        const codU=(u.codice_completo||`${l.codice_lotto}${String(u.nr).padStart(2,"0")}`).toLowerCase();
-        return u.lotto_id===l.id&&codU.includes(q);
-      });
+      const madre=animali.find(a=>a.id===l.madre_id);
+      if((madre?.bdn||"").toLowerCase().includes(q)) return true;
+      // Cerca per tatuaggio unità
+      return suini.some(u=>u.lotto_id===l.id&&
+        (u.codice_completo||"").toLowerCase().includes(q));
     });
-  },[lotti,suini,cerca]);
+  },[lotti,suini,animali,cerca]);
 
-  const totViviGlobal = suini.filter(u=>u.vivo!==false&&u.stato==="attivo").length;
+  const totVivi = suini.filter(u=>u.vivo!==false&&u.stato==="attivo").length;
 
   return (
     <div style={{paddingBottom:80}}>
-      {/* Header */}
       <div style={{background:`linear-gradient(135deg,${C.suini},${C.primary})`,
-        borderRadius:"0 0 28px 28px",padding:"24px 20px 20px",marginBottom:0}}>
+        borderRadius:"0 0 28px 28px",padding:"24px 16px 20px"}}>
         <div style={{fontSize:22,fontWeight:800,color:"#FFF"}}>🐷 Lotti Suini</div>
         <div style={{fontSize:14,color:"rgba(255,255,255,0.75)",marginTop:4}}>
-          {lotti.length} lotti · <strong style={{color:"#FFF"}}>{totViviGlobal} suini vivi</strong> in totale
+          {lotti.length} lotti · <strong style={{color:"#FFF"}}>{totVivi} suinetti vivi nei lotti</strong>
         </div>
       </div>
 
-      <div style={{padding:"16px"}}>
-        {/* Barra ricerca */}
+      <div style={{padding:"14px"}}>
+        {/* Ricerca */}
         <div style={{position:"relative",marginBottom:12}}>
           <span style={{position:"absolute",left:12,top:"50%",
-            transform:"translateY(-50%)",fontSize:18,color:C.muted,pointerEvents:"none"}}>🔍</span>
+            transform:"translateY(-50%)",fontSize:16,color:C.muted}}>🔍</span>
           <input type="text" value={cerca} onChange={e=>setCerca(e.target.value)}
-            placeholder="Cerca lotto (es. 2304CC19) o tatuaggio unità (es. 2304CC1901)..."
+            placeholder="Cerca per codice lotto, tatuaggio unità o BDN madre..."
             style={{...inputStyle,border:`2px solid ${cerca?C.suini:C.border}`,
-              borderRadius:12,padding:"11px 40px 11px 42px"}}/>
+              borderRadius:12,padding:"10px 38px"}}/>
           {cerca&&<button onClick={()=>setCerca("")}
-            style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",
-              background:"none",border:"none",cursor:"pointer",fontSize:18,color:C.muted}}>✕</button>}
+            style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",
+              background:"none",border:"none",cursor:"pointer",fontSize:16}}>✕</button>}
         </div>
 
-        {/* Azioni */}
-        <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
-          <Btn label="🐣 Nato" onClick={onNuovo} variant="primary"/>
-          <Btn label="📦 Acquistato" onClick={onAcquisto} variant="outline"/>
+        <div style={{display:"flex",gap:8,marginBottom:14}}>
+          <Btn label="📦 Lotto acquistato" onClick={onAcquisto} variant="outline" small/>
           <Btn label="📊 Excel" onClick={()=>esportaExcel(lotti,suini,animali)} variant="outline" small/>
         </div>
 
-        {/* Lista lotti */}
         {lottiFiltrati.length===0?(
           <div style={{textAlign:"center",padding:48,color:C.muted}}>
             <div style={{fontSize:48,marginBottom:12}}>🐷</div>
             <div style={{fontWeight:700,fontSize:16}}>
               {cerca?"Nessun lotto trovato":"Nessun lotto registrato"}
             </div>
-            <div style={{fontSize:14,marginTop:8}}>
-              {cerca?"Prova con un codice diverso":"Registra il primo parto"}
+            <div style={{fontSize:13,marginTop:8}}>
+              {cerca?"Prova con un codice diverso":"I lotti si creano automaticamente registrando un parto suino dalla scheda della madre"}
             </div>
           </div>
         ):lottiFiltrati.map(l=>{
           const us = suini.filter(s=>s.lotto_id===l.id);
-          const vivi     = us.filter(u=>u.vivo!==false&&u.stato==="attivo").length;
-          const macellati= us.filter(u=>u.stato==="macellato").length;
-          const deceduti = us.filter(u=>u.stato==="deceduto").length;
-          const riprod   = us.filter(u=>u.destinazione==="riproduzione").length;
-          const pct = us.length>0?Math.round(vivi/us.length*100):0;
+          const vivi = us.filter(u=>u.vivo!==false&&u.stato==="attivo").length;
+          const tot = us.length;
+          const pct = tot>0?Math.round(vivi/tot*100):0;
           const madre = animali.find(a=>a.id===l.madre_id);
           const padre = animali.find(a=>a.id===l.padre_id);
+          const chiuso = tot>0&&vivi===0;
           return (
             <div key={l.id} onClick={()=>onSeleziona(l)}
-              style={{background:C.card,borderRadius:16,padding:16,marginBottom:12,
-                boxShadow:"0 2px 8px rgba(0,0,0,0.08)",border:`1px solid ${C.border}`,
-                borderLeft:`5px solid ${C.suini}`,cursor:"pointer"}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
+              style={{background:chiuso?"#F5F5F5":C.card,borderRadius:16,padding:14,
+                marginBottom:10,boxShadow:"0 2px 6px rgba(0,0,0,0.07)",
+                border:`1px solid ${chiuso?"#DDD":C.border}`,
+                borderLeft:`5px solid ${chiuso?C.muted:C.suini}`,cursor:"pointer",
+                opacity:chiuso?0.75:1}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
                 <div>
-                  <div style={{fontSize:22,fontWeight:900,color:C.suini,
-                    fontFamily:"monospace",letterSpacing:2}}>
+                  <div style={{fontSize:20,fontWeight:900,
+                    color:chiuso?C.muted:C.suini,fontFamily:"monospace",letterSpacing:2}}>
                     {l.codice_lotto||l.codice}
                   </div>
-                  <div style={{fontSize:13,color:C.muted}}>Parto {l.data_parto}</div>
+                  <div style={{fontSize:12,color:C.muted}}>
+                    {l.tipo_provenienza==="acquistato"?"📦":"🐣"} {l.data_parto}
+                    {l.fornitore&&` · ${l.fornitore}`}
+                  </div>
                   {(madre||padre)&&(
                     <div style={{fontSize:12,color:C.muted,marginTop:2}}>
                       {madre&&`♀ ${madre.nome||madre.bdn}`}
@@ -610,21 +490,18 @@ function ListaLotti({lotti, suini, animali, onSeleziona, onNuovo, onAcquisto}) {
                   )}
                 </div>
                 <div style={{textAlign:"right"}}>
-                  <div style={{fontSize:28,fontWeight:900,color:C.green}}>{vivi}</div>
-                  <div style={{fontSize:11,color:C.muted}}>vivi / {us.length}</div>
+                  <div style={{fontSize:26,fontWeight:900,color:chiuso?C.muted:C.green}}>{vivi}</div>
+                  <div style={{fontSize:11,color:C.muted}}>vivi / {tot}</div>
+                  {chiuso&&<div style={{fontSize:10,color:C.muted,fontWeight:600}}>✓ CHIUSO</div>}
                 </div>
               </div>
-              {/* Barra progresso */}
-              {us.length>0&&(
-                <div style={{background:C.border,borderRadius:6,height:6,marginBottom:8,overflow:"hidden"}}>
-                  <div style={{background:C.green,width:`${pct}%`,height:"100%",borderRadius:6}}/>
+              {tot>0&&(
+                <div style={{background:C.border,borderRadius:6,height:5,overflow:"hidden",marginBottom:8}}>
+                  <div style={{background:chiuso?C.muted:C.green,width:`${pct}%`,height:"100%"}}/>
                 </div>
               )}
-              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                <Badge label={`${vivi} vivi`} color={C.green}/>
-                {macellati>0&&<Badge label={`${macellati} macellati`} color={C.muted}/>}
-                {deceduti>0&&<Badge label={`${deceduti} deceduti`} color={C.red}/>}
-                {riprod>0&&<Badge label={`${riprod} riproduttori`} color={C.blue}/>}
+              <div style={{fontSize:12,color:C.blue,fontWeight:600}}>
+                👆 Tocca per aprire la scheda completa
               </div>
             </div>
           );
@@ -634,174 +511,123 @@ function ListaLotti({lotti, suini, animali, onSeleziona, onNuovo, onAcquisto}) {
   );
 }
 
-// ─── FORM NUOVO PARTO ─────────────────────────────────────────────────────────
-function FormNuovoParto({animali, onSave, onCancel}) {
+// ─── FORM LOTTO ACQUISTATO ────────────────────────────────────────────────────
+function FormLottoAcquistato({onSave, onCancel}) {
   const [form,setForm] = useState({
-    madre_id:"",padre_id:"",
-    data_parto:today(),data_accoppiamento:"",
-    nati_totali:"",nati_morti:"0",
-    tipo_parto:"Naturale",note:"",
+    data_acquisto:today(),fornitore:"",n_capi:"",
+    razza:"Cinta Senese",prezzo_acquisto:"",note:"",codice_manuale:"",
   });
   const [saving,setSaving] = useState(false);
-
-  const scrofe = animali.filter(a=>a.sesso==="F"&&a.specie==="suino"&&a.stato==="attivo");
-  const verri  = animali.filter(a=>a.sesso==="M"&&a.specie==="suino");
-
-  const madre  = form.madre_id?animali.find(a=>a.id===parseInt(form.madre_id)):null;
-  const padre  = form.padre_id?animali.find(a=>a.id===parseInt(form.padre_id)):null;
-  const vivi   = Math.max(0,(parseInt(form.nati_totali)||0)-(parseInt(form.nati_morti)||0));
-  const codice = generaCodLotto(
-    form.data_parto,
-    madre?.razza_calcolata||madre?.razza,
-    padre?.razza_calcolata||padre?.razza,
-    madre?.bdn
-  );
-
-  const dataPrevista = form.data_accoppiamento?(()=>{
-    const d=new Date(form.data_accoppiamento);
-    d.setMonth(d.getMonth()+3);
-    d.setDate(d.getDate()+24);
-    return d.toISOString().split("T")[0];
+  const codiceAuto = form.data_acquisto?(()=>{
+    const d=new Date(form.data_acquisto);
+    return `${String(d.getFullYear()).slice(-2)}${String(d.getMonth()+1).padStart(2,"0")}AQ`;
   })():"";
+  const codice = form.codice_manuale||codiceAuto;
+  const nCapi = parseInt(form.n_capi)||0;
 
   const salva = async () => {
-    if(!form.madre_id||!form.data_parto||!form.nati_totali) return;
+    if(!form.data_acquisto||!nCapi) return;
     setSaving(true);
-
-    // 1. Crea lotto
-    const {data:nuovoLotto,error} = await supabase.from("lotti_suini").insert([{
-      codice: codice,
-      codice_lotto: codice,
-      anno: new Date(form.data_parto).getFullYear(),
-      data_parto: form.data_parto,
-      madre_id: parseInt(form.madre_id),
-      padre_id: form.padre_id?parseInt(form.padre_id):null,
-      razza_madre: madre?.razza_calcolata||madre?.razza||null,
-      razza_padre: padre?.razza_calcolata||padre?.razza||null,
-      nati_totali: parseInt(form.nati_totali)||0,
-      nati_vivi: vivi,
-      nati_morti: parseInt(form.nati_morti)||0,
-      note: form.note||null,
-      specie: "suino",
-    }]).select().single();
-
-    if(!error&&nuovoLotto&&vivi>0) {
-      // 2. Crea unità per ogni nato vivo
-      const unita = Array.from({length:vivi},(_,i)=>({
-        lotto_id: nuovoLotto.id,
-        nr: i+1,
-        codice_completo: codiceUnitá(codice, i+1),
-        vivo: true,
-        stato: "attivo",
-        destinazione: "ingrasso",
-      }));
-      await supabase.from("suini_lotto").insert(unita);
-
-      // 3. Crea anche evento riproduttivo
-      await supabase.from("eventi_riproduttivi").insert([{
-        animale_id: parseInt(form.madre_id),
-        tipo_evento: "parto",
-        data_evento: form.data_parto,
-        tipo_parto: form.tipo_parto||null,
-        nati_vivi: vivi,
-        nati_morti: parseInt(form.nati_morti)||0,
-        padre_id: form.padre_id?parseInt(form.padre_id):null,
-        data_accoppiamento: form.data_accoppiamento||null,
-        note: `Lotto ${codice}`,
-      }]);
+    const{data:nuovoLotto}=await supabase.from("lotti_suini").insert([{
+      codice,codice_lotto:codice,
+      anno:new Date(form.data_acquisto).getFullYear(),
+      data_parto:form.data_acquisto,
+      tipo_provenienza:"acquistato",
+      fornitore:form.fornitore||null,
+      prezzo_acquisto:form.prezzo_acquisto?parseFloat(form.prezzo_acquisto):null,
+      nati_totali:nCapi,nati_vivi:nCapi,nati_morti:0,
+      razza_madre:form.razza||null,note:form.note||null,specie:"suino",
+    }]).select("id").single();
+    if(nuovoLotto){
+      await supabase.from("suini_lotto").insert(
+        Array.from({length:nCapi},(_,i)=>({
+          lotto_id:nuovoLotto.id,nr:i+1,
+          codice_completo:codiceUnita(codice,i+1),
+          vivo:true,stato:"attivo",destinazione:"ingrasso",
+        }))
+      );
     }
-    setSaving(false);
-    onSave();
+    setSaving(false);onSave();
   };
 
   return (
     <div style={{fontFamily:"'Segoe UI',system-ui,sans-serif",background:C.bg,
       minHeight:"100vh",maxWidth:480,margin:"0 auto",padding:"16px 16px 80px"}}>
-      <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
+      <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
         <button onClick={onCancel} style={{background:"none",border:"none",cursor:"pointer",fontSize:22}}>←</button>
-        <span style={{fontSize:18,fontWeight:800}}>🐣 Nuovo parto suini</span>
+        <span style={{fontSize:18,fontWeight:800}}>📦 Lotto acquistato</span>
       </div>
-
-      {/* Anteprima codice lotto */}
       {codice&&(
-        <div style={{background:C.suini+"12",border:`2px solid ${C.suini}`,
-          borderRadius:14,padding:"12px 16px",marginBottom:16,textAlign:"center"}}>
-          <div style={{fontSize:12,fontWeight:700,color:C.suini,marginBottom:4}}>
-            🏷️ CODICE LOTTO — TATUAGGIO BASE
-          </div>
-          <div style={{fontSize:32,fontWeight:900,color:C.suini,
-            fontFamily:"monospace",letterSpacing:3}}>{codice}</div>
-          <div style={{fontSize:11,color:C.muted,marginTop:4}}>
-            Unità: {codice}01 · {codice}02 · ... · {codice}{String(vivi||1).padStart(2,"0")}
-          </div>
+        <div style={{background:"#E3F2FD",border:`2px solid ${C.blue}`,borderRadius:14,
+          padding:"12px 16px",marginBottom:16,textAlign:"center"}}>
+          <div style={{fontSize:11,fontWeight:700,color:C.blue,marginBottom:4}}>🏷️ CODICE LOTTO</div>
+          <div style={{fontSize:30,fontWeight:900,color:C.blue,fontFamily:"monospace",letterSpacing:3}}>{codice}</div>
+          {nCapi>0&&<div style={{fontSize:11,color:C.muted,marginTop:4}}>
+            Unità: {codice}01 … {codice}{String(nCapi).padStart(2,"0")}
+          </div>}
         </div>
       )}
-
-      <Field label="Madre (scrofa) *" value={form.madre_id}
-        onChange={v=>setForm(f=>({...f,madre_id:v}))}
-        options={scrofe.map(a=>({value:a.id,label:`${a.nome||a.bdn} · ${a.razza||"—"}`}))} required/>
-      <Field label="Padre (verro)" value={form.padre_id}
-        onChange={v=>setForm(f=>({...f,padre_id:v}))}
-        options={verri.map(a=>({value:a.id,label:`${a.nome||a.bdn} · ${a.razza||"—"}`}))}/>
-      <Field label="Data parto *" value={form.data_parto}
-        onChange={v=>setForm(f=>({...f,data_parto:v}))} type="date" required/>
-      <Field label="Tipo parto" value={form.tipo_parto}
-        onChange={v=>setForm(f=>({...f,tipo_parto:v}))}
-        options={["Naturale","Assistito"]}/>
-
-      {/* Accoppiamento */}
-      <div style={{background:C.yellow+"10",border:`1px solid ${C.yellow}33`,
-        borderRadius:12,padding:"12px 14px",marginBottom:12}}>
-        <div style={{fontSize:12,fontWeight:700,color:C.yellow,marginBottom:8}}>
-          🐷 Accoppiamento (facoltativo)
+      <Field label="Data acquisto *" value={form.data_acquisto}
+        onChange={v=>setForm(f=>({...f,data_acquisto:v}))} type="date" required/>
+      <Field label="Fornitore / Azienda" value={form.fornitore}
+        onChange={v=>setForm(f=>({...f,fornitore:v}))} placeholder="Es. Az. Agr. Rossi"/>
+      <Field label="N° capi acquistati *" value={form.n_capi}
+        onChange={v=>setForm(f=>({...f,n_capi:v}))} type="number" required/>
+      <Field label="Razza" value={form.razza} onChange={v=>setForm(f=>({...f,razza:v}))}
+        options={["Cinta Senese","Nero Apucalabro","Nero Casertano","Mora Romagnola",
+          "Duroc","Large White","Landrace","Meticcia","Altra"]}/>
+      <Field label="Prezzo totale (€)" value={form.prezzo_acquisto}
+        onChange={v=>setForm(f=>({...f,prezzo_acquisto:v}))} type="number"/>
+      <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:12,padding:12,marginBottom:12}}>
+        <div style={{fontSize:11,color:C.muted,marginBottom:6}}>
+          Codice tatuaggio (lascia vuoto per generazione automatica: {codiceAuto})
         </div>
-        <Field label="Data accoppiamento" value={form.data_accoppiamento}
-          onChange={v=>setForm(f=>({...f,data_accoppiamento:v}))} type="date"/>
-        {dataPrevista&&(
-          <div style={{fontSize:12,color:C.muted}}>
-            📅 Data prevista parto: <strong style={{color:C.primary}}>{dataPrevista}</strong>
-            <span style={{fontSize:11}}> (3 mesi + 3 sett. + 3 giorni)</span>
-          </div>
-        )}
+        <input type="text" value={form.codice_manuale}
+          onChange={e=>setForm(f=>({...f,codice_manuale:e.target.value.toUpperCase()}))}
+          placeholder={codiceAuto}
+          style={{...inputStyle,fontFamily:"monospace"}}/>
       </div>
-
-      {/* Nati */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-        <Field label="Nati totali *" value={form.nati_totali}
-          onChange={v=>setForm(f=>({...f,nati_totali:v}))} type="number" required/>
-        <Field label="Nati morti" value={form.nati_morti}
-          onChange={v=>setForm(f=>({...f,nati_morti:v}))} type="number"/>
-      </div>
-
-      {(form.nati_totali)&&(
-        <div style={{background:C.green+"12",border:`1px solid ${C.green}33`,
-          borderRadius:10,padding:"8px 14px",marginBottom:12,display:"flex",gap:16,fontSize:13}}>
-          <span>🟢 Vivi: <strong style={{color:C.green}}>{vivi}</strong></span>
-          <span>🔴 Morti: <strong style={{color:C.red}}>{parseInt(form.nati_morti)||0}</strong></span>
-          {codice&&<span>🏷️ Unità: {codice}01…{codice}{String(vivi).padStart(2,"0")}</span>}
-        </div>
-      )}
-
-      <Field label="Note" value={form.note}
-        onChange={v=>setForm(f=>({...f,note:v}))} placeholder="Osservazioni sul parto..."/>
-
-      <div style={{display:"flex",gap:10,marginTop:8}}>
-        <Btn label={saving?"Salvataggio...":"Registra parto e crea lotto"} icon="✓"
-          onClick={salva} variant="success"
-          disabled={saving||!form.madre_id||!form.data_parto||!form.nati_totali} full/>
-      </div>
-      <Btn label="Annulla" onClick={onCancel} variant="ghost" full/>
+      <Field label="Note" value={form.note} onChange={v=>setForm(f=>({...f,note:v}))}/>
+      <Btn label={saving?"...":nCapi>0?`📦 Crea lotto con ${nCapi} unità`:"Inserisci il numero di capi"}
+        onClick={salva} disabled={saving||!form.data_acquisto||!nCapi} full variant="primary"/>
     </div>
   );
 }
 
+// ─── EXPORT EXCEL ─────────────────────────────────────────────────────────────
+function esportaExcel(lotti, suini, animali) {
+  const wb = require("xlsx").utils.book_new();
+  const XLSX = require("xlsx");
+  const righeL = lotti.map(l=>{
+    const us=suini.filter(s=>s.lotto_id===l.id);
+    const madre=animali.find(a=>a.id===l.madre_id);
+    return {"Codice Lotto":l.codice_lotto||l.codice,"Data":l.data_parto,
+      "Tipo":l.tipo_provenienza==="acquistato"?"Acquistato":"Parto",
+      "Fornitore":l.fornitore||"","Madre BDN":madre?.bdn||"","Madre Nome":madre?.nome||"",
+      "Nati Totali":l.nati_totali||us.length,"Nati Vivi":l.nati_vivi||0,"Nati Morti":l.nati_morti||0,
+      "Vivi Attuali":us.filter(u=>u.vivo!==false&&u.stato==="attivo").length,
+      "Macellati":us.filter(u=>u.stato==="macellato").length};
+  });
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(righeL),"Lotti");
+  const righeU = suini.map(u=>{
+    const l=lotti.find(x=>x.id===u.lotto_id);
+    return {"Tatuaggio":u.codice_completo||"","Lotto":l?.codice_lotto||"","Nr":u.nr,
+      "Sesso":u.sesso||"","Stato":u.stato||"","BDN individuale":u.bdn||u.matricola||"",
+      "Peso nascita":u.peso_nascita||"","Data uscita":u.data_uscita||"",
+      "Motivo":u.motivo_uscita||"","Peso vivo":u.peso_vivo_uscita||"",
+      "Peso carcassa":u.peso_carcassa||"","Resa %":u.resa_percent||""};
+  });
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(righeU),"Unità");
+  XLSX.writeFile(wb,`Lotti_Suini_${new Date().toISOString().split("T")[0]}.xlsx`);
+}
+
 // ─── APP ROOT ─────────────────────────────────────────────────────────────────
 export default function LottiSuini() {
-  const [animali,setAnimali]   = useState([]);
-  const [lotti,setLotti]       = useState([]);
-  const [suini,setSuini]       = useState([]);
-  const [loading,setLoading]   = useState(true);
-  const [view,setView]         = useState("lista");  // lista | lotto | form | acquisto
+  const [animali,setAnimali] = useState([]);
+  const [lotti,setLotti]     = useState([]);
+  const [suini,setSuini]     = useState([]);
+  const [loading,setLoading] = useState(true);
+  const [view,setView]       = useState("lista");
   const [selLotto,setSelLotto] = useState(null);
 
   const carica = async () => {
@@ -823,34 +649,24 @@ export default function LottiSuini() {
       minHeight:"100vh",maxWidth:480,margin:"0 auto"}}><Spinner/></div>
   );
 
-  if(view==="form") return(
-    <FormNuovoParto animali={animali}
-      onSave={()=>{carica();setView("lista");}}
-      onCancel={()=>setView("lista")}/>
+  const wrap = ch => (
+    <div style={{fontFamily:"'Segoe UI',system-ui,sans-serif",background:C.bg,
+      minHeight:"100vh",maxWidth:480,margin:"0 auto"}}>{ch}</div>
   );
 
-  if(view==="acquisto") return(
+  if(view==="acquisto") return wrap(
     <FormLottoAcquistato
       onSave={()=>{carica();setView("lista");}}
       onCancel={()=>setView("lista")}/>
   );
-
-  if(view==="lotto"&&selLotto) return(
-    <div style={{fontFamily:"'Segoe UI',system-ui,sans-serif",background:C.bg,
-      minHeight:"100vh",maxWidth:480,margin:"0 auto"}}>
-      <SchedaLotto lotto={selLotto} suini={suini} animali={animali}
-        onBack={()=>setView("lista")}
-        onUpdate={carica}/>
-    </div>
+  if(view==="lotto"&&selLotto) return wrap(
+    <SchedaLotto lotto={selLotto} suini={suini} animali={animali}
+      onBack={()=>{setView("lista");setSelLotto(null);}}
+      onUpdate={async()=>{await carica();}}/>
   );
-
-  return(
-    <div style={{fontFamily:"'Segoe UI',system-ui,sans-serif",background:C.bg,
-      minHeight:"100vh",maxWidth:480,margin:"0 auto"}}>
-      <ListaLotti lotti={lotti} suini={suini} animali={animali}
-        onSeleziona={l=>{setSelLotto(l);setView("lotto");}}
-        onNuovo={()=>setView("form")}
-        onAcquisto={()=>setView("acquisto")}/>
-    </div>
+  return wrap(
+    <ListaLotti lotti={lotti} suini={suini} animali={animali}
+      onSeleziona={l=>{setSelLotto(l);setView("lotto");}}
+      onAcquisto={()=>setView("acquisto")}/>
   );
 }

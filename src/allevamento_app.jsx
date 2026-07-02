@@ -466,29 +466,88 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
       return;
     }
 
-    // ── MODALITÀ NUOVO: crea evento + eventualmente schede figli ──────────
+    // ── MODALITÀ NUOVO: crea evento + schede figli / lotto ──────────────────
     const{data:evData,error}=await aggiungiEvento(payload);
     if(error){setSavingParto(false);return;}
+
     if(!formParto.storico){
       const nati=formParto.nati||[];
+      const rc=calcolaRazza(formParto.padre_id,dettaglio.id,animali);
+      const padre=formParto.padre_id?animali.find(a=>a.id===parseInt(formParto.padre_id)):null;
+
+      // Per ogni nato: se ha BDN → crea animale individuale
+      //               se non ha BDN → va nel lotto (solo suini)
+      const unitaLotto=[];
+      let nrLotto=1;
+
       for(const nato of nati){
-        if(!nato.bdn_nato)continue;
-        const rc=calcolaRazza(formParto.padre_id,dettaglio.id,animali);
-        await aggiungi({
-          bdn:nato.bdn_nato,
-          specie:dettaglio.specie,
-          razza:rc||dettaglio.razza||null,
-          razza_calcolata:rc||null,
-          sesso:nato.sesso||null,
-          nascita:formParto.data_evento,
-          peso_nascita:nato.peso_nascita?parseFloat(nato.peso_nascita):null,
+        if(nato.bdn_nato&&nato.bdn_nato.trim()){
+          // Ha BDN → registro animali individuale
+          await aggiungi({
+            bdn:nato.bdn_nato.trim(),
+            specie:dettaglio.specie,
+            nome:nato.nome||null,
+            razza:rc||dettaglio.razza||null,
+            razza_calcolata:rc||null,
+            sesso:nato.sesso||null,
+            nascita:formParto.data_evento,
+            peso_nascita:nato.peso_nascita?parseFloat(nato.peso_nascita):null,
+            madre_id:dettaglio.id,
+            padre_id:formParto.padre_id?parseInt(formParto.padre_id):null,
+            provenienza:"Nato in azienda",
+            data_ingresso:formParto.data_evento,
+            stato:"attivo",vivo:true,
+            riproduttore:nato.sesso==="M"?true:false,
+            note:`Nato da parto del ${formParto.data_evento}`,
+          });
+        } else if(dettaglio.specie==="suino"){
+          // Nessun BDN + suino → va nel lotto
+          unitaLotto.push({
+            nr:nrLotto++,
+            sesso:nato.sesso||null,
+            peso_nascita:nato.peso_nascita?parseFloat(nato.peso_nascita):null,
+          });
+        }
+      }
+
+      // Crea lotto se ci sono unità senza BDN (solo suini)
+      if(dettaglio.specie==="suino"&&unitaLotto.length>0){
+        const codLotto=generaCodLotto(
+          formParto.data_evento,
+          dettaglio.razza_calcolata||dettaglio.razza,
+          padre?.razza_calcolata||padre?.razza,
+          dettaglio.bdn
+        );
+        const{data:nuovoLotto}=await supabase.from("lotti_suini").insert([{
+          codice:codLotto,
+          codice_lotto:codLotto,
+          anno:new Date(formParto.data_evento).getFullYear(),
+          data_parto:formParto.data_evento,
           madre_id:dettaglio.id,
           padre_id:formParto.padre_id?parseInt(formParto.padre_id):null,
-          provenienza:"Nato in azienda",
-          data_ingresso:formParto.data_evento,
-          stato:"attivo",vivo:true,
-          note:`Nato da parto del ${formParto.data_evento}`,
-        });
+          razza_madre:dettaglio.razza_calcolata||dettaglio.razza||null,
+          razza_padre:padre?.razza_calcolata||padre?.razza||null,
+          nati_totali:totali,
+          nati_vivi:vivi,
+          nati_morti:morti,
+          tipo_provenienza:"nato",
+          specie:"suino",
+          note:formParto.note||null,
+        }]).select("id").single();
+
+        if(nuovoLotto){
+          const righeUnita=unitaLotto.map(u=>({
+            lotto_id:nuovoLotto.id,
+            nr:u.nr,
+            codice_completo:`${codLotto}${String(u.nr).padStart(2,"0")}`,
+            sesso:u.sesso||null,
+            peso_nascita:u.peso_nascita||null,
+            vivo:true,
+            stato:"attivo",
+            destinazione:"ingrasso",
+          }));
+          await supabase.from("suini_lotto").insert(righeUnita);
+        }
       }
     }
     setSavingParto(false);
@@ -1021,23 +1080,50 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
                       );
                     })()}
                     {/* Campi per ogni nato vivo (solo creazione, non storico) */}
-                    {!formParto.id&&!formParto.storico&&(formParto.nati||[]).map((n,i)=>(
-                      <div key={i} style={{background:C.bg,borderRadius:10,padding:10,marginBottom:8}}>
-                        <div style={{fontSize:12,fontWeight:700,color:C.primary,marginBottom:8}}>
-                          🐾 Nato vivo {i+1}
+                    {!formParto.id&&!formParto.storico&&(formParto.nati||[]).map((n,i)=>{
+                      const codLottoPreview=(()=>{
+                        const padre=formParto.padre_id?animali.find(x=>x.id===parseInt(formParto.padre_id)):null;
+                        return generaCodLotto(formParto.data_evento,a.razza_calcolata||a.razza,padre?.razza_calcolata||padre?.razza,a.bdn);
+                      })();
+                      const nrLotto=String(i+1-(formParto.nati||[]).slice(0,i+1).filter(x=>x.bdn_nato&&x.bdn_nato.trim()).length).padStart(2,"0");
+                      return(
+                      <div key={i} style={{background:C.bg,borderRadius:10,padding:10,marginBottom:8,
+                        border:`1.5px solid ${n.bdn_nato?C.green:C.suini}44`}}>
+                        <div style={{fontSize:12,fontWeight:700,marginBottom:8,
+                          color:n.bdn_nato?C.green:C.suini}}>
+                          {a.specie==="suino"
+                            ?(n.bdn_nato
+                              ?`🏷️ Nato ${i+1} → Registro animali (BDN: ${n.bdn_nato})`
+                              :`🐷 Nato ${i+1} → Lotto ${codLottoPreview||"?"}${!n.bdn_nato?nrLotto:""}`)
+                            :`🐾 Nato vivo ${i+1}`}
                         </div>
                         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-                          <Field label="BDN/ID" value={n.bdn_nato}
-                            onChange={v=>setFormParto(f=>({...f,nati:f.nati.map((x,j)=>j===i?{...x,bdn_nato:v}:x)}))}/>
                           <Field label="Sesso" value={n.sesso}
                             onChange={v=>setFormParto(f=>({...f,nati:f.nati.map((x,j)=>j===i?{...x,sesso:v}:x)}))}
-                            options={SESSO_OPT(a.specie)}/>
+                            options={a.specie==="suino"?["M","F","Castrato"]:SESSO_OPT(a.specie)}/>
+                          <Field label="Peso nascita (kg)" value={n.peso_nascita}
+                            onChange={v=>setFormParto(f=>({...f,nati:f.nati.map((x,j)=>j===i?{...x,peso_nascita:v}:x)}))}
+                            type="number"/>
                         </div>
-                        <Field label="Peso nascita (kg)" value={n.peso_nascita}
-                          onChange={v=>setFormParto(f=>({...f,nati:f.nati.map((x,j)=>j===i?{...x,peso_nascita:v}:x)}))}
-                          type="number"/>
+                        {a.specie==="suino"
+                          ?<div>
+                              <div style={{fontSize:11,color:C.muted,marginBottom:3}}>
+                                BDN/ID individuale (solo se riproduttore o razza pregiata — altrimenti lascia vuoto → entra nel lotto)
+                              </div>
+                              <input type="text" value={n.bdn_nato||""}
+                                onChange={e=>setFormParto(f=>({...f,nati:f.nati.map((x,j)=>j===i?{...x,bdn_nato:e.target.value}:x)}))}
+                                placeholder="Vuoto = va nel lotto automaticamente"
+                                style={{width:"100%",boxSizing:"border-box",
+                                  border:`1.5px solid ${n.bdn_nato?C.green:C.border}`,
+                                  borderRadius:8,padding:"7px 10px",fontSize:13,
+                                  background:"#FAFAF8",outline:"none"}}/>
+                            </div>
+                          :<Field label="BDN/ID" value={n.bdn_nato}
+                              onChange={v=>setFormParto(f=>({...f,nati:f.nati.map((x,j)=>j===i?{...x,bdn_nato:v}:x)}))}/>
+                        }
                       </div>
-                    ))}
+                      );
+                    })}
                     {formParto.id&&(
                       <div style={{background:C.blue+"12",border:`1px solid ${C.blue}33`,borderRadius:10,
                         padding:"8px 12px",marginBottom:12,fontSize:12,color:C.muted}}>
