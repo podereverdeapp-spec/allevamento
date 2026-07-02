@@ -336,6 +336,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
     nascita:"",peso_nascita:"",peso_attuale:"",
     provenienza:"Nato in azienda",data_ingresso:today(),
     prezzo_acquisto:"",origine:"",padre_id:"",madre_id:"",
+    padre_ext:"",madre_ext:"",
     transponder:"",passaporto:"",codice_asl:"",
     lotto_box:"",destinazione:"",
     stato:"attivo",data_uscita:"",
@@ -361,10 +362,33 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
   const f=form||{};
   const razzaCalcolata=calcolaRazza(f.padre_id,f.madre_id,animali);
 
+  // Crea o trova animale esterno per genealogia
+  const risolviGenitoreEsterno=async(bdn_ext,sesso_ger,specie)=>{
+    if(!bdn_ext||!bdn_ext.trim()) return null;
+    const bdn=bdn_ext.trim();
+    // Cerca se esiste già
+    const{data:esistente}=await supabase.from("animali").select("id").eq("bdn",bdn).maybeSingle();
+    if(esistente) return esistente.id;
+    // Crea scheda minima
+    const{data:nuovo}=await supabase.from("animali").insert([{
+      bdn, specie, sesso:sesso_ger,
+      provenienza:"Esterno", stato:"storico", vivo:false,
+      note:"Genitore esterno — scheda creata automaticamente",
+    }]).select("id").single();
+    return nuovo?.id||null;
+  };
+
   const salva=async()=>{
     if(!form.bdn&&!form.nome){setErrore("Inserisci almeno BDN o nome");return;}
     setSaving(true);setErrore("");
-    const rc=calcolaRazza(form.padre_id,form.madre_id,animali);
+    // Risolvi genitori esterni
+    let padre_id=form.padre_id?parseInt(form.padre_id):null;
+    let madre_id=form.madre_id?parseInt(form.madre_id):null;
+    if(!padre_id&&form.padre_ext)
+      padre_id=await risolviGenitoreEsterno(form.padre_ext,"M",form.specie);
+    if(!madre_id&&form.madre_ext)
+      madre_id=await risolviGenitoreEsterno(form.madre_ext,"F",form.specie);
+    const rc=calcolaRazza(padre_id,madre_id,animali);
     const payload={
       bdn:form.bdn||null, nome:form.nome||null,
       specie:form.specie, razza:form.razza||null,
@@ -378,8 +402,8 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
       data_ingresso:form.data_ingresso||null,
       prezzo_acquisto:form.prezzo_acquisto?parseFloat(form.prezzo_acquisto):null,
       origine:form.origine||null,
-      padre_id:form.padre_id?parseInt(form.padre_id):null,
-      madre_id:form.madre_id?parseInt(form.madre_id):null,
+      padre_id:padre_id,
+      madre_id:madre_id,
       transponder:form.transponder||null,
       passaporto:form.passaporto||null,
       codice_asl:form.codice_asl||null,
@@ -536,10 +560,50 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
             {razzaCalcolata==="METICCIA"&&<span style={{color:C.muted}}> (razze diverse)</span>}
           </div>
         )}
-        <Field label="Madre" value={form.madre_id} onChange={v=>setForm(f=>({...f,madre_id:v}))}
+        {/* MADRE */}
+        <Field label="Madre (in azienda)" value={form.madre_id}
+          onChange={v=>setForm(f=>({...f,madre_id:v,madre_ext:""}))}
           options={madri.map(a=>({value:a.id,label:`${a.nome||a.bdn} (${a.razza||"—"})`}))}/>
-        <Field label="Padre" value={form.padre_id} onChange={v=>setForm(f=>({...f,padre_id:v}))}
+        {!form.madre_id&&(
+          <div style={{marginTop:-8,marginBottom:12}}>
+            <div style={{fontSize:11,color:C.muted,marginBottom:4}}>
+              oppure — Matricola madre esterna (non in azienda):
+            </div>
+            <input type="text" value={form.madre_ext}
+              onChange={e=>setForm(f=>({...f,madre_ext:e.target.value,madre_id:""}))}
+              placeholder="Es. IT058000123456 — verrà creata scheda automaticamente"
+              style={{width:"100%",boxSizing:"border-box",border:`1.5px solid ${form.madre_ext?C.blue:C.border}`,
+                borderRadius:10,padding:"8px 12px",fontSize:13,background:"#F0F8FF",
+                color:C.text,outline:"none"}}/>
+            {form.madre_ext&&(
+              <div style={{fontSize:11,color:C.blue,marginTop:3}}>
+                🧬 Al salvataggio verrà creata automaticamente una scheda per questa madre — comparirà nel Pedigree
+              </div>
+            )}
+          </div>
+        )}
+        {/* PADRE */}
+        <Field label="Padre (in azienda)" value={form.padre_id}
+          onChange={v=>setForm(f=>({...f,padre_id:v,padre_ext:""}))}
           options={padri.map(a=>({value:a.id,label:`${a.nome||a.bdn} (${a.razza||"—"})`}))}/>
+        {!form.padre_id&&(
+          <div style={{marginTop:-8,marginBottom:12}}>
+            <div style={{fontSize:11,color:C.muted,marginBottom:4}}>
+              oppure — Matricola padre esterno (non in azienda):
+            </div>
+            <input type="text" value={form.padre_ext}
+              onChange={e=>setForm(f=>({...f,padre_ext:e.target.value,padre_id:""}))}
+              placeholder="Es. 334966 o IT034SU123 — verrà creata scheda automaticamente"
+              style={{width:"100%",boxSizing:"border-box",border:`1.5px solid ${form.padre_ext?C.blue:C.border}`,
+                borderRadius:10,padding:"8px 12px",fontSize:13,background:"#F0F8FF",
+                color:C.text,outline:"none"}}/>
+            {form.padre_ext&&(
+              <div style={{fontSize:11,color:C.blue,marginTop:3}}>
+                🧬 Al salvataggio verrà creata automaticamente una scheda per questo padre — comparirà nel Pedigree
+              </div>
+            )}
+          </div>
+        )}
 
         <Sezione label="Gestione"/>
         <Field label={specie==="ovino"?"Gregge / Gruppo":specie==="suino"?"Lotto suini (ID)":"Lotto / Box / Recinto"}

@@ -395,8 +395,130 @@ function esportaExcel(lotti, suini, animali) {
   XLSX.writeFile(wb, `Lotti_Suini_${today()}.xlsx`);
 }
 
+// ─── FORM LOTTO ACQUISTATO ───────────────────────────────────────────────────
+function FormLottoAcquistato({onSave, onCancel}) {
+  const [form,setForm] = useState({
+    data_acquisto:today(), fornitore:"",
+    n_capi:"", razza:"Cinta Senese",
+    prezzo_acquisto:"", note:"",
+    codice_manuale:"",
+  });
+  const [saving,setSaving] = useState(false);
+
+  // Genera codice automatico: AAМM + AQ + progressivo
+  const codiceAuto = form.data_acquisto?(()=>{
+    const d = new Date(form.data_acquisto);
+    const aa = String(d.getFullYear()).slice(-2);
+    const mm = String(d.getMonth()+1).padStart(2,"0");
+    return `${aa}${mm}AQ`;
+  })():"";
+  const codice = form.codice_manuale || codiceAuto;
+
+  const salva = async () => {
+    if(!form.data_acquisto||!form.n_capi) return;
+    setSaving(true);
+    const nCapi = parseInt(form.n_capi)||0;
+
+    const{data:nuovoLotto,error} = await supabase.from("lotti_suini").insert([{
+      codice: codice,
+      codice_lotto: codice,
+      anno: new Date(form.data_acquisto).getFullYear(),
+      data_parto: form.data_acquisto,
+      tipo_provenienza: "acquistato",
+      fornitore: form.fornitore||null,
+      prezzo_acquisto: form.prezzo_acquisto?parseFloat(form.prezzo_acquisto):null,
+      nati_totali: nCapi, nati_vivi: nCapi, nati_morti: 0,
+      razza_madre: form.razza||null,
+      note: form.note||null,
+      specie: "suino",
+    }]).select().single();
+
+    if(!error&&nuovoLotto&&nCapi>0){
+      const unita = Array.from({length:nCapi},(_,i)=>({
+        lotto_id: nuovoLotto.id,
+        nr: i+1,
+        codice_completo: codiceUnitá(codice, i+1),
+        vivo: true, stato:"attivo", destinazione:"ingrasso",
+      }));
+      await supabase.from("suini_lotto").insert(unita);
+    }
+    setSaving(false);
+    onSave();
+  };
+
+  return (
+    <div style={{fontFamily:"'Segoe UI',system-ui,sans-serif",background:C.bg,
+      minHeight:"100vh",maxWidth:480,margin:"0 auto",padding:"16px 16px 80px"}}>
+      <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
+        <button onClick={onCancel} style={{background:"none",border:"none",cursor:"pointer",fontSize:22}}>←</button>
+        <span style={{fontSize:18,fontWeight:800}}>📦 Lotto acquistato</span>
+      </div>
+
+      {/* Anteprima codice */}
+      {codice&&(
+        <div style={{background:"#E3F2FD",border:`2px solid ${C.blue}`,
+          borderRadius:14,padding:"12px 16px",marginBottom:16,textAlign:"center"}}>
+          <div style={{fontSize:11,fontWeight:700,color:C.blue,marginBottom:4}}>
+            🏷️ CODICE LOTTO — TATUAGGIO BASE
+          </div>
+          <div style={{fontSize:30,fontWeight:900,color:C.blue,
+            fontFamily:"monospace",letterSpacing:3}}>{codice}</div>
+          {form.n_capi&&parseInt(form.n_capi)>0&&(
+            <div style={{fontSize:11,color:C.muted,marginTop:4}}>
+              Unità: {codice}01 · {codice}02 · ... · {codice}{String(parseInt(form.n_capi)).padStart(2,"0")}
+            </div>
+          )}
+        </div>
+      )}
+
+      <Field label="Data acquisto *" value={form.data_acquisto}
+        onChange={v=>setForm(f=>({...f,data_acquisto:v}))} type="date" required/>
+      <Field label="Fornitore / Azienda" value={form.fornitore}
+        onChange={v=>setForm(f=>({...f,fornitore:v}))} placeholder="Es. Az. Agr. Rossi"/>
+      <Field label="N° capi acquistati *" value={form.n_capi}
+        onChange={v=>setForm(f=>({...f,n_capi:v}))} type="number" required/>
+      <Field label="Razza" value={form.razza}
+        onChange={v=>setForm(f=>({...f,razza:v}))}
+        options={["Cinta Senese","Nero Apucalabro","Nero Casertano","Mora Romagnola","Duroc","Large White","Landrace","Meticcia","Altra"]}/>
+      <Field label="Prezzo acquisto totale (€)" value={form.prezzo_acquisto}
+        onChange={v=>setForm(f=>({...f,prezzo_acquisto:v}))} type="number"/>
+
+      {/* Codice manuale opzionale */}
+      <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:12,
+        padding:"10px 14px",marginBottom:12}}>
+        <div style={{fontSize:12,fontWeight:600,color:C.muted,marginBottom:6}}>
+          🖋 Codice tatuaggio (opzionale — lascia vuoto per generazione automatica)
+        </div>
+        <input type="text" value={form.codice_manuale}
+          onChange={e=>setForm(f=>({...f,codice_manuale:e.target.value.toUpperCase()}))}
+          placeholder={`Automatico: ${codiceAuto} · oppure inserisci il codice del fornitore`}
+          style={{width:"100%",boxSizing:"border-box",border:`1.5px solid ${C.border}`,
+            borderRadius:10,padding:"9px 12px",fontSize:14,fontFamily:"monospace",
+            background:"#FAFAF8",outline:"none"}}/>
+      </div>
+
+      <Field label="Note" value={form.note}
+        onChange={v=>setForm(f=>({...f,note:v}))} placeholder="Provenienza, certificati, note varie..."/>
+
+      <button onClick={salva}
+        disabled={saving||!form.data_acquisto||!form.n_capi}
+        style={{width:"100%",background:form.data_acquisto&&form.n_capi?C.blue:"#CCC",
+          color:"#FFF",border:"none",borderRadius:14,padding:"15px",
+          fontSize:16,fontWeight:800,cursor:"pointer",marginTop:8}}>
+        {saving?"Salvataggio..."
+          :!form.n_capi?"Inserisci il numero di capi"
+          :`📦 Crea lotto ${codice} con ${form.n_capi} unità`}
+      </button>
+      <button onClick={onCancel} style={{width:"100%",background:"none",border:"none",
+        color:C.muted,cursor:"pointer",padding:"12px",marginTop:4,fontSize:14}}>
+        Annulla
+      </button>
+    </div>
+  );
+}
+
 // ─── LISTA LOTTI ──────────────────────────────────────────────────────────────
-function ListaLotti({lotti, suini, animali, onSeleziona, onNuovo}) {
+function ListaLotti({lotti, suini, animali, onSeleziona, onNuovo, onAcquisto}) {
   const [cerca,setCerca] = useState("");
 
   const lottiFiltrati = useMemo(()=>{
@@ -441,9 +563,10 @@ function ListaLotti({lotti, suini, animali, onSeleziona, onNuovo}) {
         </div>
 
         {/* Azioni */}
-        <div style={{display:"flex",gap:10,marginBottom:16}}>
-          <Btn label="+ Nuovo parto" onClick={onNuovo} variant="primary" icon="🐣"/>
-          <Btn label="📊 Export Excel" onClick={()=>esportaExcel(lotti,suini,animali)} variant="outline" small/>
+        <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
+          <Btn label="🐣 Nato" onClick={onNuovo} variant="primary"/>
+          <Btn label="📦 Acquistato" onClick={onAcquisto} variant="outline"/>
+          <Btn label="📊 Excel" onClick={()=>esportaExcel(lotti,suini,animali)} variant="outline" small/>
         </div>
 
         {/* Lista lotti */}
@@ -678,7 +801,7 @@ export default function LottiSuini() {
   const [lotti,setLotti]       = useState([]);
   const [suini,setSuini]       = useState([]);
   const [loading,setLoading]   = useState(true);
-  const [view,setView]         = useState("lista");  // lista | lotto | form
+  const [view,setView]         = useState("lista");  // lista | lotto | form | acquisto
   const [selLotto,setSelLotto] = useState(null);
 
   const carica = async () => {
@@ -706,6 +829,12 @@ export default function LottiSuini() {
       onCancel={()=>setView("lista")}/>
   );
 
+  if(view==="acquisto") return(
+    <FormLottoAcquistato
+      onSave={()=>{carica();setView("lista");}}
+      onCancel={()=>setView("lista")}/>
+  );
+
   if(view==="lotto"&&selLotto) return(
     <div style={{fontFamily:"'Segoe UI',system-ui,sans-serif",background:C.bg,
       minHeight:"100vh",maxWidth:480,margin:"0 auto"}}>
@@ -720,7 +849,8 @@ export default function LottiSuini() {
       minHeight:"100vh",maxWidth:480,margin:"0 auto"}}>
       <ListaLotti lotti={lotti} suini={suini} animali={animali}
         onSeleziona={l=>{setSelLotto(l);setView("lotto");}}
-        onNuovo={()=>setView("form")}/>
+        onNuovo={()=>setView("form")}
+        onAcquisto={()=>setView("acquisto")}/>
     </div>
   );
 }
