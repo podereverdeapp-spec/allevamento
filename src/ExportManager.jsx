@@ -28,31 +28,40 @@ function scarica(wb, nomeFile) {
 
 // ─── GENERATORI FOGLI ─────────────────────────────────────────────────────────
 function foglio_anagrafica(animali) {
-  return creaFoglio(animali, [
-    {key:"bdn",              label:"BDN / Matricola"},
-    {key:"nome",             label:"Nome"},
-    {key:"specie",           label:"Specie"},
-    {key:"razza",            label:"Razza"},
-    {key:"razza_calcolata",  label:"Razza calcolata"},
-    {key:"sesso",            label:"Sesso"},
-    {key:"categoria",        label:"Categoria"},
-    {key:"nascita",          label:"Data nascita"},
-    {key:"peso_nascita",     label:"Peso nascita (kg)"},
-    {key:"peso_attuale",     label:"Peso attuale (kg)"},
-    {key:"provenienza",      label:"Provenienza"},
-    {key:"origine",          label:"Azienda origine"},
-    {key:"prezzo_acquisto",  label:"Prezzo acquisto (€)"},
-    {key:"data_ingresso",    label:"Data ingresso"},
-    {key:"lotto_box",        label:"Lotto / Box"},
-    {key:"destinazione",     label:"Destinazione"},
-    {key:"stato",            label:"Stato"},
-    {key:"data_uscita",      label:"Data uscita"},
-    {key:"motivo_uscita",    label:"Motivo uscita"},
-    {key:"peso_vivo_uscita", label:"Peso vivo uscita (kg)"},
-    {key:"peso_carcassa",    label:"Peso carcassa (kg)"},
-    {key:"resa_percent",     label:"Resa %"},
-    {key:"note_sanitarie",   label:"Note sanitarie"},
-    {key:"note",             label:"Note"},
+  // Arricchisco con colonna qualifica calcolata
+  const dati = animali.map(a => ({
+    ...a,
+    qualifica: a.riproduttore
+      ? (a.sesso==="M" ? "Riproduttore" : "Riproduttrice")
+      : "",
+  }));
+  return creaFoglio(dati, [
+    {key:"bdn",                    label:"BDN / Matricola"},
+    {key:"nome",                   label:"Nome"},
+    {key:"specie",                 label:"Specie"},
+    {key:"razza",                  label:"Razza"},
+    {key:"razza_calcolata",        label:"Razza calcolata"},
+    {key:"sesso",                  label:"Sesso"},
+    {key:"qualifica",              label:"Qualifica riproduzione"},
+    {key:"categoria",              label:"Categoria"},
+    {key:"nascita",                label:"Data nascita"},
+    {key:"data_registrazione_bdn", label:"Data registrazione BDN"},
+    {key:"peso_nascita",           label:"Peso nascita (kg)"},
+    {key:"peso_attuale",           label:"Peso attuale (kg)"},
+    {key:"provenienza",            label:"Provenienza"},
+    {key:"origine",                label:"Azienda origine"},
+    {key:"prezzo_acquisto",        label:"Prezzo acquisto (€)"},
+    {key:"data_ingresso",          label:"Data ingresso"},
+    {key:"lotto_box",              label:"Lotto / Box"},
+    {key:"destinazione",           label:"Destinazione"},
+    {key:"stato",                  label:"Stato"},
+    {key:"data_uscita",            label:"Data uscita"},
+    {key:"motivo_uscita",          label:"Motivo uscita"},
+    {key:"peso_vivo_uscita",       label:"Peso vivo uscita (kg)"},
+    {key:"peso_carcassa",          label:"Peso carcassa (kg)"},
+    {key:"resa_percent",           label:"Resa %"},
+    {key:"note_sanitarie",         label:"Note sanitarie"},
+    {key:"note",                   label:"Note"},
   ]);
 }
 
