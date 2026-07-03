@@ -692,15 +692,15 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
             ?["Riproduzione","Ingrasso","Macello","Vendita","Carne","Latte","Lana","Non definita"]
             :["Riproduzione","Ingrasso","Vendita","Macello","Autoconsumo","Non definita"]}/>
         <Field label="Stato" value={form.stato} onChange={v=>setForm(f=>({...f,stato:v}))} options={STATI} required/>
-        {/* Toggle riproduttore solo per maschi */}
-        {(form.sesso==="M")&&(
+        {/* Toggle riproduttore/riproduttrice per maschi e femmine */}
+        {(form.sesso==="M"||form.sesso==="F")&&(
           <div onClick={()=>setForm(f=>({...f,riproduttore:!f.riproduttore}))}
             style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",
-              background:form.riproduttore?C.blue+"15":C.bg,
-              border:`1.5px solid ${form.riproduttore?C.blue:C.border}`,
+              background:form.riproduttore?(form.sesso==="M"?C.blue:C.suini)+"15":C.bg,
+              border:`1.5px solid ${form.riproduttore?(form.sesso==="M"?C.blue:C.suini):C.border}`,
               borderRadius:12,padding:"10px 14px",marginBottom:12}}>
             <div style={{width:40,height:22,borderRadius:11,flexShrink:0,
-              background:form.riproduttore?C.blue:C.border,
+              background:form.riproduttore?(form.sesso==="M"?C.blue:C.suini):C.border,
               position:"relative",transition:"background 0.2s"}}>
               <div style={{width:18,height:18,borderRadius:9,background:"#FFF",
                 position:"absolute",top:2,
@@ -708,11 +708,13 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
             </div>
             <div>
               <div style={{fontWeight:700,fontSize:14,
-                color:form.riproduttore?C.blue:C.muted}}>
-                ♂ Riproduttore
+                color:form.riproduttore?(form.sesso==="M"?C.blue:C.suini):C.muted}}>
+                {form.sesso==="M"?"♂ Riproduttore":"♀ Riproduttrice"}
               </div>
               <div style={{fontSize:11,color:C.muted}}>
-                {form.riproduttore?"Incluso nel registro riproduttori":"Non incluso nel registro riproduttori"}
+                {form.riproduttore
+                  ?"Incluso nel registro riproduttori"
+                  :"Non incluso nel registro riproduttori"}
               </div>
             </div>
           </div>
@@ -1249,7 +1251,9 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
 
       {/* ── VISTA RIPRODUTTORI ──────────────────────────────────────── */}
       {vistaRiproduttori&&(()=>{
-        const riprod=animali.filter(a=>a.sesso==="M"&&a.riproduttore&&a.stato==="attivo");
+        const riprod=animali.filter(a=>a.riproduttore&&a.stato==="attivo");
+        const maschiRiprod=riprod.filter(a=>a.sesso==="M").length;
+        const femmineRiprod=riprod.filter(a=>a.sesso==="F").length;
         const perSpecie=["bovino","suino","ovino"].map(sp=>({
           specie:sp,
           lista:riprod.filter(a=>a.specie===sp),
@@ -1258,8 +1262,12 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
           <div style={{marginBottom:16}}>
             <div style={{background:C.blue+"12",border:`1px solid ${C.blue}33`,
               borderRadius:12,padding:"10px 14px",marginBottom:12,fontSize:13}}>
-              ♂ <strong>{riprod.length}</strong> riproduttori attivi registrati ·
-              Per aggiungerne uno: cerca il maschio → apri scheda → ✏️ Modifica → attiva il toggle "♂ Riproduttore"
+              <strong>{riprod.length}</strong> riproduttori attivi
+              {maschiRiprod>0&&<span> · ♂ {maschiRiprod} maschi</span>}
+              {femmineRiprod>0&&<span> · ♀ {femmineRiprod} femmine</span>}
+              <div style={{fontSize:11,color:C.muted,marginTop:4}}>
+                Per aggiungere: apri la scheda dell'animale → ✏️ Modifica → attiva il toggle
+              </div>
             </div>
             {perSpecie.length===0?(
               <div style={{textAlign:"center",padding:32,color:C.muted}}>
@@ -1292,6 +1300,8 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
                           </div>
                           <div style={{display:"flex",gap:6,marginTop:4,flexWrap:"wrap"}}>
                             <Badge label={a.razza_calcolata||a.razza||"—"} color={specieColor(a.specie)}/>
+                            <Badge label={a.sesso==="M"?"♂ M":"♀ F"}
+                              color={a.sesso==="M"?C.blue:C.suini}/>
                             {eta&&<Badge label={`${eta} anni`} color={C.muted}/>}
                             {nFigli>0&&<Badge label={`${nFigli} figli reg.`} color={C.green}/>}
                           </div>
@@ -1299,9 +1309,11 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
                         <div style={{textAlign:"right",fontSize:12,color:C.muted}}>
                           {a.nascita&&<div>🎂 {a.nascita}</div>}
                           <div style={{marginTop:4}}>
-                            <span style={{background:C.blue+"20",color:C.blue,
+                            <span style={{
+                              background:(a.sesso==="M"?C.blue:C.suini)+"20",
+                              color:a.sesso==="M"?C.blue:C.suini,
                               borderRadius:8,padding:"3px 8px",fontSize:11,fontWeight:700}}>
-                              ♂ Riproduttore
+                              {a.sesso==="M"?"♂ Riproduttore":"♀ Riproduttrice"}
                             </span>
                           </div>
                         </div>
@@ -1380,7 +1392,9 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
                   {a.categoria&&<Badge label={a.categoria} color={C.muted}/>}
                   <Badge label={a.sesso==="M"?"♂ M":"♀ F"} color={a.sesso==="M"?C.blue:"#B5547A"}/>
                   {a.stato!=="attivo"&&<Badge label={a.stato.toUpperCase()} color={C.red}/>}
-                  {a.riproduttore&&<Badge label="♂ Riproduttore" color={C.blue}/>}
+                  {a.riproduttore&&<Badge
+                    label={a.sesso==="M"?"♂ Riproduttore":"♀ Riproduttrice"}
+                    color={a.sesso==="M"?C.blue:C.suini}/>}
                 </div>
               </div>
             </div>
