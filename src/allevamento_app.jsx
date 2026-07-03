@@ -433,10 +433,14 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
       note:form.note||null,
       vivo:form.stato==="attivo",
       riproduttore:form.riproduttore||false,
-      data_registrazione_bdn:form.data_registrazione_bdn||null,
     };
     let err;
-    if(form.id){const r=await aggiorna(form.id,payload);err=r.error;}
+    if(form.id){
+      const r=await aggiorna(form.id,payload);
+      err=r.error;
+      // Aggiorna dettaglio con i dati freschi salvati
+      if(!err&&r.data) setDettaglio(r.data);
+    }
     else{const r=await aggiungi(payload);err=r.error;}
     setSaving(false);
     if(err){setErrore("Errore nel salvataggio: "+err.message);return;}
@@ -1393,6 +1397,8 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
               {a.prezzo_acquisto&&<span>💰 Acquisto: €{a.prezzo_acquisto}</span>}
               {(!a.prezzo_acquisto&&totalePerAnimale(a.id)>0)&&
                 <span>🌱 Costo nascita: €{totalePerAnimale(a.id).toFixed(0)}</span>}
+              {a.data_registrazione_bdn&&
+                <span>🏷️ BDN: {a.data_registrazione_bdn}</span>}
               {a.madre_id&&<span>🧬 pedigree ✓</span>}
             </div>
           )}
