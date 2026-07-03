@@ -567,6 +567,11 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
         }
       }
     }
+    // Segna automaticamente la madre come riproduttrice
+    if(dettaglio.id&&!dettaglio.riproduttore){
+      await aggiorna(dettaglio.id,{riproduttore:true});
+      setDettaglio(prev=>({...prev,riproduttore:true}));
+    }
     setSavingParto(false);
     setFormParto(null);
     ricaricaEventi();
@@ -826,6 +831,23 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
                 <Row label="Razza" val={(a.razza_calcolata||a.razza||"—")+(a.razza_calcolata==="METICCIA"?" 🧬":"")}/>
                 <Row label="Sesso" val={a.sesso==="M"?"♂ Maschio":a.sesso==="F"?"♀ Femmina":"✂ Castrato"}/>
                 {a.categoria&&<Row label="Categoria" val={a.categoria}/>}
+                {a.riproduttore&&(
+                  <div style={{display:"flex",justifyContent:"space-between",
+                    padding:"6px 0",borderBottom:`1px solid ${C.border}`,fontSize:14}}>
+                    <span style={{color:C.muted,fontSize:13}}>Qualifica</span>
+                    <span style={{fontWeight:700,
+                      color:a.sesso==="M"?C.blue:C.suini,fontSize:13}}>
+                      {a.sesso==="M"?"♂ Riproduttore":"♀ Riproduttrice"}
+                    </span>
+                  </div>
+                )}
+                {a.data_registrazione_bdn&&(
+                  <div style={{display:"flex",justifyContent:"space-between",
+                    padding:"6px 0",borderBottom:`1px solid ${C.border}`,fontSize:14}}>
+                    <span style={{color:C.muted,fontSize:13}}>Data registrazione BDN</span>
+                    <span style={{fontWeight:600}}>{a.data_registrazione_bdn}</span>
+                  </div>
+                )}
               </Card>
               <Card>
                 <Sezione label="Dati fisici e nascita"/>
