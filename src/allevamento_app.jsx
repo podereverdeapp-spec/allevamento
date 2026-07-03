@@ -247,11 +247,12 @@ function useMagazzino() {
 }
 
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
-function Dashboard({animali,eventi_sanitari,magazzino,onNav}){
+function Dashboard({animali,eventi_sanitari,magazzino,onNav,suiniLotto}){
   const attivi=animali.filter(a=>a.stato==="attivo");
   const bovini=attivi.filter(a=>a.specie==="bovino").length;
   const suini =attivi.filter(a=>a.specie==="suino").length;
   const ovini =attivi.filter(a=>a.specie==="ovino").length;
+  const suiniLottoAttivi=(suiniLotto||[]).filter(u=>u.vivo!==false&&u.stato==="attivo").length;
   const allerte=magazzino.filter(m=>m.quantita<=m.minimo);
   const ultimiSan=eventi_sanitari.slice(0,3);
   return(
@@ -261,13 +262,23 @@ function Dashboard({animali,eventi_sanitari,magazzino,onNav}){
       <Card style={{background:`linear-gradient(135deg,${C.primary},${C.accent})`}}>
         <div style={{color:"rgba(255,255,255,0.8)",fontSize:13,marginBottom:8}}>CAPI ATTIVI</div>
         <div style={{fontSize:36,fontWeight:800,color:"#FFF",marginBottom:12}}>{attivi.length}</div>
-        <div style={{display:"flex",gap:12}}>
-          {[[bovini,"🐄",C.bovini],[suini,"🐷",C.suini],[ovini,"🐑",C.ovini]].map(([n,ic,col],i)=>(
+        <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+          {[[bovini,"🐄",C.bovini,"Bovini"],[suini,"🐷",C.suini,"Suini"],[ovini,"🐑",C.ovini,"Ovini"]].map(([n,ic,col,lbl],i)=>(
             <div key={i} style={{background:"rgba(255,255,255,0.15)",borderRadius:12,padding:"8px 14px",textAlign:"center"}}>
               <div style={{fontSize:18}}>{ic}</div>
               <div style={{fontSize:18,fontWeight:800,color:"#FFF"}}>{n}</div>
+              <div style={{fontSize:9,color:"rgba(255,255,255,0.7)",fontWeight:600}}>{lbl}</div>
             </div>
           ))}
+          {suiniLottoAttivi>0&&(
+            <div onClick={()=>onNav("lotti")}
+              style={{background:"rgba(255,255,255,0.25)",borderRadius:12,padding:"8px 14px",
+                textAlign:"center",cursor:"pointer",border:"1.5px solid rgba(255,255,255,0.4)"}}>
+              <div style={{fontSize:18}}>🏷️</div>
+              <div style={{fontSize:18,fontWeight:800,color:"#FFF"}}>{suiniLottoAttivi}</div>
+              <div style={{fontSize:9,color:"rgba(255,255,255,0.9)",fontWeight:700}}>LOTTI</div>
+            </div>
+          )}
         </div>
       </Card>
       {allerte.length>0&&(
@@ -336,7 +347,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
     nascita:"",peso_nascita:"",peso_attuale:"",
     provenienza:"Nato in azienda",data_ingresso:today(),
     prezzo_acquisto:"",origine:"",padre_id:"",madre_id:"",
-    padre_ext:"",madre_ext:"",
+    padre_ext:"",madre_ext:"",data_registrazione_bdn:"",
     transponder:"",passaporto:"",codice_asl:"",
     lotto_box:"",destinazione:"",
     stato:"attivo",data_uscita:"",
@@ -396,6 +407,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
       categoria:form.categoria||null,
       sesso:form.sesso,
       nascita:form.nascita||null,
+      data_registrazione_bdn:form.data_registrazione_bdn||null,
       peso_nascita:form.peso_nascita?parseFloat(form.peso_nascita):null,
       peso_attuale:form.peso_attuale?parseFloat(form.peso_attuale):null,
       provenienza:form.provenienza||null,
@@ -421,6 +433,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
       note:form.note||null,
       vivo:form.stato==="attivo",
       riproduttore:form.riproduttore||false,
+      data_registrazione_bdn:form.data_registrazione_bdn||null,
     };
     let err;
     if(form.id){const r=await aggiorna(form.id,payload);err=r.error;}
@@ -589,6 +602,9 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
         <Sezione label="Anagrafica"/>
         <Field label="Sesso" value={form.sesso} onChange={v=>setForm(f=>({...f,sesso:v}))} options={SESSO_OPT(specie)} required/>
         <Field label="Data di nascita" value={form.nascita} onChange={v=>setForm(f=>({...f,nascita:v}))} type="date"/>
+        <Field label="Data registrazione BDN" value={form.data_registrazione_bdn}
+          onChange={v=>setForm(f=>({...f,data_registrazione_bdn:v}))} type="date"
+          placeholder="Data attribuzione della matricola"/>
         <Field label="Razza" value={form.razza} onChange={v=>setForm(f=>({...f,razza:v}))}
           options={RAZZE[specie]||[]} required/>
         <Field label="Categoria" value={form.categoria} onChange={v=>setForm(f=>({...f,categoria:v}))}
@@ -2153,6 +2169,10 @@ function Report({animali,eventi_sanitari,voci_alimentazione}){
 export default function AllevamentoApp(){
   const [tab,setTab]=useState("dashboard");
   const{animali,loading:loadA,carica:ricaricaAnimali,aggiungi:addA,aggiorna:updA,elimina:delA}=useAnimali();
+  const[suiniLotto,setSuiniLotto]=useState([]);
+  useEffect(()=>{
+    supabase.from("suini_lotto").select("vivo,stato").then(({data})=>setSuiniLotto(data||[]));
+  },[]);
   const{eventi:sanitari,loading:loadS,aggiungi:addS}=useEventiSanitari();
   const{totalePerAnimale}=useCostiAnimale();
   const{voci:alimentazione,loading:loadAl,aggiungi:addAl}=useAlimentazione();
@@ -2171,7 +2191,7 @@ export default function AllevamentoApp(){
   return(
     <div style={{fontFamily:"'Segoe UI',system-ui,sans-serif",background:C.bg,minHeight:"100vh",maxWidth:480,margin:"0 auto"}}>
       <div style={{paddingBottom:70}}>
-        {tab==="dashboard"    &&<Dashboard animali={animali} eventi_sanitari={sanitari} magazzino={magazzino} onNav={setTab}/>}
+        {tab==="dashboard"    &&<Dashboard animali={animali} eventi_sanitari={sanitari} magazzino={magazzino} onNav={setTab} suiniLotto={suiniLotto}/>}
         {tab==="anagrafica"   &&<Anagrafica
           animali={animali} loading={loadA}
           aggiungi={addA} aggiorna={updA} elimina={delA}
