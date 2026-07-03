@@ -34,22 +34,44 @@ const UBA_FASCE = {
 };
 
 // ─── CALCOLO UBA MEDIO ────────────────────────────────────────────────────────
-function calcolaUBAMedio(dataNascita, dataFine, specie) {
+// Periodo: MAX(dataNascita, 1° gennaio anno corrente) → dataFine
+// L'animale entra nel calcolo con il coefficiente già maturato alla data di inizio
+function calcolaUBAMedio(dataNascita, dataFine, specie, annoRif) {
   if (!dataNascita || !specie || !UBA_FASCE[specie]) return null;
-  const nascita = new Date(dataNascita);
-  const fine    = new Date(dataFine);
-  const totGiorni = Math.round((fine - nascita) / 86400000);
-  if (totGiorni <= 0) return null;
+  const nascita    = new Date(dataNascita);
+  const fine       = new Date(dataFine);
+  const anno       = annoRif || new Date(dataFine).getFullYear();
+  const inizioAnno = new Date(anno, 0, 1);                   // 1° gennaio
 
+  // Inizio periodo = massimo tra nascita e 1° gennaio
+  const inizio = nascita >= inizioAnno ? nascita : inizioAnno;
+  if (inizio >= fine) return null;                            // uscito prima dell'anno
+
+  const totGiorni    = Math.round((fine - inizio) / 86400000);
+  const etaAllInizio = Math.round((inizio - nascita) / 86400000); // età reale al 1° gen
+
+  // Calcolo UBA ponderato: partendo dall'età reale, percorre le fasce
+  const fasce = UBA_FASCE[specie];
   let ubaPesata = 0;
-  let ggPrec = 0;
-  for (const { fino, coeff } of UBA_FASCE[specie]) {
-    const ggFascia = Math.max(0, Math.min(fino, totGiorni) - ggPrec);
-    ubaPesata += ggFascia * coeff;
-    ggPrec = Math.min(fino, totGiorni);
-    if (ggPrec >= totGiorni) break;
+  for (let i = 0; i < fasce.length; i++) {
+    const prevSoglia = i > 0 ? fasce[i-1].fino : 0;
+    const { fino, coeff } = fasce[i];
+    const inizioFascia = Math.max(prevSoglia, etaAllInizio);
+    const fineFascia   = Math.min(fino === Infinity ? etaAllInizio + totGiorni + 1 : fino,
+                                  etaAllInizio + totGiorni);
+    if (fineFascia > inizioFascia)
+      ubaPesata += (fineFascia - inizioFascia) * coeff;
   }
   return Math.round(ubaPesata / totGiorni * 1000) / 1000;
+}
+
+// Ritorna anche dataInizio per display
+function periodoCalcolo(dataNascita, dataFine, annoRif) {
+  const nascita    = new Date(dataNascita);
+  const anno       = annoRif || new Date(dataFine).getFullYear();
+  const inizioAnno = new Date(anno, 0, 1);
+  const inizio     = nascita >= inizioAnno ? nascita : inizioAnno;
+  return inizio.toISOString().split("T")[0];
 }
 
 // Categoria attuale in base all'età alla data di riferimento
@@ -225,7 +247,9 @@ function ListaAnimaliUBA({righe, titolo, onBack}) {
                 </div>
                 <div style={{fontSize:10,color:C.muted,fontWeight:600}}>UBA medio</div>
                 {r.nascita&&<div style={{fontSize:11,color:C.muted,marginTop:2}}>
-                  📅 {r.nascita}
+                  🎂 Nascita: {r.nascita}
+                  {r.dataInizio&&r.dataInizio!==r.nascita&&
+                    <span> · 📅 Calcolo dal: {r.dataInizio}</span>}
                 </div>}
               </div>
             </div>
@@ -273,8 +297,10 @@ export default function UBAReport() {
       if (!nascita) continue;
       const statoFine = a.stato==="attivo"?"attivo":"uscito";
       const dataFine = statoFine==="attivo" ? rif : (a.data_uscita||rif);
-      const uba = calcolaUBAMedio(nascita, dataFine, a.specie);
-      const eta = Math.round((new Date(dataFine)-new Date(nascita))/86400000);
+      const annoRif  = new Date(rif).getFullYear();
+      const dataInizio = periodoCalcolo(nascita, dataFine, annoRif);
+      const uba = calcolaUBAMedio(nascita, dataFine, a.specie, annoRif);
+      const eta = Math.round((new Date(dataFine)-new Date(dataInizio))/86400000);
       out.push({
         tipo:"animale",
         id:a.id,
@@ -289,6 +315,7 @@ export default function UBAReport() {
         categoria:categoriaAttuale(nascita,dataFine,a.specie),
         categoriaInizio:categoriaAttuale(nascita,nascita,a.specie),
         uba,
+        dataInizio,
         lotto:null,
         note:a.note,
       });
@@ -304,8 +331,10 @@ export default function UBAReport() {
         if (u.stato==="registrato_individuale") continue; // già nel registro animali
         const statoFine = u.vivo!==false&&u.stato==="attivo"?"attivo":"uscito";
         const dataFine = statoFine==="attivo" ? rif : (u.data_uscita||rif);
-        const uba = calcolaUBAMedio(nascita, dataFine, "suino");
-        const eta = Math.round((new Date(dataFine)-new Date(nascita))/86400000);
+        const annoRif  = new Date(rif).getFullYear();
+        const dataInizio = periodoCalcolo(nascita, dataFine, annoRif);
+        const uba = calcolaUBAMedio(nascita, dataFine, "suino", annoRif);
+        const eta = Math.round((new Date(dataFine)-new Date(dataInizio))/86400000);
         const codice = u.codice_completo||`${codLotto}${String(u.nr).padStart(2,"0")}`;
         out.push({
           tipo:"lotto",
