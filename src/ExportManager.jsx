@@ -370,6 +370,128 @@ function foglio_macchinari(macchinari) {
   ]);
 }
 
+// ─── CALCOLO UBA PER EXPORT ──────────────────────────────────────────────────
+const UBA_FASCE_EXP = {
+  bovino:[{fino:210,coeff:0.40,label:"Vitella (<7 mesi)"},{fino:730,coeff:0.70,label:"Vitellone (7m-2a)"},{fino:Infinity,coeff:1.00,label:"Bovino adulto (≥2a)"}],
+  suino: [{fino:90,coeff:0.027,label:"Lattonzolo (<3 mesi)"},{fino:365,coeff:0.30,label:"Magrone (3m-1a)"},{fino:Infinity,coeff:0.50,label:"Suino adulto (≥1a)"}],
+  ovino: [{fino:120,coeff:0.027,label:"Agnello (<4 mesi)"},{fino:365,coeff:0.10,label:"Agnellone (4m-1a)"},{fino:Infinity,coeff:0.15,label:"Ovino adulto (≥1a)"}],
+};
+
+function calcUBA(dataNascita, dataFine, specie) {
+  if(!dataNascita||!specie||!UBA_FASCE_EXP[specie]) return null;
+  const nascita=new Date(dataNascita);
+  const fine=new Date(dataFine);
+  const annoRif=fine.getFullYear();
+  const inizioAnno=new Date(annoRif,0,1);
+  const inizio=nascita>=inizioAnno?nascita:inizioAnno;
+  if(inizio>=fine) return null;
+  const totGiorni=Math.round((fine-inizio)/86400000);
+  const etaAllInizio=Math.round((inizio-nascita)/86400000);
+  const fasce=UBA_FASCE_EXP[specie];
+  let ubaPesata=0;
+  for(let i=0;i<fasce.length;i++){
+    const prevSoglia=i>0?fasce[i-1].fino:0;
+    const{fino,coeff}=fasce[i];
+    const inizioFascia=Math.max(prevSoglia,etaAllInizio);
+    const fineFascia=Math.min(fino===Infinity?etaAllInizio+totGiorni+1:fino,etaAllInizio+totGiorni);
+    if(fineFascia>inizioFascia) ubaPesata+=(fineFascia-inizioFascia)*coeff;
+  }
+  return Math.round(ubaPesata/totGiorni*1000)/1000;
+}
+
+function categoriaUBA(dataNascita, dataRif, specie) {
+  if(!dataNascita||!UBA_FASCE_EXP[specie]) return "—";
+  const eta=Math.round((new Date(dataRif)-new Date(dataNascita))/86400000);
+  for(const{fino,label} of UBA_FASCE_EXP[specie]) if(eta<fino) return label;
+  return UBA_FASCE_EXP[specie].at(-1).label;
+}
+
+function fogli_uba(animali, lotti, suiniLotto) {
+  const oggi = today();
+  const anno = new Date().getFullYear();
+  const inizioAnno = `${anno}-01-01`;
+
+  // Costruisco righe
+  const righe = [];
+  for(const a of animali){
+    if(!a.specie||!UBA_FASCE_EXP[a.specie]) continue;
+    const nascita=a.nascita||a.data_ingresso;
+    if(!nascita) continue;
+    const attivo=a.stato==="attivo";
+    const dataFine=attivo?oggi:(a.data_uscita||oggi);
+    const inizio=new Date(nascita)>=new Date(inizioAnno)?nascita:inizioAnno;
+    const uba=calcUBA(nascita,dataFine,a.specie);
+    if(!uba) continue;
+    const eta=Math.round((new Date(dataFine)-new Date(inizio))/86400000);
+    righe.push({
+      BDN:a.bdn||"",Nome:a.nome||"",Specie:a.specie,
+      "Categoria alla data":categoriaUBA(nascita,dataFine,a.specie),
+      "Data nascita":nascita,"Inizio calcolo":inizio,
+      "Data riferimento":dataFine,
+      "Giorni nel periodo":eta,"UBA medio":uba,
+      "Stato":a.stato==="attivo"?"Attivo":"Uscito",
+      "Data uscita":a.data_uscita||"","Motivo uscita":a.motivo_uscita||"",
+      "Lotto":"",
+    });
+  }
+  // Suini da lotto
+  for(const l of lotti){
+    if(!l.data_parto) continue;
+    const nascita=l.data_parto;
+    const codLotto=l.codice_lotto||l.codice||"";
+    for(const u of suiniLotto.filter(x=>x.lotto_id===l.id)){
+      if(u.stato==="registrato_individuale") continue;
+      const attivo=u.vivo!==false&&u.stato==="attivo";
+      const dataFine=attivo?oggi:(u.data_uscita||oggi);
+      const inizio=new Date(nascita)>=new Date(inizioAnno)?nascita:inizioAnno;
+      const uba=calcUBA(nascita,dataFine,"suino");
+      if(!uba) continue;
+      const eta=Math.round((new Date(dataFine)-new Date(inizio))/86400000);
+      const codice=u.codice_completo||`${codLotto}${String(u.nr).padStart(2,"0")}`;
+      righe.push({
+        BDN:codice,Nome:"",Specie:"suino",
+        "Categoria alla data":categoriaUBA(nascita,dataFine,"suino"),
+        "Data nascita":nascita,"Inizio calcolo":inizio,
+        "Data riferimento":dataFine,"Giorni nel periodo":eta,"UBA medio":uba,
+        "Stato":attivo?"Attivo":"Uscito",
+        "Data uscita":u.data_uscita||"","Motivo uscita":u.motivo_uscita||"",
+        "Lotto":codLotto,
+      });
+    }
+  }
+
+  // Foglio riepilogo per specie
+  const riepilogo=[];
+  ["bovino","suino","ovino"].forEach(sp=>{
+    const rSp=righe.filter(r=>r.Specie===sp);
+    if(!rSp.length) return;
+    const byCategoria={};
+    for(const r of rSp){
+      const cat=r["Categoria alla data"];
+      if(!byCategoria[cat]) byCategoria[cat]={cat,n:0,uba:0};
+      byCategoria[cat].n++;
+      byCategoria[cat].uba+=r["UBA medio"];
+    }
+    Object.values(byCategoria).forEach(x=>{
+      riepilogo.push({
+        "Specie":sp,"Categoria":x.cat,"N° Capi":x.n,
+        "UBA medio unitario":Math.round(x.uba/x.n*1000)/1000,
+        "UBA totale":Math.round(x.uba*1000)/1000,
+      });
+    });
+    riepilogo.push({
+      "Specie":sp.toUpperCase()+" TOTALE","Categoria":"",
+      "N° Capi":rSp.length,"UBA medio unitario":"",
+      "UBA totale":Math.round(rSp.reduce((s,r)=>s+r["UBA medio"],0)*1000)/1000,
+    });
+  });
+  const totUBA=Math.round(righe.reduce((s,r)=>s+r["UBA medio"],0)*1000)/1000;
+  riepilogo.push({"Specie":"TOTALE AZIENDALE","Categoria":"",
+    "N° Capi":righe.length,"UBA medio unitario":"","UBA totale":totUBA});
+
+  return{riepilogo,dettaglio:righe};
+}
+
 // ─── SEZIONI DISPONIBILI ──────────────────────────────────────────────────────
 const SEZIONI = [
   { id:"anagrafica_bovini",  label:"Anagrafica Bovini",         icon:"🐄", gruppo:"ANAGRAFICA" },
@@ -385,6 +507,8 @@ const SEZIONI = [
   { id:"costi_animale",      label:"Costi per Animale",         icon:"🧾", gruppo:"COSTI" },
   { id:"costi_generali",     label:"Costi Generali",            icon:"📊", gruppo:"COSTI" },
   { id:"macchinari",         label:"Macchinari / Ammortamenti", icon:"🏭", gruppo:"COSTI" },
+  { id:"uba_riepilogo",      label:"UBA — Riepilogo per specie",icon:"🐾", gruppo:"UBA" },
+  { id:"uba_dettaglio",      label:"UBA — Dettaglio animali",   icon:"📋", gruppo:"UBA" },
 ];
 
 // ─── COMPONENTE PRINCIPALE ────────────────────────────────────────────────────
@@ -414,7 +538,7 @@ export default function ExportManager() {
         {data:costiAnim},{data:costiGen},{data:macchinari},
         {data:lotti},{data:suiniLotto}
       ] = await Promise.all([
-        supabase.from("animali").select("*").order("specie").order("nome"),
+        supabase.from("animali").select("id,bdn,nome,specie,sesso,nascita,stato,data_uscita,motivo_uscita,data_ingresso,razza,razza_calcolata,categoria,peso_nascita,peso_attuale,provenienza,origine,prezzo_acquisto,lotto_box,destinazione,resa_percent,peso_carcassa,peso_vivo_uscita,note_sanitarie,note,riproduttore,data_registrazione_bdn").order("specie").order("nome"),
         supabase.from("eventi_sanitari").select("*").order("data",{ascending:false}),
         supabase.from("alimentazione").select("*").order("data",{ascending:false}),
         supabase.from("eventi_riproduttivi").select("*").order("data_evento",{ascending:false}),
@@ -461,6 +585,13 @@ export default function ExportManager() {
         XLSX.utils.book_append_sheet(wb, foglio_costi_generali(costiGen||[]), "Costi generali");
       if(sel.has("macchinari"))
         XLSX.utils.book_append_sheet(wb, foglio_macchinari(macchinari||[]), "Macchinari");
+      if(sel.has("uba_riepilogo")||sel.has("uba_dettaglio")){
+        const{riepilogo:ubaSomm,dettaglio:ubaDettaglio}=fogli_uba(an,lotti||[],suiniLotto||[]);
+        if(sel.has("uba_riepilogo"))
+          XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(ubaSomm),"UBA Riepilogo");
+        if(sel.has("uba_dettaglio"))
+          XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(ubaDettaglio),"UBA Dettaglio");
+      }
 
       scarica(wb, `Podere_Verde_Export_${dataDa||"tutto"}_${dataA}`);
     } finally {
