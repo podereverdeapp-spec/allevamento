@@ -422,15 +422,25 @@ function fogli_uba(animali, lotti, suiniLotto) {
     const inizio=new Date(nascita)>=new Date(inizioAnno)?nascita:inizioAnno;
     const uba=calcUBA(nascita,dataFine,a.specie);
     if(!uba) continue;
-    const eta=Math.round((new Date(dataFine)-new Date(inizio))/86400000);
+    const gg=Math.round((new Date(dataFine)-new Date(inizio))/86400000);
+    const ubaGiorni=Math.round(uba*gg*1000)/1000;
+    const qualifica=a.riproduttore?(a.sesso==="M"?"Riproduttore":"Riproduttrice"):"";
     righe.push({
-      BDN:a.bdn||"",Nome:a.nome||"",Specie:a.specie,
+      "BDN":a.bdn||"",
+      "NUMERO CAPI":"",
+      "Nome":a.nome||"",
+      "Specie":a.specie,
       "Categoria alla data":categoriaUBA(nascita,dataFine,a.specie),
-      "Data nascita":nascita,"Inizio calcolo":inizio,
+      "Data nascita":nascita,
+      "Inizio calcolo":inizio,
       "Data riferimento":dataFine,
-      "Giorni nel periodo":eta,"UBA medio":uba,
+      "Giorni nel periodo":gg,
+      "UBA medio":uba,
+      "UBA-giorni":ubaGiorni,
       "Stato":a.stato==="attivo"?"Attivo":"Uscito",
-      "Data uscita":a.data_uscita||"","Motivo uscita":a.motivo_uscita||"",
+      "Qualifica riproduzione":qualifica,
+      "Data uscita":a.data_uscita||"",
+      "Motivo uscita":a.motivo_uscita||"",
       "Lotto":"",
     });
   }
@@ -446,19 +456,49 @@ function fogli_uba(animali, lotti, suiniLotto) {
       const inizio=new Date(nascita)>=new Date(inizioAnno)?nascita:inizioAnno;
       const uba=calcUBA(nascita,dataFine,"suino");
       if(!uba) continue;
-      const eta=Math.round((new Date(dataFine)-new Date(inizio))/86400000);
+      const gg=Math.round((new Date(dataFine)-new Date(inizio))/86400000);
+      const ubaGiorni=Math.round(uba*gg*1000)/1000;
       const codice=u.codice_completo||`${codLotto}${String(u.nr).padStart(2,"0")}`;
       righe.push({
-        BDN:codice,Nome:"",Specie:"suino",
+        "BDN":codice,
+        "NUMERO CAPI":"",
+        "Nome":"",
+        "Specie":"suino",
         "Categoria alla data":categoriaUBA(nascita,dataFine,"suino"),
-        "Data nascita":nascita,"Inizio calcolo":inizio,
-        "Data riferimento":dataFine,"Giorni nel periodo":eta,"UBA medio":uba,
+        "Data nascita":nascita,
+        "Inizio calcolo":inizio,
+        "Data riferimento":dataFine,
+        "Giorni nel periodo":gg,
+        "UBA medio":uba,
+        "UBA-giorni":ubaGiorni,
         "Stato":attivo?"Attivo":"Uscito",
-        "Data uscita":u.data_uscita||"","Motivo uscita":u.motivo_uscita||"",
+        "Qualifica riproduzione":"",
+        "Data uscita":u.data_uscita||"",
+        "Motivo uscita":u.motivo_uscita||"",
         "Lotto":codLotto,
       });
     }
   }
+
+  // Funzione per creare riga TOTALE
+  const rigaTotale = (label, arr) => ({
+    "BDN":label,
+    "NUMERO CAPI":arr.length,
+    "Nome":"",
+    "Specie":"",
+    "Categoria alla data":"",
+    "Data nascita":"",
+    "Inizio calcolo":"",
+    "Data riferimento":"",
+    "Giorni nel periodo":"",
+    "UBA medio":"",
+    "UBA-giorni":Math.round(arr.reduce((s,r)=>s+r["UBA-giorni"],0)*1000)/1000,
+    "Stato":"",
+    "Qualifica riproduzione":"",
+    "Data uscita":"",
+    "Motivo uscita":"",
+    "Lotto":"",
+  });
 
   // Foglio riepilogo per specie
   const riepilogo=[];
@@ -468,28 +508,58 @@ function fogli_uba(animali, lotti, suiniLotto) {
     const byCategoria={};
     for(const r of rSp){
       const cat=r["Categoria alla data"];
-      if(!byCategoria[cat]) byCategoria[cat]={cat,n:0,uba:0};
+      if(!byCategoria[cat]) byCategoria[cat]={cat,n:0,uba:0,ubaGiorni:0};
       byCategoria[cat].n++;
       byCategoria[cat].uba+=r["UBA medio"];
+      byCategoria[cat].ubaGiorni+=r["UBA-giorni"];
     }
     Object.values(byCategoria).forEach(x=>{
       riepilogo.push({
-        "Specie":sp,"Categoria":x.cat,"N° Capi":x.n,
+        "Specie":sp,
+        "Categoria":x.cat,
+        "N° Capi":x.n,
         "UBA medio unitario":Math.round(x.uba/x.n*1000)/1000,
         "UBA totale":Math.round(x.uba*1000)/1000,
+        "UBA-giorni totali":Math.round(x.ubaGiorni*1000)/1000,
       });
     });
     riepilogo.push({
-      "Specie":sp.toUpperCase()+" TOTALE","Categoria":"",
-      "N° Capi":rSp.length,"UBA medio unitario":"",
+      "Specie":sp.toUpperCase()+" TOTALE",
+      "Categoria":"",
+      "N° Capi":rSp.length,
+      "UBA medio unitario":"",
       "UBA totale":Math.round(rSp.reduce((s,r)=>s+r["UBA medio"],0)*1000)/1000,
+      "UBA-giorni totali":Math.round(rSp.reduce((s,r)=>s+r["UBA-giorni"],0)*1000)/1000,
     });
   });
   const totUBA=Math.round(righe.reduce((s,r)=>s+r["UBA medio"],0)*1000)/1000;
-  riepilogo.push({"Specie":"TOTALE AZIENDALE","Categoria":"",
-    "N° Capi":righe.length,"UBA medio unitario":"","UBA totale":totUBA});
+  const totUBAGiorni=Math.round(righe.reduce((s,r)=>s+r["UBA-giorni"],0)*1000)/1000;
+  riepilogo.push({
+    "Specie":"TOTALE AZIENDALE",
+    "Categoria":"",
+    "N° Capi":righe.length,
+    "UBA medio unitario":"",
+    "UBA totale":totUBA,
+    "UBA-giorni totali":totUBAGiorni,
+  });
 
-  return{riepilogo,dettaglio:righe};
+  // Fogli per specie
+  const righeBovini = righe.filter(r=>r.Specie==="bovino");
+  const righeOvini  = righe.filter(r=>r.Specie==="ovino");
+  const righeSuini  = righe.filter(r=>r.Specie==="suino");
+
+  const dettaglioBovini = [...righeBovini, rigaTotale("TOTALE BOVINI", righeBovini)];
+  const dettaglioOvini  = [...righeOvini,  rigaTotale("TOTALE OVINI",  righeOvini)];
+  const dettaglioSuini  = [...righeSuini,  rigaTotale("TOTALE SUINI E LOTTI", righeSuini)];
+  const dettaglioTot    = [...righe,       rigaTotale("TOTALE AZIENDALE", righe)];
+
+  return{
+    riepilogo,
+    dettaglio:dettaglioTot,
+    bovini:dettaglioBovini,
+    ovini:dettaglioOvini,
+    suini:dettaglioSuini,
+  };
 }
 
 // ─── SEZIONI DISPONIBILI ──────────────────────────────────────────────────────
@@ -508,7 +578,10 @@ const SEZIONI = [
   { id:"costi_generali",     label:"Costi Generali",            icon:"📊", gruppo:"COSTI" },
   { id:"macchinari",         label:"Macchinari / Ammortamenti", icon:"🏭", gruppo:"COSTI" },
   { id:"uba_riepilogo",      label:"UBA — Riepilogo per specie",icon:"🐾", gruppo:"UBA" },
-  { id:"uba_dettaglio",      label:"UBA — Dettaglio animali",   icon:"📋", gruppo:"UBA" },
+  { id:"uba_dettaglio",      label:"UBA — Dettaglio tutti",     icon:"📋", gruppo:"UBA" },
+  { id:"uba_bovini",         label:"UBA — Bovini",              icon:"🐄", gruppo:"UBA" },
+  { id:"uba_ovini",          label:"UBA — Ovini",               icon:"🐑", gruppo:"UBA" },
+  { id:"uba_suini",          label:"UBA — Suini e Lotti",       icon:"🐷", gruppo:"UBA" },
 ];
 
 // ─── COMPONENTE PRINCIPALE ────────────────────────────────────────────────────
@@ -585,12 +658,19 @@ export default function ExportManager() {
         XLSX.utils.book_append_sheet(wb, foglio_costi_generali(costiGen||[]), "Costi generali");
       if(sel.has("macchinari"))
         XLSX.utils.book_append_sheet(wb, foglio_macchinari(macchinari||[]), "Macchinari");
-      if(sel.has("uba_riepilogo")||sel.has("uba_dettaglio")){
-        const{riepilogo:ubaSomm,dettaglio:ubaDettaglio}=fogli_uba(an,lotti||[],suiniLotto||[]);
+      if(sel.has("uba_riepilogo")||sel.has("uba_dettaglio")||
+         sel.has("uba_bovini")||sel.has("uba_ovini")||sel.has("uba_suini")){
+        const ubaData=fogli_uba(an,lotti||[],suiniLotto||[]);
         if(sel.has("uba_riepilogo"))
-          XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(ubaSomm),"UBA Riepilogo");
+          XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(ubaData.riepilogo),"UBA Riepilogo");
         if(sel.has("uba_dettaglio"))
-          XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(ubaDettaglio),"UBA Dettaglio");
+          XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(ubaData.dettaglio),"UBA Dettaglio");
+        if(sel.has("uba_bovini"))
+          XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(ubaData.bovini),"UBA BOVINI");
+        if(sel.has("uba_ovini"))
+          XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(ubaData.ovini),"UBA OVINI");
+        if(sel.has("uba_suini"))
+          XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(ubaData.suini),"UBA SUINI e LOTTI");
       }
 
       scarica(wb, `Podere_Verde_Export_${dataDa||"tutto"}_${dataA}`);
