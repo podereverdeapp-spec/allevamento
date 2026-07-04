@@ -1,5 +1,5 @@
 import { useState } from "react";
-import * as XLSX from "xlsx";
+import * as XLSX from "xlsx-js-style";
 import { supabase } from "./supabase";
 
 const C = {
@@ -370,6 +370,93 @@ function foglio_macchinari(macchinari) {
   ]);
 }
 
+// ─── STILI EXCEL ─────────────────────────────────────────────────────────────
+const STYLE = {
+  // Palette Podere Verde
+  primary: "5C3D1E",       // marrone scuro
+  primaryLight: "A0522D",  // marrone chiaro
+  bg: "F5F0E8",            // beige sfondo
+  bovini: "F5EDD8",        // beige bovini
+  ovini:  "E4F0DC",        // verde chiaro ovini
+  suini:  "F5DDE6",        // rosa chiaro suini
+  totale: "5C3D1E",        // marrone totale
+  totaleTxt: "FFFFFF",
+  zebra: "FAF7F1",         // riga zebrata
+};
+
+// Stili predefiniti
+const S_HEADER = {
+  fill:{fgColor:{rgb:STYLE.primary}},
+  font:{color:{rgb:"FFFFFF"},bold:true,sz:11,name:"Segoe UI"},
+  alignment:{horizontal:"center",vertical:"center",wrapText:true},
+  border:{top:{style:"thin",color:{rgb:"888888"}},bottom:{style:"thin",color:{rgb:"888888"}},
+    left:{style:"thin",color:{rgb:"888888"}},right:{style:"thin",color:{rgb:"888888"}}},
+};
+const S_TOTALE = {
+  fill:{fgColor:{rgb:STYLE.totale}},
+  font:{color:{rgb:STYLE.totaleTxt},bold:true,sz:11,name:"Segoe UI"},
+  alignment:{horizontal:"center",vertical:"center"},
+  border:{top:{style:"medium",color:{rgb:"000000"}},bottom:{style:"medium",color:{rgb:"000000"}},
+    left:{style:"thin",color:{rgb:"888888"}},right:{style:"thin",color:{rgb:"888888"}}},
+};
+const bordo = {top:{style:"thin",color:{rgb:"DDDDDD"}},bottom:{style:"thin",color:{rgb:"DDDDDD"}},
+  left:{style:"thin",color:{rgb:"DDDDDD"}},right:{style:"thin",color:{rgb:"DDDDDD"}}};
+
+function styleCella(v, opts={}) {
+  const {isTotale, colBg, num, center, bold} = opts;
+  if (isTotale) return {v, s:{...S_TOTALE, numFmt: num?"#,##0.000":undefined}};
+  const font = {sz:10, name:"Segoe UI", bold:bold||false};
+  const fill = colBg ? {fgColor:{rgb:colBg}} : undefined;
+  const alignment = center ? {horizontal:"center",vertical:"center"}
+                     : num ? {horizontal:"right",vertical:"center"}
+                     : {horizontal:"left",vertical:"center"};
+  const s = {font,alignment,border:bordo};
+  if (fill) s.fill = fill;
+  if (num) s.numFmt = "#,##0.000";
+  return {v:v??"",s};
+}
+
+// Sheet formattato con colori per specie e riga TOTALE evidenziata
+function creaSheetFormattato(righe, colonne) {
+  const ws = {};
+  const range = {s:{c:0,r:0},e:{c:colonne.length-1,r:righe.length}};
+
+  // Intestazione
+  colonne.forEach((col,ci)=>{
+    const addr = XLSX.utils.encode_cell({c:ci,r:0});
+    ws[addr] = {v:col.label, s:S_HEADER};
+  });
+
+  // Righe dati
+  righe.forEach((riga,ri)=>{
+    const isTotale = (riga.BDN||"").toString().toUpperCase().startsWith("TOTALE");
+    const specie = (riga.Specie||"").toLowerCase();
+    let rowBg = ri%2===1 ? STYLE.zebra : undefined;
+    // Colore per specie (solo se non totale)
+    if (!isTotale) {
+      if (specie==="bovino") rowBg = ri%2===1 ? STYLE.bovini : STYLE.bovini;
+      else if (specie==="ovino") rowBg = ri%2===1 ? STYLE.ovini : STYLE.ovini;
+      else if (specie==="suino") rowBg = ri%2===1 ? STYLE.suini : STYLE.suini;
+    }
+    colonne.forEach((col,ci)=>{
+      const addr = XLSX.utils.encode_cell({c:ci,r:ri+1});
+      const val = riga[col.key];
+      const isNum = col.num;
+      const bold = isTotale || col.bold;
+      ws[addr] = styleCella(val, {isTotale, colBg:rowBg, num:isNum, center:col.center, bold});
+    });
+  });
+
+  ws["!ref"] = XLSX.utils.encode_range(range);
+  // Freeze prima riga (intestazione)
+  ws["!freeze"] = {xSplit:0, ySplit:1};
+  // Larghezza colonne
+  ws["!cols"] = colonne.map(c=>({wch:c.width||14}));
+  // Altezza righe (intestazione più alta)
+  ws["!rows"] = [{hpx:32}];
+  return ws;
+}
+
 // ─── CALCOLO UBA PER EXPORT ──────────────────────────────────────────────────
 const UBA_FASCE_EXP = {
   bovino:[{fino:210,coeff:0.40,label:"Vitella (<7 mesi)"},{fino:730,coeff:0.70,label:"Vitellone (7m-2a)"},{fino:Infinity,coeff:1.00,label:"Bovino adulto (≥2a)"}],
@@ -405,6 +492,35 @@ function categoriaUBA(dataNascita, dataRif, specie) {
   for(const{fino,label} of UBA_FASCE_EXP[specie]) if(eta<fino) return label;
   return UBA_FASCE_EXP[specie].at(-1).label;
 }
+
+// Colonne UBA con metadati per formattazione
+const COL_UBA = [
+  {key:"BDN",                    label:"BDN",                       width:20, bold:true},
+  {key:"NUMERO CAPI",            label:"NUMERO CAPI",               width:12, center:true, num:true},
+  {key:"Nome",                   label:"Nome",                      width:16},
+  {key:"Specie",                 label:"Specie",                    width:10, center:true},
+  {key:"Categoria alla data",    label:"Categoria alla data",       width:22},
+  {key:"Data nascita",           label:"Data nascita",              width:12, center:true},
+  {key:"Inizio calcolo",         label:"Inizio calcolo",            width:12, center:true},
+  {key:"Data riferimento",       label:"Data riferimento",          width:12, center:true},
+  {key:"Giorni nel periodo",     label:"Giorni",                    width:8,  center:true, num:true},
+  {key:"UBA medio",              label:"UBA medio",                 width:11, num:true},
+  {key:"UBA-giorni",             label:"UBA-giorni",                width:12, num:true, bold:true},
+  {key:"Stato",                  label:"Stato",                     width:9,  center:true},
+  {key:"Qualifica riproduzione", label:"Qualifica riproduzione",    width:18},
+  {key:"Data uscita",            label:"Data uscita",               width:12, center:true},
+  {key:"Motivo uscita",          label:"Motivo uscita",             width:16},
+  {key:"Lotto",                  label:"Lotto",                     width:10, center:true},
+];
+
+const COL_RIEP = [
+  {key:"Specie",              label:"Specie",             width:22, bold:true},
+  {key:"Categoria",           label:"Categoria",          width:24},
+  {key:"N° Capi",             label:"N° Capi",            width:10, center:true, num:true},
+  {key:"UBA medio unitario",  label:"UBA medio unitario", width:16, num:true},
+  {key:"UBA totale",          label:"UBA totale",         width:14, num:true},
+  {key:"UBA-giorni totali",   label:"UBA-giorni totali",  width:16, num:true, bold:true},
+];
 
 function fogli_uba(animali, lotti, suiniLotto) {
   const oggi = today();
@@ -662,15 +778,15 @@ export default function ExportManager() {
          sel.has("uba_bovini")||sel.has("uba_ovini")||sel.has("uba_suini")){
         const ubaData=fogli_uba(an,lotti||[],suiniLotto||[]);
         if(sel.has("uba_riepilogo"))
-          XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(ubaData.riepilogo),"UBA Riepilogo");
+          XLSX.utils.book_append_sheet(wb,creaSheetFormattato(ubaData.riepilogo,COL_RIEP),"UBA Riepilogo");
         if(sel.has("uba_dettaglio"))
-          XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(ubaData.dettaglio),"UBA Dettaglio");
+          XLSX.utils.book_append_sheet(wb,creaSheetFormattato(ubaData.dettaglio,COL_UBA),"UBA Dettaglio");
         if(sel.has("uba_bovini"))
-          XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(ubaData.bovini),"UBA BOVINI");
+          XLSX.utils.book_append_sheet(wb,creaSheetFormattato(ubaData.bovini,COL_UBA),"UBA BOVINI");
         if(sel.has("uba_ovini"))
-          XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(ubaData.ovini),"UBA OVINI");
+          XLSX.utils.book_append_sheet(wb,creaSheetFormattato(ubaData.ovini,COL_UBA),"UBA OVINI");
         if(sel.has("uba_suini"))
-          XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(ubaData.suini),"UBA SUINI e LOTTI");
+          XLSX.utils.book_append_sheet(wb,creaSheetFormattato(ubaData.suini,COL_UBA),"UBA SUINI e LOTTI");
       }
 
       scarica(wb, `Podere_Verde_Export_${dataDa||"tutto"}_${dataA}`);
