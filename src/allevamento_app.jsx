@@ -1217,7 +1217,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
                                       background:"#F0F8FF",color:C.text,outline:"none"}}>
                                     <option value="">— seleziona razza —</option>
                                     {(a.specie==="bovino"?
-                                      ["Marchigiana","Chianina","Maremmana","Podolica","Romagnola","Piemontese","Meticcia","Altra"]
+                                      ["Marchigiana","Chianina","Maremmana","Podolica","Romagnola","Piemontese","Limousine","Meticcia","Altra"]
                                      :a.specie==="ovino"?
                                       ["Sopravvissana","Suffolk","Sarda","Comisana","Massese","Merinizzata","Meticcia","Altra"]
                                      :["Cinta Senese","Nero Apucalabro","Nero Casertano","Mora Romagnola","Duroc","Large White","Landrace","Meticcia","Altra"]

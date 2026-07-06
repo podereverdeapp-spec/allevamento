@@ -75,6 +75,17 @@ function calcolaKPI(animaleId, animali, parti) {
     ? Math.round(daysBetween(rip.nascita, mieiParti[0].data_evento)/30)
     : null;
 
+  // Carriera riproduttiva: giorni dal primo parto ad oggi (o all'ultimo parto se uscita)
+  const dataUltima = rip.stato==="attivo" ? today() : (rip.data_uscita||today());
+  const giorniCarriera = mieiParti[0]?.data_evento
+    ? daysBetween(mieiParti[0].data_evento, dataUltima)
+    : 0;
+
+  // Produttività annua stimata = figli vivi × 365 / giorni carriera
+  const prodAnnua = giorniCarriera>0
+    ? Math.round(totNatiVivi * 365 / giorniCarriera * 10)/10
+    : null;
+
   return {
     nParti: mieiParti.length,
     iipMedio,
@@ -86,6 +97,8 @@ function calcolaKPI(animaleId, animali, parti) {
     totNatiMorti,
     pesoMedioNati,
     etaPrimoParto,
+    prodAnnua,
+    giorniCarriera,
     nFigli: figli.length,
     longevita: Math.round(anni*10)/10,
   };
@@ -227,6 +240,10 @@ function DettaglioKPI({rip, kpi, score, animali, parti, onBack}) {
           note="intervallo inter-parto"/>
         {kpi.iipMin&&<KPIRow label="IIP minimo" val={`${kpi.iipMin} gg (${(kpi.iipMin/30.4).toFixed(1)} mesi)`} unit=""/>}
         {kpi.iipMax&&<KPIRow label="IIP massimo" val={`${kpi.iipMax} gg (${(kpi.iipMax/30.4).toFixed(1)} mesi)`} unit=""/>}
+        {kpi.etaPrimoParto&&<KPIRow label="Età al primo parto" val={`${kpi.etaPrimoParto} mesi`} unit=""/>}
+        {kpi.prodAnnua!==null&&kpi.prodAnnua!==undefined&&
+          <KPIRow label="Produttività annua stimata"
+            val={`${kpi.prodAnnua} figli/anno`} unit=""/>}
       </Card>
 
       {/* KPI Prolificità */}
