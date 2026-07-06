@@ -489,8 +489,8 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
 
     if(!formParto.storico){
       const nati=formParto.nati||[];
-      const rc=calcolaRazza(formParto.padre_id,dettaglio.id,animali);
-      const padre=formParto.padre_id?animali.find(a=>a.id===parseInt(formParto.padre_id)):null;
+      const rc=calcolaRazza(padreIdRisolto,dettaglio.id,animali);
+      const padre=padreIdRisolto?animali.find(a=>a.id===padreIdRisolto):null;
 
       // Per ogni nato: se ha BDN → crea animale individuale
       //               se non ha BDN → va nel lotto (solo suini)
@@ -510,7 +510,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
             nascita:formParto.data_evento,
             peso_nascita:nato.peso_nascita?parseFloat(nato.peso_nascita):null,
             madre_id:dettaglio.id,
-            padre_id:formParto.padre_id?parseInt(formParto.padre_id):null,
+            padre_id:padreIdRisolto,
             provenienza:"Nato in azienda",
             data_ingresso:formParto.data_evento,
             stato:"attivo",vivo:true,
@@ -541,7 +541,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
           anno:new Date(formParto.data_evento).getFullYear(),
           data_parto:formParto.data_evento,
           madre_id:dettaglio.id,
-          padre_id:formParto.padre_id?parseInt(formParto.padre_id):null,
+          padre_id:padreIdRisolto,
           razza_madre:dettaglio.razza_calcolata||dettaglio.razza||null,
           razza_padre:padre?.razza_calcolata||padre?.razza||null,
           nati_totali:totali,
@@ -1118,6 +1118,26 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
                           {riprod.length>0&&(
                             <div style={{fontSize:11,color:C.muted,marginTop:-8,marginBottom:8}}>
                               Solo ♂ registrati come riproduttori · {riprod.length} disponibili
+                            </div>
+                          )}
+                          {/* Padre esterno (non in azienda) */}
+                          {!formParto.padre_id&&(
+                            <div style={{marginTop:6,marginBottom:12}}>
+                              <div style={{fontSize:11,color:C.muted,marginBottom:4}}>
+                                oppure — Matricola padre esterno (non in azienda):
+                              </div>
+                              <input type="text" value={formParto.padre_ext||""}
+                                onChange={e=>setFormParto(f=>({...f,padre_ext:e.target.value,padre_id:""}))}
+                                placeholder="Es. IT058000123456 — verrà creata scheda automaticamente"
+                                style={{width:"100%",boxSizing:"border-box",
+                                  border:`1.5px solid ${formParto.padre_ext?C.blue:C.border}`,
+                                  borderRadius:10,padding:"8px 12px",fontSize:13,
+                                  background:"#F0F8FF",color:C.text,outline:"none"}}/>
+                              {formParto.padre_ext&&(
+                                <div style={{fontSize:11,color:C.blue,marginTop:3}}>
+                                  🧬 Al salvataggio verrà creata la scheda del padre e collegata al parto
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
