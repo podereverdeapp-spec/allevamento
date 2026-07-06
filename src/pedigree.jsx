@@ -93,6 +93,12 @@ function MiniCard({a, onClick, generazione=0}) {
       <div style={{fontWeight:700,fontSize:size,color:vivo?C.text:C.morto,
         overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.nome||a.bdn}</div>
       <div style={{fontSize:10,color:C.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.bdn}</div>
+      {(a.razza_calcolata||a.razza)&&(
+        <div style={{fontSize:10,color:C.accent,fontWeight:600,marginTop:2,
+          overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+          🧬 {a.razza_calcolata||a.razza}
+        </div>
+      )}
       <div style={{display:"flex",gap:4,marginTop:3,flexWrap:"wrap"}}>
         <Badge label={a.sesso==="M"?"♂":"♀"} color={col}/>
         {!vivo&&<Badge label="uscito" color={C.morto}/>}
@@ -105,7 +111,7 @@ function MiniCard({a, onClick, generazione=0}) {
 function AlberoGenealogicoView({animale, animali, onSeleziona}) {
   const tree = getAntenati(animale.id, animali, 3);
 
-  const Rettangolo = ({a, x, y, w=130, h=52, gen=0}) => {
+  const Rettangolo = ({a, x, y, w=130, h=62, gen=0}) => {
     if (!a) return (
       <g>
         <rect x={x} y={y} width={w} height={h} rx={8} fill={C.border+"30"}
@@ -120,11 +126,16 @@ function AlberoGenealogicoView({animale, animali, onSeleziona}) {
       <g onClick={()=>a.id!==animale.id&&onSeleziona(a)} style={{cursor:a.id!==animale.id?"pointer":"default"}}>
         <rect x={x} y={y} width={w} height={h} rx={8} fill={col+"18"}
           stroke={isSelected?C.primary:col+"55"} strokeWidth={isSelected?2.5:1.5}/>
-        <text x={x+8} y={y+16} fontSize={11} fontWeight="700" fill={vivo?C.text:C.morto}>
+        <text x={x+8} y={y+15} fontSize={11} fontWeight="700" fill={vivo?C.text:C.morto}>
           {(a.nome||a.bdn||"—").substring(0,14)}
         </text>
-        <text x={x+8} y={y+30} fontSize={9} fill={C.muted}>{(a.bdn||"").substring(0,18)}</text>
-        <text x={x+8} y={y+44} fontSize={9} fill={col} fontWeight="600">
+        <text x={x+8} y={y+28} fontSize={9} fill={C.muted}>{(a.bdn||"").substring(0,18)}</text>
+        {(a.razza_calcolata||a.razza)&&(
+          <text x={x+8} y={y+41} fontSize={9} fill={C.accent} fontWeight="600">
+            🧬 {(a.razza_calcolata||a.razza).substring(0,17)}
+          </text>
+        )}
+        <text x={x+8} y={y+54} fontSize={9} fill={col} fontWeight="600">
           {a.sesso==="M"?"♂ Maschio":"♀ Femmina"}{!vivo?" · ✝":""}
         </text>
       </g>
