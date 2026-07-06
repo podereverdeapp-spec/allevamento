@@ -330,7 +330,7 @@ function Dashboard({animali,eventi_sanitari,magazzino,onNav,suiniLotto}){
 }
 
 // ─── ANAGRAFICA ───────────────────────────────────────────────────────────────
-function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttivi,aggiungiEvento,aggiornaEvento,eliminaEvento,ricaricaEventi,sanitari,totalePerAnimale}){
+function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,eventiRiproduttivi,aggiungiEvento,aggiornaEvento,eliminaEvento,ricaricaEventi,sanitari,totalePerAnimale}){
   const [filtro,setFiltro]=useState("tutti");
   const [cerca,setCerca]=useState("");
   const [vistaRiproduttori,setVistaRiproduttori]=useState(false);
@@ -637,6 +637,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
     }
     setSavingParto(false);
     setFormParto(null);
+    await ricaricaAnimali();
     ricaricaEventi();
   };
 
@@ -2349,7 +2350,8 @@ export default function AllevamentoApp(){
       <div style={{paddingBottom:70}}>
         {tab==="dashboard"    &&<Dashboard animali={animali} eventi_sanitari={sanitari} magazzino={magazzino} onNav={setTab} suiniLotto={suiniLotto}/>}
         {tab==="anagrafica"   &&<Anagrafica
-          animali={animali} loading={loadA}
+          animali={animali}
+          ricaricaAnimali={ricaricaAnimali} loading={loadA}
           aggiungi={addA} aggiorna={updA} elimina={delA}
           eventiRiproduttivi={riproduttivi}
           aggiungiEvento={addEvRip}
