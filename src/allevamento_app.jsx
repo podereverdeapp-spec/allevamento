@@ -1293,7 +1293,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
                     {formParto.id&&(
                       <div style={{background:C.blue+"12",border:`1px solid ${C.blue}33`,borderRadius:10,
                         padding:"8px 12px",marginBottom:12,fontSize:12,color:C.muted}}>
-                        ℹ️ La modifica aggiorna solo i dati statistici del parto. Le schede dei nati già create non vengono toccate.
+                        ℹ️ La modifica aggiorna i dati statistici del parto. Se aggiungi il padre, verrà propagato anche alle schede dei figli già registrati (con ricalcolo della razza).
                       </div>
                     )}
                     <Field label="Note" value={formParto.note} onChange={v=>setFormParto(f=>({...f,note:v}))}/>
