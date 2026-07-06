@@ -184,6 +184,21 @@ function FormUscita({animale, onSave, onCancel}) {
           ⚖️ Resa: <strong style={{color:C.green}}>{resa}%</strong>
         </div>
       )}
+      {/* IPG - visualizzazione dinamica in fase di registrazione */}
+      {(()=>{
+        const gg = form.data_uscita&&animale.data_ingresso
+          ? Math.round((new Date(form.data_uscita)-new Date(animale.data_ingresso))/86400000) : 0;
+        const ipgVivo = gg>0&&form.peso_vivo_uscita ? Math.round(parseFloat(form.peso_vivo_uscita)/gg*1000)/1000 : null;
+        const ipgCarc = gg>0&&form.peso_carcassa    ? Math.round(parseFloat(form.peso_carcassa)/gg*1000)/1000 : null;
+        if(!ipgVivo&&!ipgCarc) return null;
+        return (
+          <div style={{background:C.primary+"12",borderRadius:8,padding:"6px 10px",marginBottom:8,fontSize:12,color:C.primary}}>
+            📈 Permanenza: <b>{gg} gg</b>
+            {ipgVivo&&<> · IPG vivo: <b>{ipgVivo} kg/gg</b></>}
+            {ipgCarc&&<> · IPG carcassa: <b>{ipgCarc} kg/gg</b></>}
+          </div>
+        );
+      })()}
 
       <Field label="Note" value={form.note} onChange={v=>setForm(f=>({...f,note:v}))}/>
       <div style={{display:"flex",gap:10,marginTop:16}}>
@@ -448,12 +463,27 @@ export default function RegistroUscite() {
                       {a.motivo_uscita&&<Badge label={a.motivo_uscita} color={col}/>}
                     </div>
                     {(a.peso_vivo_uscita||a.peso_carcassa)&&(
-                      <div style={{display:"flex",gap:12,fontSize:13,color:C.muted,marginTop:4}}>
+                      <div style={{display:"flex",gap:12,fontSize:13,color:C.muted,marginTop:4,flexWrap:"wrap"}}>
                         {a.peso_vivo_uscita&&<span>⚖️ Vivo: <b>{a.peso_vivo_uscita}kg</b></span>}
                         {a.peso_carcassa&&<span>🥩 Carcassa: <b>{a.peso_carcassa}kg</b></span>}
                         {a.resa_percent&&<span style={{color:C.green}}>↩ <b>{a.resa_percent}%</b></span>}
                       </div>
                     )}
+                    {/* IPG - Incremento Peso Giornaliero */}
+                    {(()=>{
+                      const gg = a.data_uscita&&a.data_ingresso
+                        ? Math.round((new Date(a.data_uscita)-new Date(a.data_ingresso))/86400000) : 0;
+                      const ipgVivo = gg>0&&a.peso_vivo_uscita ? Math.round(a.peso_vivo_uscita/gg*1000)/1000 : null;
+                      const ipgCarc = gg>0&&a.peso_carcassa    ? Math.round(a.peso_carcassa/gg*1000)/1000 : null;
+                      if(!ipgVivo&&!ipgCarc) return null;
+                      return (
+                        <div style={{display:"flex",gap:12,fontSize:12,color:C.muted,marginTop:3,flexWrap:"wrap"}}>
+                          <span style={{color:C.primary}}>📈 {gg}gg</span>
+                          {ipgVivo&&<span>IPG vivo: <b>{ipgVivo} kg/gg</b></span>}
+                          {ipgCarc&&<span>IPG carcassa: <b>{ipgCarc} kg/gg</b></span>}
+                        </div>
+                      );
+                    })()}
                     {a.note&&<div style={{fontSize:12,color:C.muted,marginTop:4,fontStyle:"italic"}}>{a.note}</div>}
                   </Card>
                 );

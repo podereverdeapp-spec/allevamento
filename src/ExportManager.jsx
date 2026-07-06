@@ -28,13 +28,20 @@ function scarica(wb, nomeFile) {
 
 // ─── GENERATORI FOGLI ─────────────────────────────────────────────────────────
 function foglio_anagrafica(animali) {
-  // Arricchisco con colonna qualifica calcolata
-  const dati = animali.map(a => ({
-    ...a,
-    qualifica: a.riproduttore
-      ? (a.sesso==="M" ? "Riproduttore" : "Riproduttrice")
-      : "",
-  }));
+  // Arricchisco con colonna qualifica + IPG calcolati
+  const dati = animali.map(a => {
+    const gg = a.data_uscita&&a.data_ingresso
+      ? Math.round((new Date(a.data_uscita)-new Date(a.data_ingresso))/86400000) : 0;
+    return {
+      ...a,
+      qualifica: a.riproduttore
+        ? (a.sesso==="M" ? "Riproduttore" : "Riproduttrice")
+        : "",
+      giorni_permanenza: gg>0 ? gg : "",
+      ipg_peso_vivo: gg>0&&a.peso_vivo_uscita ? Math.round(a.peso_vivo_uscita/gg*1000)/1000 : "",
+      ipg_carcassa:  gg>0&&a.peso_carcassa    ? Math.round(a.peso_carcassa/gg*1000)/1000 : "",
+    };
+  });
   return creaFoglio(dati, [
     {key:"bdn",                    label:"BDN / Matricola"},
     {key:"nome",                   label:"Nome"},
@@ -60,6 +67,9 @@ function foglio_anagrafica(animali) {
     {key:"peso_vivo_uscita",       label:"Peso vivo uscita (kg)"},
     {key:"peso_carcassa",          label:"Peso carcassa (kg)"},
     {key:"resa_percent",           label:"Resa %"},
+    {key:"giorni_permanenza",      label:"Giorni permanenza"},
+    {key:"ipg_peso_vivo",          label:"IPG peso vivo (kg/gg)"},
+    {key:"ipg_carcassa",           label:"IPG carcassa (kg/gg)"},
     {key:"note_sanitarie",         label:"Note sanitarie"},
     {key:"note",                   label:"Note"},
   ]);
@@ -165,6 +175,16 @@ function foglio_uscite(animali) {
     peso_vivo_uscita: a.peso_vivo_uscita||"",
     peso_carcassa:    a.peso_carcassa||"",
     resa_percent:     a.resa_percent||"",
+    ipg_peso_vivo:    (()=>{
+      const gg = a.data_uscita&&a.data_ingresso
+        ? Math.round((new Date(a.data_uscita)-new Date(a.data_ingresso))/86400000) : 0;
+      return gg>0&&a.peso_vivo_uscita ? Math.round(a.peso_vivo_uscita/gg*1000)/1000 : "";
+    })(),
+    ipg_carcassa:     (()=>{
+      const gg = a.data_uscita&&a.data_ingresso
+        ? Math.round((new Date(a.data_uscita)-new Date(a.data_ingresso))/86400000) : 0;
+      return gg>0&&a.peso_carcassa ? Math.round(a.peso_carcassa/gg*1000)/1000 : "";
+    })(),
     note:             a.note||"",
   }));
   return creaFoglio(dati, [
@@ -182,6 +202,8 @@ function foglio_uscite(animali) {
     {key:"peso_vivo_uscita", label:"Peso vivo (kg)"},
     {key:"peso_carcassa",    label:"Peso carcassa (kg)"},
     {key:"resa_percent",     label:"Resa %"},
+    {key:"ipg_peso_vivo",    label:"IPG peso vivo (kg/gg)"},
+    {key:"ipg_carcassa",     label:"IPG carcassa (kg/gg)"},
     {key:"note",             label:"Note"},
   ]);
 }

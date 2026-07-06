@@ -955,6 +955,14 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
                         <span style={{fontWeight:700,color:C.green}}>{a.resa_percent}%</span>
                       </div>
                     )}
+                    {gg>0&&a.peso_vivo_uscita&&(
+                      <Row label="IPG peso vivo"
+                        val={(Math.round(a.peso_vivo_uscita/gg*1000)/1000)+" kg/giorno"}/>
+                    )}
+                    {gg>0&&a.peso_carcassa&&(
+                      <Row label="IPG carcassa"
+                        val={(Math.round(a.peso_carcassa/gg*1000)/1000)+" kg/giorno"}/>
+                    )}
                   </>);
                 })()}
               </Card>
