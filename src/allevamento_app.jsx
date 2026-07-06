@@ -332,6 +332,7 @@ function Dashboard({animali,eventi_sanitari,magazzino,onNav,suiniLotto}){
 // ─── ANAGRAFICA ───────────────────────────────────────────────────────────────
 function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,eventiRiproduttivi,aggiungiEvento,aggiornaEvento,eliminaEvento,ricaricaEventi,sanitari,totalePerAnimale}){
   const [filtro,setFiltro]=useState("tutti");
+  const [filtroStato,setFiltroStato]=useState("attivi"); // attivi | usciti | tutti
   const [cerca,setCerca]=useState("");
   const [vistaRiproduttori,setVistaRiproduttori]=useState(false);
   const [form,setForm]=useState(null);         // null=lista, obj=form edit/new
@@ -356,9 +357,11 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
   };
 
   const lista=animali.filter(a=>{
-    // Filtro specie/stato
-    if(filtro==="attivo"&&a.stato!=="attivo") return false;
-    if(!["tutti","attivo"].includes(filtro)&&a.specie!==filtro) return false;
+    // Filtro specie
+    if(filtro!=="tutti"&&a.specie!==filtro) return false;
+    // Filtro stato
+    if(filtroStato==="attivi"&&a.stato!=="attivo") return false;
+    if(filtroStato==="usciti"&&a.stato==="attivo") return false;
     // Ricerca testo: BDN completo, ultime 4 cifre, nome
     if(cerca.trim()){
       const q=cerca.trim().toLowerCase();
@@ -1501,15 +1504,31 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
           {lista.length>0?`✓ ${lista.length} animale/i trovato/i`:"Nessun animale trovato"}
         </div>
       )}
-      <div style={{display:"flex",gap:8,marginBottom:12,overflowX:"auto",paddingBottom:4}}>
-        {["tutti","bovino","suino","ovino","attivo"].map(f=>(
+      <div style={{display:"flex",gap:8,marginBottom:8,overflowX:"auto",paddingBottom:4}}>
+        {["tutti","bovino","suino","ovino"].map(f=>(
           <button key={f} onClick={()=>setFiltro(f)}
             style={{background:filtro===f?C.primary:C.card,
               color:filtro===f?"#FFF":C.muted,
               border:`1.5px solid ${filtro===f?C.primary:C.border}`,
               borderRadius:20,padding:"5px 14px",fontSize:13,fontWeight:600,
               cursor:"pointer",whiteSpace:"nowrap"}}>
-            {f==="tutti"?"Tutti":f==="attivo"?"Solo attivi":specieIcon(f)+" "+specieLabel(f)}
+            {f==="tutti"?"Tutti":specieIcon(f)+" "+specieLabel(f)}
+          </button>
+        ))}
+      </div>
+      <div style={{display:"flex",gap:8,marginBottom:12,overflowX:"auto",paddingBottom:4}}>
+        {[
+          {v:"attivi",l:"✅ Attivi",col:C.green},
+          {v:"usciti",l:"📤 Usciti",col:C.red},
+          {v:"tutti",l:"Tutti",col:C.primary},
+        ].map(x=>(
+          <button key={x.v} onClick={()=>setFiltroStato(x.v)}
+            style={{background:filtroStato===x.v?x.col:C.card,
+              color:filtroStato===x.v?"#FFF":C.muted,
+              border:`1.5px solid ${filtroStato===x.v?x.col:C.border}`,
+              borderRadius:20,padding:"5px 14px",fontSize:12,fontWeight:600,
+              cursor:"pointer",whiteSpace:"nowrap"}}>
+            {x.l}
           </button>
         ))}
       </div>

@@ -456,15 +456,19 @@ function SchedaPedigree({animale, animali, parti, onBack, onSeleziona}) {
 function ListaAnimali({animali, parti, onSeleziona, onReport}) {
   const [filtroSpecie,setFiltroSpecie]=useState("tutti");
   const [filtroSesso,setFiltroSesso]=useState("tutti");
+  const [filtroStato,setFiltroStato]=useState("attivi");
   const [cerca,setCerca]=useState("");
 
   const lista=useMemo(()=>
-    animali.filter(a=>
-      (filtroSpecie==="tutti"||a.specie===filtroSpecie)&&
-      (filtroSesso==="tutti"||a.sesso===filtroSesso)&&
-      (!cerca||(a.bdn+""+(a.nome||"")).toLowerCase().includes(cerca.toLowerCase()))
-    ).sort((a,b)=>(a.bdn||"").localeCompare(b.bdn||""))
-  ,[animali,filtroSpecie,filtroSesso,cerca]);
+    animali.filter(a=>{
+      if(filtroSpecie!=="tutti"&&a.specie!==filtroSpecie) return false;
+      if(filtroSesso!=="tutti"&&a.sesso!==filtroSesso) return false;
+      if(filtroStato==="attivi"&&a.stato!=="attivo") return false;
+      if(filtroStato==="usciti"&&a.stato==="attivo") return false;
+      if(cerca&&!(a.bdn+""+(a.nome||"")).toLowerCase().includes(cerca.toLowerCase())) return false;
+      return true;
+    }).sort((a,b)=>(a.bdn||"").localeCompare(b.bdn||""))
+  ,[animali,filtroSpecie,filtroSesso,filtroStato,cerca]);
 
   const conPedigree=animali.filter(a=>a.madre_id||a.padre_id).length;
   const totParti=parti.length;
@@ -513,6 +517,22 @@ function ListaAnimali({animali, parti, onSeleziona, onReport}) {
                 border:`1.5px solid ${filtroSesso===s?(s==="M"?C.maschio:s==="F"?C.femmina:C.blue):C.border}`,
                 borderRadius:20,padding:"5px 12px",fontSize:12,fontWeight:600,cursor:"pointer"}}>
               {s==="tutti"?"♂♀ Tutti":s==="M"?"♂ Maschi":"♀ Femmine"}
+            </button>
+          ))}
+        </div>
+
+        <div style={{display:"flex",gap:8,marginBottom:12,overflowX:"auto",paddingBottom:4}}>
+          {[
+            {v:"attivi",l:"✅ Attivi",col:"#4A7C59"},
+            {v:"usciti",l:"📤 Usciti",col:"#C0392B"},
+            {v:"tutti",l:"Tutti",col:C.primary},
+          ].map(x=>(
+            <button key={x.v} onClick={()=>setFiltroStato(x.v)}
+              style={{background:filtroStato===x.v?x.col:C.card,
+                color:filtroStato===x.v?"#FFF":C.muted,
+                border:`1.5px solid ${filtroStato===x.v?x.col:C.border}`,
+                borderRadius:20,padding:"5px 12px",fontSize:12,fontWeight:600,cursor:"pointer"}}>
+              {x.l}
             </button>
           ))}
         </div>

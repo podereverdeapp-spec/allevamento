@@ -310,6 +310,7 @@ export default function SelezioneGenetica() {
   const [parti,setParti]=useState([]);
   const [loading,setLoading]=useState(true);
   const [filtroSpecie,setFiltroSpecie]=useState("tutti");
+  const [filtroStato,setFiltroStato]=useState("attivi");
   const [filtroSesso,setFiltroSesso]=useState("tutti");
   const [selected,setSelected]=useState(null);
 
@@ -332,6 +333,8 @@ export default function SelezioneGenetica() {
   const ranking=useMemo(()=>{
     const candidati=animali.filter(a=>{
       if(filtroSpecie!=="tutti"&&a.specie!==filtroSpecie) return false;
+      if(filtroStato==="attivi"&&a.stato!=="attivo") return false;
+      if(filtroStato==="usciti"&&a.stato==="attivo") return false;
       if(filtroSesso!=="tutti"&&a.sesso!==filtroSesso) return false;
       return parti.some(p=>p.animale_id===a.id);
     });
@@ -433,6 +436,19 @@ export default function SelezioneGenetica() {
                 border:`1.5px solid ${filtroSesso===s?C.blue:C.border}`,
                 borderRadius:20,padding:"5px 12px",fontSize:12,fontWeight:600,cursor:"pointer"}}>
               {s==="tutti"?"Tutti":s==="F"?"♀ Femmine":"♂ Maschi"}
+            </button>
+          ))}
+          {[
+            {v:"attivi",l:"✅ Attivi",col:"#4A7C59"},
+            {v:"usciti",l:"📤 Usciti",col:"#C0392B"},
+            {v:"tutti",l:"Tutti",col:C.primary},
+          ].map(x=>(
+            <button key={x.v} onClick={()=>setFiltroStato(x.v)}
+              style={{background:filtroStato===x.v?x.col:C.card,
+                color:filtroStato===x.v?"#FFF":C.muted,
+                border:`1.5px solid ${filtroStato===x.v?x.col:C.border}`,
+                borderRadius:20,padding:"5px 12px",fontSize:12,fontWeight:600,cursor:"pointer"}}>
+              {x.l}
             </button>
           ))}
         </div>

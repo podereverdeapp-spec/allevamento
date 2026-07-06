@@ -678,11 +678,101 @@ function fogli_uba(animali, lotti, suiniLotto) {
   };
 }
 
+// ─── CONSANGUINEITÀ ──────────────────────────────────────────────────────────
+function analizzaAccoppiamentiRischio(animali) {
+  const attivi = animali.filter(a=>a.stato==="attivo"&&a.vivo!==false);
+  const maschi   = attivi.filter(a=>a.sesso==="M");
+  const femmine  = attivi.filter(a=>a.sesso==="F");
+  const rischi = [];
+
+  for(const m of maschi){
+    for(const f of femmine){
+      if(m.specie!==f.specie) continue;
+      let tipo=null;
+      if(f.padre_id===m.id) tipo="Padre × Figlia";
+      else if(m.madre_id===f.id) tipo="Madre × Figlio";
+      else {
+        const stessoPadre = m.padre_id&&f.padre_id&&m.padre_id===f.padre_id;
+        const stessaMadre = m.madre_id&&f.madre_id&&m.madre_id===f.madre_id;
+        if(stessoPadre&&stessaMadre) tipo="Fratelli pieni";
+        else if(stessoPadre) tipo="Fratellastri (stesso padre)";
+        else if(stessaMadre) tipo="Fratellastri (stessa madre)";
+      }
+      if(tipo) rischi.push({m,f,tipo});
+    }
+  }
+  return rischi;
+}
+
+function analizzaCapiInconsanguinei(animali) {
+  const result = [];
+  for(const a of animali){
+    if(a.stato!=="attivo"||a.vivo===false) continue;
+    if(!a.padre_id||!a.madre_id) continue;
+    const padre = animali.find(x=>x.id===a.padre_id);
+    const madre = animali.find(x=>x.id===a.madre_id);
+    if(!padre||!madre) continue;
+    let tipo=null;
+    if(madre.padre_id===padre.id) tipo="Padre × Figlia";
+    else if(padre.madre_id===madre.id) tipo="Madre × Figlio";
+    else {
+      const stessoPadre = padre.padre_id&&madre.padre_id&&padre.padre_id===madre.padre_id;
+      const stessaMadre = padre.madre_id&&madre.madre_id&&padre.madre_id===madre.madre_id;
+      if(stessoPadre&&stessaMadre) tipo="Genitori fratelli pieni";
+      else if(stessoPadre||stessaMadre) tipo="Genitori fratellastri";
+    }
+    if(tipo) result.push({a,padre,madre,tipo});
+  }
+  return result;
+}
+
+function foglio_consang_rischi(animali) {
+  const rischi = analizzaAccoppiamentiRischio(animali);
+  const righe = rischi.map(r=>({
+    "Specie": r.m.specie,
+    "Tipo rischio": r.tipo,
+    "Maschio BDN": r.m.bdn||"",
+    "Maschio Nome": r.m.nome||"",
+    "Maschio Razza": r.m.razza_calcolata||r.m.razza||"",
+    "Femmina BDN": r.f.bdn||"",
+    "Femmina Nome": r.f.nome||"",
+    "Femmina Razza": r.f.razza_calcolata||r.f.razza||"",
+  }));
+  if(righe.length===0) righe.push({"Info":"Nessun accoppiamento a rischio rilevato — bene!"});
+  const ws = XLSX.utils.json_to_sheet(righe);
+  ws["!cols"] = [{wch:10},{wch:24},{wch:20},{wch:18},{wch:18},{wch:20},{wch:18},{wch:18}];
+  return ws;
+}
+
+function foglio_consang_capi(animali) {
+  const capi = analizzaCapiInconsanguinei(animali);
+  const righe = capi.map(x=>({
+    "Specie": x.a.specie,
+    "BDN": x.a.bdn||"",
+    "Nome": x.a.nome||"",
+    "Sesso": x.a.sesso,
+    "Razza calcolata": x.a.razza_calcolata||x.a.razza||"",
+    "Data nascita": x.a.nascita||"",
+    "Tipo consanguineità": x.tipo,
+    "Padre BDN": x.padre.bdn||"",
+    "Padre Nome": x.padre.nome||"",
+    "Madre BDN": x.madre.bdn||"",
+    "Madre Nome": x.madre.nome||"",
+  }));
+  if(righe.length===0) righe.push({"Info":"Nessun capo con consanguineità nella genealogia — bene!"});
+  const ws = XLSX.utils.json_to_sheet(righe);
+  ws["!cols"] = [{wch:10},{wch:20},{wch:18},{wch:8},{wch:18},{wch:12},{wch:26},{wch:20},{wch:18},{wch:20},{wch:18}];
+  return ws;
+}
+
 // ─── SEZIONI DISPONIBILI ──────────────────────────────────────────────────────
 const SEZIONI = [
-  { id:"anagrafica_bovini",  label:"Anagrafica Bovini",         icon:"🐄", gruppo:"ANAGRAFICA" },
-  { id:"anagrafica_suini",   label:"Anagrafica Suini",          icon:"🐷", gruppo:"ANAGRAFICA" },
-  { id:"anagrafica_ovini",   label:"Anagrafica Ovini",          icon:"🐑", gruppo:"ANAGRAFICA" },
+  { id:"anagrafica_bovini",       label:"Bovini attivi",             icon:"🐄", gruppo:"ANIMALI ATTIVI" },
+  { id:"anagrafica_suini",        label:"Suini attivi",              icon:"🐷", gruppo:"ANIMALI ATTIVI" },
+  { id:"anagrafica_ovini",        label:"Ovini attivi",              icon:"🐑", gruppo:"ANIMALI ATTIVI" },
+  { id:"anagrafica_bovini_usciti",label:"Bovini usciti",             icon:"🐄", gruppo:"ANIMALI USCITI" },
+  { id:"anagrafica_suini_usciti", label:"Suini usciti",              icon:"🐷", gruppo:"ANIMALI USCITI" },
+  { id:"anagrafica_ovini_usciti", label:"Ovini usciti",              icon:"🐑", gruppo:"ANIMALI USCITI" },
   { id:"uscite",             label:"Registro Uscite",           icon:"📤", gruppo:"MOVIMENTI" },
   { id:"parti",              label:"Registro Parti",            icon:"🐣", gruppo:"MOVIMENTI" },
   { id:"sanitario",          label:"Registro Sanitario",        icon:"💉", gruppo:"REGISTRI" },
@@ -698,6 +788,8 @@ const SEZIONI = [
   { id:"uba_bovini",         label:"UBA — Bovini",              icon:"🐄", gruppo:"UBA" },
   { id:"uba_ovini",          label:"UBA — Ovini",               icon:"🐑", gruppo:"UBA" },
   { id:"uba_suini",          label:"UBA — Suini e Lotti",       icon:"🐷", gruppo:"UBA" },
+  { id:"consang_rischi",     label:"Accoppiamenti a rischio",   icon:"⚠️", gruppo:"CONSANGUINEITÀ" },
+  { id:"consang_capi",       label:"Capi con genealogia consanguinea", icon:"🧬", gruppo:"CONSANGUINEITÀ" },
 ];
 
 // ─── COMPONENTE PRINCIPALE ────────────────────────────────────────────────────
@@ -749,11 +841,17 @@ export default function ExportManager() {
       const wb = XLSX.utils.book_new();
 
       if(sel.has("anagrafica_bovini"))
-        XLSX.utils.book_append_sheet(wb, foglio_anagrafica(an.filter(a=>a.specie==="bovino")), "Bovini");
+        XLSX.utils.book_append_sheet(wb, foglio_anagrafica(an.filter(a=>a.specie==="bovino"&&a.stato==="attivo")), "Bovini attivi");
       if(sel.has("anagrafica_suini"))
-        XLSX.utils.book_append_sheet(wb, foglio_anagrafica(an.filter(a=>a.specie==="suino")), "Suini anagrafica");
+        XLSX.utils.book_append_sheet(wb, foglio_anagrafica(an.filter(a=>a.specie==="suino"&&a.stato==="attivo")), "Suini attivi");
       if(sel.has("anagrafica_ovini"))
-        XLSX.utils.book_append_sheet(wb, foglio_anagrafica(an.filter(a=>a.specie==="ovino")), "Ovini");
+        XLSX.utils.book_append_sheet(wb, foglio_anagrafica(an.filter(a=>a.specie==="ovino"&&a.stato==="attivo")), "Ovini attivi");
+      if(sel.has("anagrafica_bovini_usciti"))
+        XLSX.utils.book_append_sheet(wb, foglio_anagrafica(an.filter(a=>a.specie==="bovino"&&a.stato!=="attivo")), "Bovini usciti");
+      if(sel.has("anagrafica_suini_usciti"))
+        XLSX.utils.book_append_sheet(wb, foglio_anagrafica(an.filter(a=>a.specie==="suino"&&a.stato!=="attivo")), "Suini usciti");
+      if(sel.has("anagrafica_ovini_usciti"))
+        XLSX.utils.book_append_sheet(wb, foglio_anagrafica(an.filter(a=>a.specie==="ovino"&&a.stato!=="attivo")), "Ovini usciti");
       if(sel.has("uscite"))
         XLSX.utils.book_append_sheet(wb, foglio_uscite(an), "Uscite");
       if(sel.has("parti"))
@@ -788,6 +886,10 @@ export default function ExportManager() {
         if(sel.has("uba_suini"))
           XLSX.utils.book_append_sheet(wb,creaSheetFormattato(ubaData.suini,COL_UBA),"UBA SUINI e LOTTI");
       }
+      if(sel.has("consang_rischi"))
+        XLSX.utils.book_append_sheet(wb, foglio_consang_rischi(an), "Accoppiamenti a rischio");
+      if(sel.has("consang_capi"))
+        XLSX.utils.book_append_sheet(wb, foglio_consang_capi(an), "Capi consanguinei");
 
       scarica(wb, `Podere_Verde_Export_${dataDa||"tutto"}_${dataA}`);
     } finally {
