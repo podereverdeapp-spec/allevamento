@@ -460,6 +460,29 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
     const totali=parseInt(formParto.nati_totali)||0;
     const morti=parseInt(formParto.nati_morti)||0;
     const vivi=Math.max(0,totali-morti);
+    // Risolvi padre esterno se serve (con razza specificata)
+    let padreIdRisolto = formParto.padre_id?parseInt(formParto.padre_id):null;
+    if(!padreIdRisolto&&formParto.padre_ext&&formParto.padre_ext.trim()){
+      const bdn = formParto.padre_ext.trim();
+      // Cerca se esiste già
+      const{data:lista}=await supabase.from("animali").select("id").eq("bdn",bdn).limit(1);
+      if(lista&&lista.length>0){
+        padreIdRisolto = lista[0].id;
+      } else {
+        // Crea scheda minima con razza se specificata
+        const{data:nuovi}=await supabase.from("animali").insert([{
+          bdn, specie:dettaglio.specie, sesso:"M",
+          razza: formParto.padre_ext_razza||null,
+          razza_calcolata: formParto.padre_ext_razza||null,
+          provenienza:"Esterno", stato:"storico", vivo:false,
+          riproduttore: true,
+          note:"Padre esterno — scheda creata automaticamente al parto",
+        }]).select("id");
+        padreIdRisolto = nuovi&&nuovi.length>0?nuovi[0].id:null;
+      }
+      // Ricarico animali per aggiornare il pedigree
+      if(padreIdRisolto) await ricaricaAnimali();
+    }
     const payload={
       animale_id:dettaglio.id,
       tipo_evento:"parto",
@@ -468,7 +491,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
       nati_vivi:vivi,
       nati_morti:morti,
       nati_mummificati:parseInt(formParto.nati_mummificati)||0,
-      padre_id:formParto.padre_id?parseInt(formParto.padre_id):null,
+      padre_id:padreIdRisolto,
       data_accoppiamento:formParto.data_accoppiamento||null,
       note:formParto.note||null,
     };
@@ -1128,15 +1151,34 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
                               </div>
                               <input type="text" value={formParto.padre_ext||""}
                                 onChange={e=>setFormParto(f=>({...f,padre_ext:e.target.value,padre_id:""}))}
-                                placeholder="Es. IT058000123456 — verrà creata scheda automaticamente"
+                                placeholder="Es. IT058000123456"
                                 style={{width:"100%",boxSizing:"border-box",
                                   border:`1.5px solid ${formParto.padre_ext?C.blue:C.border}`,
                                   borderRadius:10,padding:"8px 12px",fontSize:13,
-                                  background:"#F0F8FF",color:C.text,outline:"none"}}/>
+                                  background:"#F0F8FF",color:C.text,outline:"none",marginBottom:8}}/>
                               {formParto.padre_ext&&(
-                                <div style={{fontSize:11,color:C.blue,marginTop:3}}>
-                                  🧬 Al salvataggio verrà creata la scheda del padre e collegata al parto
-                                </div>
+                                <>
+                                  <div style={{fontSize:11,color:C.muted,marginBottom:4,marginTop:8}}>
+                                    Razza del padre esterno (per calcolo razza figli):
+                                  </div>
+                                  <select value={formParto.padre_ext_razza||""}
+                                    onChange={e=>setFormParto(f=>({...f,padre_ext_razza:e.target.value}))}
+                                    style={{width:"100%",boxSizing:"border-box",
+                                      border:`1.5px solid ${formParto.padre_ext_razza?C.blue:C.border}`,
+                                      borderRadius:10,padding:"8px 12px",fontSize:13,
+                                      background:"#F0F8FF",color:C.text,outline:"none"}}>
+                                    <option value="">— seleziona razza —</option>
+                                    {(a.specie==="bovino"?
+                                      ["Marchigiana","Chianina","Maremmana","Podolica","Romagnola","Piemontese","Meticcia","Altra"]
+                                     :a.specie==="ovino"?
+                                      ["Sopravvissana","Suffolk","Sarda","Comisana","Massese","Merinizzata","Meticcia","Altra"]
+                                     :["Cinta Senese","Nero Apucalabro","Nero Casertano","Mora Romagnola","Duroc","Large White","Landrace","Meticcia","Altra"]
+                                    ).map(r=><option key={r} value={r}>{r}</option>)}
+                                  </select>
+                                  <div style={{fontSize:11,color:C.blue,marginTop:6}}>
+                                    🧬 Verrà creata la scheda del padre esterno {formParto.padre_ext_razza?`(${formParto.padre_ext_razza})`:""} e collegata al parto
+                                  </div>
+                                </>
                               )}
                             </div>
                           )}
@@ -1159,7 +1201,9 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
                             ?(n.bdn_nato
                               ?`🏷️ Nato ${i+1} → Registro animali (BDN: ${n.bdn_nato})`
                               :`🐷 Nato ${i+1} → Lotto ${codLottoPreview||"?"}${!n.bdn_nato?nrLotto:""}`)
-                            :`🐾 Nato vivo ${i+1}`}
+                            :(formParto.nati||[]).length>1
+                              ?`👥 Gemello ${i+1} di ${formParto.nati.length} — inserisci matricola`
+                              :`🐾 Nato vivo — inserisci matricola`}
                         </div>
                         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
                           <Field label="Sesso" value={n.sesso}
@@ -1182,8 +1226,18 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
                                   borderRadius:8,padding:"7px 10px",fontSize:13,
                                   background:"#FAFAF8",outline:"none"}}/>
                             </div>
-                          :<Field label="BDN/ID" value={n.bdn_nato}
-                              onChange={v=>setFormParto(f=>({...f,nati:f.nati.map((x,j)=>j===i?{...x,bdn_nato:v}:x)}))}/>
+                          :<div>
+                              <div style={{fontSize:11,color:C.muted,marginBottom:3}}>
+                                BDN / Matricola *
+                              </div>
+                              <input type="text" value={n.bdn_nato||""}
+                                onChange={e=>setFormParto(f=>({...f,nati:f.nati.map((x,j)=>j===i?{...x,bdn_nato:e.target.value}:x)}))}
+                                placeholder="Es. IT058000123456"
+                                style={{width:"100%",boxSizing:"border-box",
+                                  border:`1.5px solid ${n.bdn_nato?C.green:C.border}`,
+                                  borderRadius:8,padding:"7px 10px",fontSize:13,
+                                  background:"#FAFAF8",outline:"none"}}/>
+                            </div>
                         }
                       </div>
                       );
