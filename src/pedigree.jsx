@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "./supabase";
+import * as XLSX from "xlsx-js-style";
 
 const C = {
   bg:"#F5F0E8", card:"#FFFFFF", primary:"#5C3D1E", accent:"#A0522D",
@@ -452,7 +453,7 @@ function SchedaPedigree({animale, animali, parti, onBack, onSeleziona}) {
 }
 
 // ─── LISTA ANIMALI ────────────────────────────────────────────────────────────
-function ListaAnimali({animali, parti, onSeleziona}) {
+function ListaAnimali({animali, parti, onSeleziona, onReport}) {
   const [filtroSpecie,setFiltroSpecie]=useState("tutti");
   const [filtroSesso,setFiltroSesso]=useState("tutti");
   const [cerca,setCerca]=useState("");
@@ -472,9 +473,21 @@ function ListaAnimali({animali, parti, onSeleziona}) {
     <div style={{paddingBottom:80}}>
       <div style={{background:`linear-gradient(135deg,${C.primary},${C.accent})`,
         borderRadius:"0 0 28px 28px",padding:"28px 20px 24px",marginBottom:20}}>
-        <div style={{fontSize:22,fontWeight:800,color:"#FFF"}}>🧬 Registro Genealogico</div>
-        <div style={{fontSize:14,color:"rgba(255,255,255,0.75)",marginTop:4}}>
-          {animali.length} animali · {conPedigree} con pedigree · {totParti} parti
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+          <div style={{flex:1}}>
+            <div style={{fontSize:22,fontWeight:800,color:"#FFF"}}>🧬 Registro Genealogico</div>
+            <div style={{fontSize:14,color:"rgba(255,255,255,0.75)",marginTop:4}}>
+              {animali.length} animali · {conPedigree} con pedigree · {totParti} parti
+            </div>
+          </div>
+          {onReport&&(
+            <button onClick={onReport}
+              style={{background:"rgba(255,255,255,0.2)",border:"1.5px solid rgba(255,255,255,0.4)",
+                borderRadius:12,padding:"8px 12px",cursor:"pointer",flexShrink:0,
+                color:"#FFF",fontSize:12,fontWeight:700}}>
+              🚫 Consanguineità
+            </button>
+          )}
         </div>
       </div>
 
@@ -555,6 +568,254 @@ function ListaAnimali({animali, parti, onSeleziona}) {
   );
 }
 
+// ─── REPORT CONSANGUINEITÀ ──────────────────────────────────────────────────
+// A) Accoppiamenti a rischio: maschi × femmine attivi che sono consanguinei
+function analizzaAccoppiamentiRischio(animali) {
+  const attivi = animali.filter(a=>a.stato==="attivo"&&a.vivo!==false);
+  const maschi   = attivi.filter(a=>a.sesso==="M");
+  const femmine  = attivi.filter(a=>a.sesso==="F");
+  const rischi = [];
+
+  for(const m of maschi){
+    for(const f of femmine){
+      if(m.specie!==f.specie) continue; // solo stessa specie
+      // Padre-Figlia
+      if(f.padre_id===m.id) rischi.push({m,f,tipo:"Padre × Figlia",gravita:"Diretto"});
+      // Madre-Figlio (m è figlio di f)
+      else if(m.madre_id===f.id) rischi.push({m,f,tipo:"Madre × Figlio",gravita:"Diretto"});
+      // Fratelli/sorelle
+      else {
+        const stessoPadre = m.padre_id&&f.padre_id&&m.padre_id===f.padre_id;
+        const stessaMadre = m.madre_id&&f.madre_id&&m.madre_id===f.madre_id;
+        if(stessoPadre&&stessaMadre)
+          rischi.push({m,f,tipo:"Fratelli pieni",gravita:"Diretto"});
+        else if(stessoPadre||stessaMadre)
+          rischi.push({m,f,tipo:stessoPadre?"Fratellastri (stesso padre)":"Fratellastri (stessa madre)",gravita:"Diretto"});
+      }
+    }
+  }
+  return rischi;
+}
+
+// B) Capi già nati da unioni consanguinee
+function analizzaCapiInconsanguinei(animali) {
+  const result = [];
+  for(const a of animali){
+    if(a.stato!=="attivo"||a.vivo===false) continue;
+    if(!a.padre_id||!a.madre_id) continue;
+    const padre = animali.find(x=>x.id===a.padre_id);
+    const madre = animali.find(x=>x.id===a.madre_id);
+    if(!padre||!madre) continue;
+
+    // Verifico se padre e madre sono consanguinei tra loro
+    let tipo = null;
+    // Padre-Figlia (madre è figlia del padre)
+    if(madre.padre_id===padre.id) tipo="Padre × Figlia";
+    // Madre-Figlio (padre è figlio della madre)
+    else if(padre.madre_id===madre.id) tipo="Madre × Figlio";
+    else {
+      // Fratelli tra loro
+      const stessoPadre = padre.padre_id&&madre.padre_id&&padre.padre_id===madre.padre_id;
+      const stessaMadre = padre.madre_id&&madre.madre_id&&padre.madre_id===madre.madre_id;
+      if(stessoPadre&&stessaMadre) tipo="Genitori fratelli pieni";
+      else if(stessoPadre||stessaMadre) tipo="Genitori fratellastri";
+    }
+    if(tipo) result.push({a,padre,madre,tipo});
+  }
+  return result;
+}
+
+function esportaConsanguineita(rischi, capi) {
+  const wb = XLSX.utils.book_new();
+
+  // Foglio 1: Accoppiamenti a rischio
+  const foglioA = rischi.map(r=>({
+    "Tipo rischio": r.tipo,
+    "Maschio (BDN)": r.m.bdn||"",
+    "Maschio (Nome)": r.m.nome||"",
+    "Maschio (Razza)": r.m.razza_calcolata||r.m.razza||"",
+    "Femmina (BDN)": r.f.bdn||"",
+    "Femmina (Nome)": r.f.nome||"",
+    "Femmina (Razza)": r.f.razza_calcolata||r.f.razza||"",
+    "Specie": r.m.specie,
+  }));
+  const wsA = XLSX.utils.json_to_sheet(foglioA.length>0?foglioA:[{"Info":"Nessun accoppiamento a rischio rilevato"}]);
+  wsA["!cols"] = [{wch:20},{wch:20},{wch:16},{wch:16},{wch:20},{wch:16},{wch:16},{wch:10}];
+  XLSX.utils.book_append_sheet(wb, wsA, "Accoppiamenti a rischio");
+
+  // Foglio 2: Capi con consanguineità
+  const foglioB = capi.map(x=>({
+    "BDN": x.a.bdn||"",
+    "Nome": x.a.nome||"",
+    "Specie": x.a.specie,
+    "Razza calcolata": x.a.razza_calcolata||x.a.razza||"",
+    "Sesso": x.a.sesso,
+    "Data nascita": x.a.nascita||"",
+    "Tipo consanguineità genitori": x.tipo,
+    "Padre (BDN)": x.padre.bdn||"",
+    "Padre (Nome)": x.padre.nome||"",
+    "Madre (BDN)": x.madre.bdn||"",
+    "Madre (Nome)": x.madre.nome||"",
+  }));
+  const wsB = XLSX.utils.json_to_sheet(foglioB.length>0?foglioB:[{"Info":"Nessun capo con consanguineità nella genealogia"}]);
+  wsB["!cols"] = [{wch:20},{wch:16},{wch:10},{wch:18},{wch:8},{wch:12},{wch:26},{wch:20},{wch:16},{wch:20},{wch:16}];
+  XLSX.utils.book_append_sheet(wb, wsB, "Capi con consanguineità");
+
+  XLSX.writeFile(wb, `Consanguineita_Podere_Verde_${new Date().toISOString().split("T")[0]}.xlsx`);
+}
+
+// Vista report consanguineità
+function ReportConsanguineita({animali, onBack, onSeleziona}) {
+  const [tab, setTab] = useState("rischi"); // rischi | capi
+  const rischi = useMemo(()=>analizzaAccoppiamentiRischio(animali),[animali]);
+  const capi   = useMemo(()=>analizzaCapiInconsanguinei(animali),[animali]);
+
+  const rischiPerSpecie = {};
+  rischi.forEach(r=>{
+    const sp = r.m.specie;
+    if(!rischiPerSpecie[sp]) rischiPerSpecie[sp]=[];
+    rischiPerSpecie[sp].push(r);
+  });
+
+  return (
+    <div style={{paddingBottom:80}}>
+      <div style={{background:`linear-gradient(135deg,${C.red},${C.primary})`,
+        borderRadius:"0 0 24px 24px",padding:"20px 16px 20px"}}>
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:8}}>
+          <button onClick={onBack} style={{background:"rgba(255,255,255,0.2)",
+            border:"none",borderRadius:10,padding:"6px 10px",color:"#FFF",
+            cursor:"pointer",fontSize:18}}>←</button>
+          <div>
+            <div style={{fontSize:17,fontWeight:800,color:"#FFF"}}>🚫 Report Consanguineità</div>
+            <div style={{fontSize:12,color:"rgba(255,255,255,0.8)"}}>
+              {rischi.length} accoppiamenti a rischio · {capi.length} capi con genealogia consanguinea
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{padding:"14px"}}>
+        {/* Tabs */}
+        <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
+          <button onClick={()=>setTab("rischi")}
+            style={{background:tab==="rischi"?C.red:"transparent",
+              color:tab==="rischi"?"#FFF":C.muted,
+              border:`1.5px solid ${tab==="rischi"?C.red:C.border}`,
+              borderRadius:20,padding:"6px 14px",fontSize:13,fontWeight:700,cursor:"pointer"}}>
+            ⚠️ Accoppiamenti a rischio ({rischi.length})
+          </button>
+          <button onClick={()=>setTab("capi")}
+            style={{background:tab==="capi"?C.accent:"transparent",
+              color:tab==="capi"?"#FFF":C.muted,
+              border:`1.5px solid ${tab==="capi"?C.accent:C.border}`,
+              borderRadius:20,padding:"6px 14px",fontSize:13,fontWeight:700,cursor:"pointer"}}>
+            🧬 Capi consanguinei ({capi.length})
+          </button>
+          <button onClick={()=>esportaConsanguineita(rischi,capi)}
+            style={{background:C.green,color:"#FFF",border:"none",borderRadius:20,
+              padding:"6px 14px",fontSize:13,fontWeight:700,cursor:"pointer",marginLeft:"auto"}}>
+            📊 Excel
+          </button>
+        </div>
+
+        {/* Tab A: Accoppiamenti a rischio */}
+        {tab==="rischi"&&(
+          <>
+            <div style={{background:C.red+"12",border:`1px solid ${C.red}33`,
+              borderRadius:12,padding:"10px 14px",marginBottom:14,fontSize:12,color:C.text}}>
+              ⚠️ <strong>Prevenzione:</strong> potenziali accoppiamenti tra maschi e femmine attivi
+              della stessa specie che sono consanguinei. Da evitare durante la stagione di monta.
+            </div>
+            {rischi.length===0?(
+              <div style={{textAlign:"center",padding:36,color:C.muted}}>
+                <div style={{fontSize:44,marginBottom:8}}>✓</div>
+                <div style={{fontWeight:700,fontSize:15}}>Nessun accoppiamento a rischio</div>
+                <div style={{fontSize:12,marginTop:6}}>
+                  Nessuna coppia maschio-femmina attiva risulta consanguinea diretta
+                </div>
+              </div>
+            ):(
+              Object.entries(rischiPerSpecie).map(([sp,arr])=>(
+                <div key={sp} style={{marginBottom:14}}>
+                  <div style={{fontSize:11,fontWeight:700,color:specieColor(sp),
+                    marginBottom:6,textTransform:"uppercase",letterSpacing:1}}>
+                    {specieIcon(sp)} {sp} · {arr.length} coppie a rischio
+                  </div>
+                  {arr.map((r,i)=>(
+                    <div key={i} style={{background:C.card,borderRadius:12,padding:"10px 12px",
+                      marginBottom:6,border:`1px solid ${C.border}`,
+                      borderLeft:`4px solid ${C.red}`}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:11,fontWeight:700,color:C.red,marginBottom:4}}>
+                            🚫 {r.tipo}
+                          </div>
+                          <div onClick={()=>onSeleziona(r.m)}
+                            style={{fontSize:12,color:C.maschio,fontWeight:600,cursor:"pointer",
+                              marginBottom:2}}>
+                            ♂ {r.m.nome||r.m.bdn} <span style={{color:C.muted,fontWeight:400}}>· {r.m.bdn}</span>
+                          </div>
+                          <div onClick={()=>onSeleziona(r.f)}
+                            style={{fontSize:12,color:C.femmina,fontWeight:600,cursor:"pointer"}}>
+                            ♀ {r.f.nome||r.f.bdn} <span style={{color:C.muted,fontWeight:400}}>· {r.f.bdn}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ))
+            )}
+          </>
+        )}
+
+        {/* Tab B: Capi già nati da unioni consanguinee */}
+        {tab==="capi"&&(
+          <>
+            <div style={{background:C.accent+"12",border:`1px solid ${C.accent}33`,
+              borderRadius:12,padding:"10px 14px",marginBottom:14,fontSize:12,color:C.text}}>
+              🧬 <strong>Monitoraggio:</strong> capi attivi in azienda i cui genitori risultano
+              consanguinei tra loro. Da valutare per la qualità genetica del patrimonio.
+            </div>
+            {capi.length===0?(
+              <div style={{textAlign:"center",padding:36,color:C.muted}}>
+                <div style={{fontSize:44,marginBottom:8}}>✓</div>
+                <div style={{fontWeight:700,fontSize:15}}>Nessun capo con consanguineità</div>
+                <div style={{fontSize:12,marginTop:6}}>
+                  Non risultano capi nati da accoppiamenti consanguinei diretti
+                </div>
+              </div>
+            ):(
+              capi.map((x,i)=>(
+                <div key={i} onClick={()=>onSeleziona(x.a)}
+                  style={{background:C.card,borderRadius:12,padding:"10px 12px",
+                    marginBottom:6,border:`1px solid ${C.border}`,
+                    borderLeft:`4px solid ${C.accent}`,cursor:"pointer"}}>
+                  <div style={{fontSize:11,fontWeight:700,color:C.accent,marginBottom:4}}>
+                    🧬 {x.tipo}
+                  </div>
+                  <div style={{fontWeight:700,fontSize:14}}>
+                    {specieIcon(x.a.specie)} {x.a.nome||x.a.bdn}
+                  </div>
+                  <div style={{fontSize:11,color:C.muted,marginBottom:6}}>
+                    {x.a.bdn} · {x.a.razza_calcolata||x.a.razza||"—"} · {x.a.sesso==="M"?"♂":"♀"} · nato {x.a.nascita||"—"}
+                  </div>
+                  <div style={{fontSize:11,color:C.muted,paddingTop:6,
+                    borderTop:`1px solid ${C.border}`}}>
+                    ♂ Padre: <b>{x.padre.nome||x.padre.bdn}</b> ({x.padre.bdn})
+                    <br/>
+                    ♀ Madre: <b>{x.madre.nome||x.madre.bdn}</b> ({x.madre.bdn})
+                  </div>
+                </div>
+              ))
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── APP ROOT ─────────────────────────────────────────────────────────────────
 export default function Pedigree() {
   const [animali,setAnimali]=useState([]);
@@ -595,9 +856,18 @@ export default function Pedigree() {
     />
   );
 
+  if(view==="report") return wrap(
+    <ReportConsanguineita
+      animali={animali}
+      onBack={()=>setView("lista")}
+      onSeleziona={a=>{setSelected(a);setView("scheda");}}
+    />
+  );
+
   return wrap(
     <ListaAnimali
       animali={animali} parti={parti}
+      onReport={()=>setView("report")}
       onSeleziona={a=>{setSelected(a);setView("scheda");}}
     />
   );
