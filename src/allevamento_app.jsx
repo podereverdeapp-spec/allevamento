@@ -462,12 +462,24 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
     const vivi=Math.max(0,totali-morti);
     // Risolvi padre esterno se serve (con razza specificata)
     let padreIdRisolto = formParto.padre_id?parseInt(formParto.padre_id):null;
+    let padreObjRisolto = padreIdRisolto?animali.find(a=>a.id===padreIdRisolto):null;
     if(!padreIdRisolto&&formParto.padre_ext&&formParto.padre_ext.trim()){
       const bdn = formParto.padre_ext.trim();
-      // Cerca se esiste già
-      const{data:lista}=await supabase.from("animali").select("id").eq("bdn",bdn).limit(1);
+      // Cerca se esiste già (recupero anche razza per calcolo genealogia)
+      const{data:lista}=await supabase.from("animali")
+        .select("id,bdn,specie,sesso,razza,razza_calcolata").eq("bdn",bdn).limit(1);
       if(lista&&lista.length>0){
+        padreObjRisolto = lista[0];
         padreIdRisolto = lista[0].id;
+        // Se ora specifico una razza e prima era mancante, l'aggiorno
+        if(formParto.padre_ext_razza&&!padreObjRisolto.razza){
+          await supabase.from("animali").update({
+            razza:formParto.padre_ext_razza,
+            razza_calcolata:formParto.padre_ext_razza,
+          }).eq("id",padreIdRisolto);
+          padreObjRisolto.razza = formParto.padre_ext_razza;
+          padreObjRisolto.razza_calcolata = formParto.padre_ext_razza;
+        }
       } else {
         // Crea scheda minima con razza se specificata
         const{data:nuovi}=await supabase.from("animali").insert([{
@@ -477,10 +489,13 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
           provenienza:"Esterno", stato:"storico", vivo:false,
           riproduttore: true,
           note:"Padre esterno — scheda creata automaticamente al parto",
-        }]).select("id");
-        padreIdRisolto = nuovi&&nuovi.length>0?nuovi[0].id:null;
+        }]).select("*");
+        if(nuovi&&nuovi.length>0){
+          padreObjRisolto = nuovi[0];
+          padreIdRisolto = nuovi[0].id;
+        }
       }
-      // Ricarico animali per aggiornare il pedigree
+      // Ricarico animali per aggiornare la lista globale (pedigree futuro)
       if(padreIdRisolto) await ricaricaAnimali();
     }
     const payload={
@@ -496,9 +511,30 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
       note:formParto.note||null,
     };
 
-    // ── MODALITÀ MODIFICA: aggiorna evento esistente, non crea schede figli ──
+    // ── MODALITÀ MODIFICA: aggiorna evento + propaga padre_id ai figli ──────
     if(formParto.id){
       const{error}=await aggiornaEvento(formParto.id,payload);
+      if(!error&&padreIdRisolto){
+        // Aggiorno padre_id sui figli di questo parto (madre + data nascita)
+        const{data:figli}=await supabase.from("animali")
+          .select("id,razza,razza_calcolata")
+          .eq("madre_id",dettaglio.id)
+          .eq("nascita",formParto.data_evento);
+        if(figli&&figli.length>0){
+          // Ricalcolo razza per ognuno con il nuovo padre
+          const animaliPlus = padreObjRisolto&&!animali.find(a=>a.id===padreObjRisolto.id)
+            ? [...animali, padreObjRisolto] : animali;
+          for(const f of figli){
+            const nuovaRazza = calcolaRazza(padreIdRisolto, dettaglio.id, animaliPlus);
+            await supabase.from("animali").update({
+              padre_id:padreIdRisolto,
+              razza_calcolata: nuovaRazza || f.razza_calcolata,
+              razza: nuovaRazza || f.razza,
+            }).eq("id",f.id);
+          }
+        }
+        await ricaricaAnimali();
+      }
       setSavingParto(false);
       if(error){return;}
       setFormParto(null);
@@ -512,8 +548,12 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,eventiRiproduttiv
 
     if(!formParto.storico){
       const nati=formParto.nati||[];
-      const rc=calcolaRazza(padreIdRisolto,dettaglio.id,animali);
-      const padre=padreIdRisolto?animali.find(a=>a.id===padreIdRisolto):null;
+      // Uso lista animali aumentata con il padre appena risolto (per calcolo razza figli)
+      const animaliPlus = padreObjRisolto&&!animali.find(a=>a.id===padreObjRisolto.id)
+        ? [...animali, padreObjRisolto]
+        : animali;
+      const rc=calcolaRazza(padreIdRisolto,dettaglio.id,animaliPlus);
+      const padre=padreObjRisolto||(padreIdRisolto?animali.find(a=>a.id===padreIdRisolto):null);
 
       // Per ogni nato: se ha BDN → crea animale individuale
       //               se non ha BDN → va nel lotto (solo suini)
