@@ -86,6 +86,35 @@ function calcolaKPI(animaleId, animali, parti) {
     ? Math.round(totNatiVivi * 365 / giorniCarriera * 10)/10
     : null;
 
+  // ── Statistiche macellazione figli (indicatore genetico) ─────────────────
+  // Filtro solo figli con dati completi peso vivo + peso carcassa
+  const figliMacellati = figli.filter(f=>
+    f.peso_vivo_uscita&&f.peso_carcassa&&f.resa_percent
+  );
+  const rese = figliMacellati.map(f=>f.resa_percent);
+  const resaMediaFigli = rese.length>0
+    ? Math.round(rese.reduce((a,b)=>a+b,0)/rese.length*10)/10
+    : null;
+  const resaMinFigli = rese.length>0 ? Math.min(...rese) : null;
+  const resaMaxFigli = rese.length>0 ? Math.max(...rese) : null;
+
+  // IPG carcassa medio dei figli macellati (kg/gg)
+  const ipgCarcFigli = figliMacellati
+    .map(f=>{
+      const gg = f.data_uscita&&f.data_ingresso
+        ? daysBetween(f.data_ingresso, f.data_uscita) : 0;
+      return gg>0 ? f.peso_carcassa/gg : null;
+    })
+    .filter(v=>v!==null);
+  const ipgCarcMedioFigli = ipgCarcFigli.length>0
+    ? Math.round(ipgCarcFigli.reduce((a,b)=>a+b,0)/ipgCarcFigli.length*1000)/1000
+    : null;
+
+  // Peso carcassa medio dei figli macellati
+  const pesoCarcMedio = figliMacellati.length>0
+    ? Math.round(figliMacellati.reduce((s,f)=>s+f.peso_carcassa,0)/figliMacellati.length*10)/10
+    : null;
+
   return {
     nParti: mieiParti.length,
     iipMedio,
@@ -100,6 +129,12 @@ function calcolaKPI(animaleId, animali, parti) {
     prodAnnua,
     giorniCarriera,
     nFigli: figli.length,
+    nFigliMacellati: figliMacellati.length,
+    resaMediaFigli,
+    resaMinFigli,
+    resaMaxFigli,
+    ipgCarcMedioFigli,
+    pesoCarcMedio,
     longevita: Math.round(anni*10)/10,
   };
 }
@@ -163,6 +198,7 @@ function CardRiproduttore({rip, kpi, score, rank, animali, onClick}) {
               {kpi.prolificita&&<Stat label="Nati/parto" val={kpi.prolificita}/>}
               {kpi.pctNatiVivi&&<Stat label="Vivi %" val={kpi.pctNatiVivi+"%"}/>}
               {kpi.iipMedio&&<Stat label="IIP" val={`${(kpi.iipMedio/30.4).toFixed(1)} mesi`}/>}
+              {kpi.resaMediaFigli&&<Stat label="Resa figli" val={`${kpi.resaMediaFigli}%`}/>}
             </div>
           )}
         </div>
@@ -244,6 +280,26 @@ function DettaglioKPI({rip, kpi, score, animali, parti, onBack}) {
         {kpi.prodAnnua!==null&&kpi.prodAnnua!==undefined&&
           <KPIRow label="Produttività annua stimata"
             val={`${kpi.prodAnnua} figli/anno`} unit=""/>}
+        {/* Statistiche macellazione figli */}
+        {kpi.nFigliMacellati>0&&(
+          <>
+            <div style={{fontSize:11,fontWeight:700,color:C.muted,
+              marginTop:12,marginBottom:6,textTransform:"uppercase",letterSpacing:1}}>
+              🥩 Statistiche figli macellati ({kpi.nFigliMacellati})
+            </div>
+            <KPIRow label="Resa carcassa media figli" val={`${kpi.resaMediaFigli}%`} unit=""/>
+            {kpi.resaMinFigli!==kpi.resaMaxFigli&&(
+              <KPIRow label="Range resa figli"
+                val={`${kpi.resaMinFigli}% — ${kpi.resaMaxFigli}%`} unit=""/>
+            )}
+            {kpi.pesoCarcMedio&&
+              <KPIRow label="Peso carcassa medio figli"
+                val={`${kpi.pesoCarcMedio} kg`} unit=""/>}
+            {kpi.ipgCarcMedioFigli&&
+              <KPIRow label="IPG carcassa medio figli"
+                val={`${kpi.ipgCarcMedioFigli} kg/gg`} unit=""/>}
+          </>
+        )}
       </Card>
 
       {/* KPI Prolificità */}
