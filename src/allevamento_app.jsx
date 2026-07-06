@@ -514,29 +514,36 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
     // ── MODALITÀ MODIFICA: aggiorna evento + propaga padre_id ai figli ──────
     if(formParto.id){
       const{error}=await aggiornaEvento(formParto.id,payload);
-      if(!error&&padreIdRisolto){
-        // Aggiorno padre_id sui figli di questo parto (madre + data nascita)
+      if(error){setSavingParto(false);return;}
+
+      // Propago il padre_id sui figli di questo parto SE è stato specificato un padre
+      if(padreIdRisolto){
+        // Cerco i figli di questa madre nati alla data del parto
+        // Includo anche figli senza padre_id (potenziali candidati)
         const{data:figli}=await supabase.from("animali")
-          .select("id,razza,razza_calcolata")
+          .select("id,bdn,nome,razza,razza_calcolata,padre_id,nascita")
           .eq("madre_id",dettaglio.id)
           .eq("nascita",formParto.data_evento);
+
         if(figli&&figli.length>0){
-          // Ricalcolo razza per ognuno con il nuovo padre
+          // Lista animali "arricchita" con il padre appena risolto (per calcolaRazza)
           const animaliPlus = padreObjRisolto&&!animali.find(a=>a.id===padreObjRisolto.id)
             ? [...animali, padreObjRisolto] : animali;
+          const nuovaRazza = calcolaRazza(padreIdRisolto, dettaglio.id, animaliPlus);
+
+          // Aggiorno tutti i figli in blocco: padre_id sempre, razza solo se calcolata
           for(const f of figli){
-            const nuovaRazza = calcolaRazza(padreIdRisolto, dettaglio.id, animaliPlus);
-            await supabase.from("animali").update({
-              padre_id:padreIdRisolto,
-              razza_calcolata: nuovaRazza || f.razza_calcolata,
-              razza: nuovaRazza || f.razza,
-            }).eq("id",f.id);
+            const updateData = {padre_id:padreIdRisolto};
+            if(nuovaRazza){
+              updateData.razza_calcolata = nuovaRazza;
+              updateData.razza = nuovaRazza;
+            }
+            await supabase.from("animali").update(updateData).eq("id",f.id);
           }
         }
-        await ricaricaAnimali();
       }
+      await ricaricaAnimali();
       setSavingParto(false);
-      if(error){return;}
       setFormParto(null);
       ricaricaEventi();
       return;
