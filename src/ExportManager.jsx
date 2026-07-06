@@ -841,7 +841,7 @@ export default function ExportManager() {
         {data:costiAnim},{data:costiGen},{data:macchinari},
         {data:lotti},{data:suiniLotto}
       ] = await Promise.all([
-        supabase.from("animali").select("id,bdn,nome,specie,sesso,nascita,stato,data_uscita,motivo_uscita,data_ingresso,razza,razza_calcolata,categoria,peso_nascita,peso_attuale,provenienza,origine,prezzo_acquisto,lotto_box,destinazione,resa_percent,peso_carcassa,peso_vivo_uscita,note_sanitarie,note,riproduttore,data_registrazione_bdn").order("specie").order("nome"),
+        supabase.from("animali").select("id,bdn,nome,specie,sesso,nascita,stato,data_uscita,motivo_uscita,data_ingresso,razza,razza_calcolata,categoria,peso_nascita,peso_attuale,provenienza,origine,prezzo_acquisto,lotto_box,destinazione,resa_percent,peso_carcassa,peso_vivo_uscita,note_sanitarie,note,riproduttore,data_registrazione_bdn,padre_id,madre_id").order("specie").order("nome"),
         supabase.from("eventi_sanitari").select("*").order("data",{ascending:false}),
         supabase.from("alimentazione").select("*").order("data",{ascending:false}),
         supabase.from("eventi_riproduttivi").select("*").order("data_evento",{ascending:false}),
