@@ -71,6 +71,49 @@ function getAntenati(id, animali, livelli=3) {
     padre: a.padre_id ? getAntenati(a.padre_id, animali, livelli-1) : null,
   };
 }
+// Calcola tutti i consanguinei diretti di un animale con tipo di rapporto
+function getConsanguineiDiretti(animale, animali) {
+  const risultato = [];
+  const seen = new Set([animale.id]); // evita duplicati
+  const push = (a, tipo) => {
+    if (!a || seen.has(a.id)) return;
+    seen.add(a.id);
+    risultato.push({...a, _rapporto: tipo});
+  };
+
+  // Padre e madre
+  const padre = animale.padre_id ? animali.find(x=>x.id===animale.padre_id) : null;
+  const madre = animale.madre_id ? animali.find(x=>x.id===animale.madre_id) : null;
+  push(padre, "Padre");
+  push(madre, "Madre");
+
+  // Figli (chiunque abbia lui/lei come padre_id o madre_id)
+  animali.filter(x =>
+    x.padre_id===animale.id || x.madre_id===animale.id
+  ).forEach(f => {
+    const tipo = f.sesso==="M" ? "Figlio" : "Figlia";
+    push(f, tipo);
+  });
+
+  // Fratelli/sorelle (stesso padre O stessa madre, ma non lui stesso)
+  if (animale.padre_id || animale.madre_id) {
+    animali.filter(x => x.id!==animale.id && (
+      (animale.padre_id && x.padre_id===animale.padre_id) ||
+      (animale.madre_id && x.madre_id===animale.madre_id)
+    )).forEach(f => {
+      const stessoPadre = animale.padre_id && f.padre_id===animale.padre_id;
+      const stessaMadre = animale.madre_id && f.madre_id===animale.madre_id;
+      const pieno = stessoPadre && stessaMadre;
+      const tipo = pieno
+        ? (f.sesso==="M" ? "Fratello pieno" : "Sorella piena")
+        : (f.sesso==="M" ? "Fratellastro" : "Sorellastra");
+      push(f, tipo);
+    });
+  }
+
+  return risultato;
+}
+
 function getDiscendenti(id, animali) {
   return animali.filter(a=>a.madre_id===id||a.padre_id===id);
 }
@@ -185,10 +228,12 @@ function AlberoGenealogicoView({animale, animali, onSeleziona}) {
 
 // ─── SCHEDA PEDIGREE ──────────────────────────────────────────────────────────
 function SchedaPedigree({animale, animali, parti, onBack, onSeleziona}) {
+  const [tab, setTab] = useState("pedigree"); // pedigree | consanguineita
   const vivo = animale.vivo !== false && animale.stato === "attivo";
   const madre = animale.madre_id ? animali.find(a=>a.id===animale.madre_id) : null;
   const padre = animale.padre_id ? animali.find(a=>a.id===animale.padre_id) : null;
   const figli = getDiscendenti(animale.id, animali);
+  const consanguinei = getConsanguineiDiretti(animale, animali);
   const mieiParti = parti
     .filter(p=>p.animale_id===animale.id)
     .sort((a,b)=>b.data_evento?.localeCompare(a.data_evento));
@@ -215,9 +260,98 @@ function SchedaPedigree({animale, animali, parti, onBack, onSeleziona}) {
             {animale.nascita&&<Badge label={`nato ${animale.nascita}`} color={C.muted}/>}
             {animale.razza_calcolata==="METICCIA"&&<Badge label="🧬 Meticcio" color={C.accent}/>}
             {!vivo&&<Badge label="✝ Uscito" color={C.morto}/>}
+            {consanguinei.length>0&&(
+              <Badge label={`🚫 ${consanguinei.length} consanguinei`} color={C.red}/>
+            )}
           </div>
         </div>
       </Card>
+
+      {/* Tabs */}
+      <div style={{display:"flex",gap:8,marginBottom:14,marginTop:12}}>
+        <button onClick={()=>setTab("pedigree")}
+          style={{background:tab==="pedigree"?C.primary:"transparent",
+            color:tab==="pedigree"?"#FFF":C.muted,
+            border:`1.5px solid ${tab==="pedigree"?C.primary:C.border}`,
+            borderRadius:20,padding:"6px 14px",fontSize:13,fontWeight:700,cursor:"pointer"}}>
+          🌳 Pedigree
+        </button>
+        <button onClick={()=>setTab("consanguineita")}
+          style={{background:tab==="consanguineita"?C.red:"transparent",
+            color:tab==="consanguineita"?"#FFF":C.muted,
+            border:`1.5px solid ${tab==="consanguineita"?C.red:C.border}`,
+            borderRadius:20,padding:"6px 14px",fontSize:13,fontWeight:700,cursor:"pointer"}}>
+          🚫 Consanguineità {consanguinei.length>0&&`(${consanguinei.length})`}
+        </button>
+      </div>
+
+      {/* VISTA CONSANGUINEITÀ */}
+      {tab==="consanguineita"&&(
+        <>
+          <div style={{background:C.red+"12",border:`1px solid ${C.red}33`,
+            borderRadius:12,padding:"10px 14px",marginBottom:14,fontSize:13,color:C.text}}>
+            ⚠️ <strong>Riproduzione impedita</strong> con i seguenti animali per evitare consanguineità diretta.
+            {vivo&&animale.sesso==="F"&&<span> Non accoppiare con i maschi elencati.</span>}
+            {vivo&&animale.sesso==="M"&&<span> Non accoppiare con le femmine elencate.</span>}
+          </div>
+
+          {consanguinei.length===0?(
+            <div style={{textAlign:"center",padding:36,color:C.muted}}>
+              <div style={{fontSize:44,marginBottom:8}}>✓</div>
+              <div style={{fontWeight:700,fontSize:15}}>Nessun consanguineo registrato</div>
+              <div style={{fontSize:12,marginTop:6}}>
+                Questo animale non ha genitori, figli o fratelli tracciati nel database
+              </div>
+            </div>
+          ):(
+            <>
+              {/* Raggruppamento per tipo */}
+              {["Padre","Madre","Figlio","Figlia","Fratello pieno","Sorella piena","Fratellastro","Sorellastra"].map(tipo=>{
+                const gruppo = consanguinei.filter(c=>c._rapporto===tipo);
+                if(gruppo.length===0) return null;
+                const isFemmina = tipo.includes("Madre")||tipo.includes("Figlia")||tipo.includes("Sorella");
+                const colTipo = isFemmina ? C.femmina : C.maschio;
+                return (
+                  <div key={tipo} style={{marginBottom:12}}>
+                    <div style={{fontSize:11,fontWeight:700,color:colTipo,
+                      marginBottom:6,textTransform:"uppercase",letterSpacing:1}}>
+                      {isFemmina?"♀":"♂"} {tipo}{gruppo.length>1?` (${gruppo.length})`:""}
+                    </div>
+                    {gruppo.map(c=>{
+                      const vivoC = c.vivo!==false&&c.stato==="attivo";
+                      return (
+                        <div key={c.id} onClick={()=>onSeleziona(c)}
+                          style={{background:C.card,borderRadius:12,padding:"10px 12px",
+                            marginBottom:6,border:`1px solid ${C.border}`,
+                            borderLeft:`4px solid ${colTipo}`,cursor:"pointer",
+                            opacity:vivoC?1:0.55,
+                            display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                          <div>
+                            <div style={{fontWeight:700,fontSize:14}}>
+                              {c.nome||c.bdn||"—"}
+                            </div>
+                            <div style={{fontSize:11,color:C.muted}}>
+                              {c.bdn}{(c.razza_calcolata||c.razza)?` · 🧬 ${c.razza_calcolata||c.razza}`:""}
+                              {c.nascita&&` · nato ${c.nascita}`}
+                            </div>
+                          </div>
+                          <div style={{textAlign:"right",flexShrink:0}}>
+                            {!vivoC&&<Badge label="✝" color={C.morto}/>}
+                            {vivoC&&<span style={{fontSize:20,color:C.red}}>🚫</span>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </>
+          )}
+        </>
+      )}
+
+      {/* VISTA PEDIGREE (originale) */}
+      {tab==="pedigree"&&<>
 
       {/* Genitori */}
       <div style={{fontSize:12,fontWeight:700,color:C.muted,
@@ -311,6 +445,7 @@ function SchedaPedigree({animale, animali, parti, onBack, onSeleziona}) {
             </Card>
           );
         })}
+      </>}
       </>}
     </div>
   );
