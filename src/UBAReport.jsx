@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import * as XLSX from "xlsx";
+import * as XLSX from "xlsx-js-style";
 import { supabase } from "./supabase";
 
 const C = {
@@ -14,7 +14,6 @@ const specieIcon = s=>({bovino:"🐄",suino:"🐷",ovino:"🐑"}[s]||"🐾");
 const specieColor = s=>({bovino:C.bovini,suino:C.suini,ovino:C.ovini}[s]||C.muted);
 
 // ─── COEFFICIENTI UBA AZIENDALI ───────────────────────────────────────────────
-// Fonte: Reg. CE 1974/2006 + Eurostat
 const UBA_FASCE = {
   bovino: [
     { fino: 210,      coeff: 0.40,  label: "Vitella (<7 mesi)" },
@@ -33,55 +32,82 @@ const UBA_FASCE = {
   ],
 };
 
+// ─── PERIMETRO ANNUALE ────────────────────────────────────────────────────────
+// Un animale è nel perimetro dell'anno se ha avuto presenza in azienda in quell'anno
+function periodoNellAnno(animale, anno) {
+  const nascita = animale.nascita || animale.data_ingresso;
+  if (!nascita) return null;
+
+  const inizioAnno = new Date(anno, 0, 1);
+  const fineAnno   = new Date(anno, 11, 31, 23, 59, 59);
+  const oggi       = new Date();
+
+  const dataInizio = new Date(nascita);
+  const dataFine = animale.data_uscita
+    ? new Date(animale.data_uscita)
+    : (oggi < fineAnno ? oggi : fineAnno);
+
+  // Verifica sovrapposizione con l'anno
+  if (dataFine < inizioAnno) return null;   // uscito prima dell'anno
+  if (dataInizio > fineAnno) return null;   // nato dopo l'anno
+
+  const inizio = dataInizio > inizioAnno ? dataInizio : inizioAnno;
+  const fine   = dataFine < fineAnno ? dataFine : fineAnno;
+
+  return {
+    inizio: inizio.toISOString().split("T")[0],
+    fine:   fine.toISOString().split("T")[0],
+    giorni: Math.round((fine - inizio) / 86400000) + 1,
+    etaAllInizio: Math.round((inizio - new Date(nascita)) / 86400000),
+  };
+}
+
 // ─── CALCOLO UBA MEDIO ────────────────────────────────────────────────────────
-// Periodo: MAX(dataNascita, 1° gennaio anno corrente) → dataFine
-// L'animale entra nel calcolo con il coefficiente già maturato alla data di inizio
-function calcolaUBAMedio(dataNascita, dataFine, specie, annoRif) {
-  if (!dataNascita || !specie || !UBA_FASCE[specie]) return null;
-  const nascita    = new Date(dataNascita);
-  const fine       = new Date(dataFine);
-  const anno       = annoRif || new Date(dataFine).getFullYear();
-  const inizioAnno = new Date(anno, 0, 1);                   // 1° gennaio
-
-  // Inizio periodo = massimo tra nascita e 1° gennaio
-  const inizio = nascita >= inizioAnno ? nascita : inizioAnno;
-  if (inizio >= fine) return null;                            // uscito prima dell'anno
-
-  const totGiorni    = Math.round((fine - inizio) / 86400000);
-  const etaAllInizio = Math.round((inizio - nascita) / 86400000); // età reale al 1° gen
-
-  // Calcolo UBA ponderato: partendo dall'età reale, percorre le fasce
+function calcolaUBAMedio(specie, giorni, etaAllInizio) {
+  if (!specie || !UBA_FASCE[specie] || giorni <= 0) return null;
   const fasce = UBA_FASCE[specie];
   let ubaPesata = 0;
   for (let i = 0; i < fasce.length; i++) {
     const prevSoglia = i > 0 ? fasce[i-1].fino : 0;
     const { fino, coeff } = fasce[i];
     const inizioFascia = Math.max(prevSoglia, etaAllInizio);
-    const fineFascia   = Math.min(fino === Infinity ? etaAllInizio + totGiorni + 1 : fino,
-                                  etaAllInizio + totGiorni);
-    if (fineFascia > inizioFascia)
+    const fineFascia   = Math.min(
+      fino === Infinity ? etaAllInizio + giorni + 1 : fino,
+      etaAllInizio + giorni
+    );
+    if (fineFascia > inizioFascia) {
       ubaPesata += (fineFascia - inizioFascia) * coeff;
+    }
   }
-  return Math.round(ubaPesata / totGiorni * 1000) / 1000;
+  return Math.round(ubaPesata / giorni * 1000) / 1000;
 }
 
-// Ritorna anche dataInizio per display
-function periodoCalcolo(dataNascita, dataFine, annoRif) {
-  const nascita    = new Date(dataNascita);
-  const anno       = annoRif || new Date(dataFine).getFullYear();
-  const inizioAnno = new Date(anno, 0, 1);
-  const inizio     = nascita >= inizioAnno ? nascita : inizioAnno;
-  return inizio.toISOString().split("T")[0];
+// Categoria attuale in base all'età
+function categoriaEtà(specie, etaAllInizio, giorni) {
+  if (!UBA_FASCE[specie]) return "—";
+  const etaFinale = etaAllInizio + giorni;
+  const fasce = UBA_FASCE[specie];
+  for (const { fino, label } of fasce) {
+    if (etaFinale < fino) return label;
+  }
+  return fasce.at(-1).label;
 }
 
-// Categoria attuale in base all'età alla data di riferimento
-function categoriaAttuale(dataNascita, dataRif, specie) {
-  if (!dataNascita || !UBA_FASCE[specie]) return "—";
-  const eta = Math.round((new Date(dataRif) - new Date(dataNascita)) / 86400000);
-  for (const { fino, label } of UBA_FASCE[specie]) {
-    if (eta < fino) return label;
+// ─── CATEGORIZZAZIONE CONTABILE ────────────────────────────────────────────
+const MOTIVI_PRODUTTIVI = [
+  "macellazione","macellato","venduto","riformato","riforma","vendita"
+];
+function categoriaContabile(animale, annoRif) {
+  if (animale.stato === "attivo") {
+    return animale.riproduttore ? "riproduttore" : "produttivo";
   }
-  return UBA_FASCE[specie].at(-1).label;
+  // Uscito → distinguo produttivo (macellato/venduto) da improduttivo
+  const motivo = (animale.motivo_uscita || "").toLowerCase();
+  const isProduttivo = MOTIVI_PRODUTTIVI.some(k => motivo.includes(k));
+  if (isProduttivo) {
+    return animale.riproduttore ? "riproduttore" : "produttivo";
+  }
+  return "improduttivo_uscito";
 }
 
 // ─── UI BASE ──────────────────────────────────────────────────────────────────
@@ -102,162 +128,347 @@ const Spinner = () => (
   </div>
 );
 
-// ─── EXPORT EXCEL ─────────────────────────────────────────────────────────────
-function esportaUBA(righe, dataRif) {
-  const wb = XLSX.utils.book_new();
+// ─── STILI EXCEL ─────────────────────────────────────────────────────────────
+const S_HEADER = {
+  fill:{fgColor:{rgb:"5C3D1E"}},
+  font:{color:{rgb:"FFFFFF"},bold:true,sz:11,name:"Century Gothic"},
+  alignment:{horizontal:"center",vertical:"center",wrapText:true},
+  border:{top:{style:"thin",color:{rgb:"888888"}},bottom:{style:"thin",color:{rgb:"888888"}},
+    left:{style:"thin",color:{rgb:"888888"}},right:{style:"thin",color:{rgb:"888888"}}},
+};
+const S_SEZIONE = {
+  fill:{fgColor:{rgb:"E8DCC4"}},
+  font:{color:{rgb:"5C3D1E"},bold:true,sz:12,name:"Century Gothic"},
+  alignment:{horizontal:"left",vertical:"center"},
+};
+const S_TOTALE_CAT = {
+  fill:{fgColor:{rgb:"8B6914"}},
+  font:{color:{rgb:"FFFFFF"},bold:true,sz:11,name:"Century Gothic"},
+  alignment:{horizontal:"center",vertical:"center"},
+};
+const S_TOTALE_GEN = {
+  fill:{fgColor:{rgb:"5C3D1E"}},
+  font:{color:{rgb:"FFFFFF"},bold:true,sz:12,name:"Century Gothic"},
+  alignment:{horizontal:"center",vertical:"center"},
+};
+const bordoLeggero = {top:{style:"thin",color:{rgb:"DDDDDD"}},bottom:{style:"thin",color:{rgb:"DDDDDD"}},
+  left:{style:"thin",color:{rgb:"DDDDDD"}},right:{style:"thin",color:{rgb:"DDDDDD"}}};
 
-  // Foglio 1: riepilogo per specie e categoria
-  const riepilogo = [];
-  ["bovino","suino","ovino"].forEach(sp => {
-    const rSp = righe.filter(r=>r.specie===sp&&r.uba!==null);
-    if (rSp.length===0) return;
-    UBA_FASCE[sp].forEach(({label}) => {
-      const rCat = rSp.filter(r=>r.categoria===label);
-      if (rCat.length===0) return;
-      riepilogo.push({
-        "Specie": sp,
-        "Categoria": label,
-        "N° Capi": rCat.length,
-        "UBA medio unitario": Math.round(rCat.reduce((s,r)=>s+r.uba,0)/rCat.length*1000)/1000,
-        "UBA totale categoria": Math.round(rCat.reduce((s,r)=>s+r.uba,0)*1000)/1000,
-      });
-    });
-    riepilogo.push({
-      "Specie": sp.toUpperCase() + " — TOTALE",
-      "Categoria": "",
-      "N° Capi": rSp.length,
-      "UBA medio unitario": "",
-      "UBA totale categoria": Math.round(rSp.reduce((s,r)=>s+r.uba,0)*1000)/1000,
-    });
-  });
-  riepilogo.push({
-    "Specie": "TOTALE AZIENDALE",
-    "Categoria": "",
-    "N° Capi": righe.filter(r=>r.uba!==null).length,
-    "UBA medio unitario": "",
-    "UBA totale categoria": Math.round(righe.filter(r=>r.uba!==null).reduce((s,r)=>s+r.uba,0)*1000)/1000,
-  });
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(riepilogo), "Riepilogo UBA");
+const COLORI_CATEGORIA = {
+  produttivo:   "F5EDD8",  // beige chiaro
+  riproduttore: "E4F0DC",  // verde chiaro
+  improduttivo_uscito: "F5DDE6", // rosa chiaro
+};
 
-  // Foglio 2: dettaglio animali attivi
-  const attivi = righe.filter(r=>r.stato==="attivo").map(r=>({
-    "BDN / Tatuaggio": r.bdn||"",
-    "Nome": r.nome||"",
-    "Specie": r.specie||"",
-    "Categoria attuale": r.categoria||"",
-    "Data nascita": r.nascita||"",
-    "Età (giorni)": r.etaGiorni||"",
-    "UBA medio (nascita→oggi)": r.uba||"",
-    "Lotto": r.lotto||"",
-    "Note": r.note||"",
-  }));
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(attivi), "Animali attivi");
+function cellData(v, opts={}) {
+  const {isTotaleCat, isTotaleGen, colBg, num, center, bold, cur} = opts;
+  if (isTotaleGen) return {v:v??"", s:{...S_TOTALE_GEN, numFmt: num?"#,##0.000":cur?"€#,##0.00":undefined}};
+  if (isTotaleCat) return {v:v??"", s:{...S_TOTALE_CAT, numFmt: num?"#,##0.000":cur?"€#,##0.00":undefined}};
 
-  // Foglio 3: animali usciti
-  const usciti = righe.filter(r=>r.stato!=="attivo").map(r=>({
-    "BDN / Tatuaggio": r.bdn||"",
-    "Nome": r.nome||"",
-    "Specie": r.specie||"",
-    "Data nascita": r.nascita||"",
-    "Data uscita": r.dataFine||"",
-    "Giorni in azienda": r.etaGiorni||"",
-    "Motivo uscita": r.motivoUscita||"",
-    "UBA medio (nascita→uscita)": r.uba||"",
-    "Categoria alla nascita": r.categoriaInizio||"",
-    "Categoria all'uscita": r.categoria||"",
-  }));
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(usciti), "Animali usciti");
-
-  XLSX.writeFile(wb, `UBA_Podere_Verde_${dataRif}.xlsx`);
+  const font = {sz:10, name:"Century Gothic", bold:bold||false};
+  const fill = colBg ? {fgColor:{rgb:colBg}} : undefined;
+  const alignment = center ? {horizontal:"center",vertical:"center",wrapText:true}
+                     : num||cur ? {horizontal:"right",vertical:"center"}
+                     : {horizontal:"left",vertical:"center",wrapText:true};
+  const s = {font, alignment, border:bordoLeggero};
+  if (fill) s.fill = fill;
+  if (num) s.numFmt = "#,##0.000";
+  else if (cur) s.numFmt = "€#,##0.00";
+  return {v:v??"", s};
 }
 
-// ─── COMPONENTE LISTA ANIMALI ─────────────────────────────────────────────────
-function ListaAnimaliUBA({righe, titolo, onBack}) {
-  const [cerca,setCerca] = useState("");
-  const filtrate = useMemo(()=>{
-    if(!cerca.trim()) return righe;
-    const q=cerca.trim().toLowerCase();
-    return righe.filter(r=>
-      (r.bdn||"").toLowerCase().includes(q)||
-      (r.nome||"").toLowerCase().includes(q)||
-      (r.lotto||"").toLowerCase().includes(q)
-    );
-  },[righe,cerca]);
+// ─── COLONNE PER I FOGLI UBA ─────────────────────────────────────────────────
+const COL_UBA = [
+  {key:"BDN",                    label:"BDN / Matricola",           width:20, bold:true},
+  {key:"NUMERO CAPI",             label:"N° Capi",                   width:9,  center:true, num:true},
+  {key:"Nome",                    label:"Nome",                      width:18},
+  {key:"Specie",                  label:"Specie",                    width:10, center:true},
+  {key:"Razza",                   label:"Razza",                     width:16},
+  {key:"Categoria età",           label:"Categoria età",             width:22},
+  {key:"Data nascita",            label:"Data nascita",              width:13, center:true},
+  {key:"Inizio periodo",          label:"Inizio periodo",            width:13, center:true},
+  {key:"Fine periodo",            label:"Fine periodo",              width:13, center:true},
+  {key:"Giorni",                  label:"Giorni",                    width:8,  center:true, num:true},
+  {key:"UBA medio",               label:"UBA medio",                 width:11, num:true},
+  {key:"UBA-giorni",              label:"UBA-giorni",                width:12, num:true, bold:true},
+  {key:"Categoria contabile",     label:"Categoria contabile",       width:20},
+  {key:"Qualifica",               label:"Qualifica",                 width:16},
+  {key:"Motivo uscita",           label:"Motivo uscita",             width:20},
+  {key:"Costo iniziale",          label:"Costo iniziale (€)",        width:14, cur:true},
+  {key:"Tipo costo iniziale",     label:"Tipo costo iniziale",       width:18},
+  {key:"Costi mant. cumulati",    label:"Costi mant. cumulati (€)",  width:16, cur:true},
+  {key:"V(t) riforma",            label:"V(t) riforma stimato (€)",  width:16, cur:true},
+  {key:"Quota scaricata figli",   label:"Quota scaricata figli (€)", width:16, cur:true},
+  {key:"Costo netto residuo",     label:"Costo netto residuo (€)",   width:16, cur:true, bold:true},
+  {key:"Lotto",                   label:"Lotto",                     width:12, center:true},
+];
 
-  const totUBA = filtrate.filter(r=>r.uba).reduce((s,r)=>s+r.uba,0);
+// ─── COSTRUZIONE FOGLIO EXCEL ────────────────────────────────────────────────
+function creaFoglioAnno(righeAnno, prezziRiforma, animali) {
+  const ws = {};
+  let riga = 0;
 
-  return (
-    <div style={{paddingBottom:80}}>
-      <div style={{background:`linear-gradient(135deg,${C.primary},${C.accent})`,
-        borderRadius:"0 0 24px 24px",padding:"20px 16px 20px"}}>
-        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:8}}>
-          <button onClick={onBack} style={{background:"rgba(255,255,255,0.2)",
-            border:"none",borderRadius:10,padding:"6px 10px",color:"#FFF",
-            cursor:"pointer",fontSize:18}}>←</button>
-          <div>
-            <div style={{fontSize:17,fontWeight:800,color:"#FFF"}}>{titolo}</div>
-            <div style={{fontSize:13,color:"rgba(255,255,255,0.8)"}}>
-              {filtrate.length} capi · {totUBA.toFixed(3)} UBA totali
-            </div>
-          </div>
-        </div>
-      </div>
-      <div style={{padding:"14px"}}>
-        <div style={{position:"relative",marginBottom:12}}>
-          <span style={{position:"absolute",left:12,top:"50%",
-            transform:"translateY(-50%)",fontSize:16,color:C.muted}}>🔍</span>
-          <input type="text" value={cerca} onChange={e=>setCerca(e.target.value)}
-            placeholder="Cerca per BDN, nome o lotto..."
-            style={{width:"100%",boxSizing:"border-box",
-              border:`2px solid ${cerca?C.primary:C.border}`,
-              borderRadius:12,padding:"10px 38px",fontSize:14,
-              background:C.card,outline:"none"}}/>
-          {cerca&&<button onClick={()=>setCerca("")}
-            style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",
-              background:"none",border:"none",cursor:"pointer",fontSize:16}}>✕</button>}
-        </div>
+  // Intestazione
+  COL_UBA.forEach((col, ci) => {
+    ws[XLSX.utils.encode_cell({c:ci, r:riga})] = {v:col.label, s:S_HEADER};
+  });
+  riga++;
 
-        {filtrate.map((r,i)=>(
-          <div key={i} style={{background:C.card,borderRadius:12,padding:12,
-            marginBottom:8,border:`1px solid ${C.border}`,
-            borderLeft:`4px solid ${specieColor(r.specie)}`}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-              <div>
-                <div style={{fontWeight:700,fontSize:14}}>
-                  {r.nome||r.bdn||r.lotto||"—"}
-                </div>
-                <div style={{fontSize:12,color:C.muted}}>
-                  {r.bdn&&r.bdn!==r.nome?r.bdn+" · ":""}{r.categoria}
-                </div>
-                <div style={{display:"flex",gap:6,marginTop:4,flexWrap:"wrap"}}>
-                  <Badge label={specieIcon(r.specie)+" "+r.specie} color={specieColor(r.specie)}/>
-                  {r.etaGiorni&&<Badge label={r.etaGiorni+"gg"} color={C.muted}/>}
-                  {r.stato!=="attivo"&&<Badge label={"uscito "+r.dataFine} color={C.red}/>}
-                  {r.lotto&&<Badge label={"Lotto "+r.lotto} color={C.suini}/>}
-                </div>
-                {r.stato!=="attivo"&&r.motivoUscita&&(
-                  <div style={{fontSize:11,color:C.muted,marginTop:3}}>
-                    Motivo: {r.motivoUscita}
-                  </div>
-                )}
-              </div>
-              <div style={{textAlign:"right",flexShrink:0}}>
-                <div style={{fontSize:22,fontWeight:900,color:C.primary}}>
-                  {r.uba?r.uba.toFixed(3):"—"}
-                </div>
-                <div style={{fontSize:10,color:C.muted,fontWeight:600}}>UBA medio</div>
-                {r.nascita&&<div style={{fontSize:11,color:C.muted,marginTop:2}}>
-                  🎂 Nascita: {r.nascita}
-                  {r.dataInizio&&r.dataInizio!==r.nascita&&
-                    <span> · 📅 Calcolo dal: {r.dataInizio}</span>}
-                </div>}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
+  const sezioni = [
+    {key:"produttivo",         label:"■ ANIMALI PRODUTTIVI (attivi + macellati/venduti/riformati)"},
+    {key:"riproduttore",       label:"■ ANIMALI RIPRODUTTORI (attivi con qualifica)"},
+    {key:"improduttivo_uscito",label:"■ ANIMALI IMPRODUTTIVI USCITI (morti/predati/smarriti)"},
+  ];
+
+  const rigaTotaleCategoria = {};
+  let totGenerale = {capi:0, ubaGiorni:0};
+
+  sezioni.forEach(sez => {
+    const righeCat = righeAnno.filter(r => r["_categoria_key"] === sez.key);
+
+    // Riga separatrice sezione (occupa tutta la larghezza)
+    const cellSep = {v: sez.label, s: S_SEZIONE};
+    for (let ci = 0; ci < COL_UBA.length; ci++) {
+      ws[XLSX.utils.encode_cell({c:ci, r:riga})] = ci===0 ? cellSep : {v:"", s:S_SEZIONE};
+    }
+    ws["!merges"] = ws["!merges"] || [];
+    ws["!merges"].push({s:{c:0,r:riga}, e:{c:COL_UBA.length-1,r:riga}});
+    riga++;
+
+    if (righeCat.length === 0) {
+      // Riga "nessun dato"
+      ws[XLSX.utils.encode_cell({c:0, r:riga})] = {v: "  (nessun animale in questa categoria)",
+        s:{font:{sz:10,italic:true,color:{rgb:"999999"},name:"Century Gothic"}}};
+      riga++;
+    } else {
+      // Righe animali
+      righeCat.forEach(r => {
+        const rowBg = COLORI_CATEGORIA[sez.key];
+        COL_UBA.forEach((col, ci) => {
+          const val = r[col.key];
+          ws[XLSX.utils.encode_cell({c:ci, r:riga})] = cellData(val, {
+            colBg: rowBg,
+            num: col.num,
+            center: col.center,
+            bold: col.bold,
+            cur: col.cur,
+          });
+        });
+        riga++;
+      });
+
+      // Riga TOTALE categoria
+      const totUbaGiorni = righeCat.reduce((s,r) => s + (r["UBA-giorni"]||0), 0);
+      const totCostoInit = righeCat.reduce((s,r) => s + (r["Costo iniziale"]||0), 0);
+      const totMant      = righeCat.reduce((s,r) => s + (r["Costi mant. cumulati"]||0), 0);
+      rigaTotaleCategoria[sez.key] = {capi: righeCat.length, ubaGiorni: totUbaGiorni};
+      totGenerale.capi += righeCat.length;
+      totGenerale.ubaGiorni += totUbaGiorni;
+
+      COL_UBA.forEach((col, ci) => {
+        let val = "";
+        if (col.key === "BDN") val = `TOTALE ${sez.key.toUpperCase()}`;
+        else if (col.key === "NUMERO CAPI") val = righeCat.length;
+        else if (col.key === "UBA-giorni") val = Math.round(totUbaGiorni*1000)/1000;
+        else if (col.key === "Costo iniziale") val = Math.round(totCostoInit*100)/100;
+        else if (col.key === "Costi mant. cumulati") val = Math.round(totMant*100)/100;
+        ws[XLSX.utils.encode_cell({c:ci, r:riga})] = cellData(val, {
+          isTotaleCat: true,
+          num: col.num,
+          cur: col.cur,
+        });
+      });
+      riga++;
+    }
+    // Riga vuota separatrice
+    riga++;
+  });
+
+  // Riga TOTALE GENERALE
+  COL_UBA.forEach((col, ci) => {
+    let val = "";
+    if (col.key === "BDN") val = "TOTALE AZIENDALE";
+    else if (col.key === "NUMERO CAPI") val = totGenerale.capi;
+    else if (col.key === "UBA-giorni") val = Math.round(totGenerale.ubaGiorni*1000)/1000;
+    ws[XLSX.utils.encode_cell({c:ci, r:riga})] = cellData(val, {
+      isTotaleGen: true,
+      num: col.num,
+      cur: col.cur,
+    });
+  });
+  riga++;
+
+  // Riepilogo denominatori per Prima App
+  riga++;
+  ws[XLSX.utils.encode_cell({c:0, r:riga})] = {v:"─── COEFFICIENTI PER RIPARTIZIONE COSTI PRIMA APP ───",
+    s:{font:{sz:11,bold:true,name:"Century Gothic",color:{rgb:"5C3D1E"}}}};
+  riga++;
+  ws[XLSX.utils.encode_cell({c:0, r:riga})] = {v:"UBA-giorni PRODUTTIVI (denominatore ripartizione costi ordinari)",
+    s:{font:{sz:10,name:"Century Gothic"}}};
+  ws[XLSX.utils.encode_cell({c:11, r:riga})] = cellData(
+    Math.round((rigaTotaleCategoria.produttivo?.ubaGiorni||0)*1000)/1000,
+    {num:true, bold:true, colBg:"F5EDD8"}
   );
+  riga++;
+  ws[XLSX.utils.encode_cell({c:0, r:riga})] = {v:"UBA-giorni RIPRODUTTORI",
+    s:{font:{sz:10,name:"Century Gothic"}}};
+  ws[XLSX.utils.encode_cell({c:11, r:riga})] = cellData(
+    Math.round((rigaTotaleCategoria.riproduttore?.ubaGiorni||0)*1000)/1000,
+    {num:true, bold:true, colBg:"E4F0DC"}
+  );
+  riga++;
+  ws[XLSX.utils.encode_cell({c:0, r:riga})] = {v:"UBA-giorni IMPRODUTTIVI (perdita da ridistribuire su produttivi+riproduttori)",
+    s:{font:{sz:10,name:"Century Gothic"}}};
+  ws[XLSX.utils.encode_cell({c:11, r:riga})] = cellData(
+    Math.round((rigaTotaleCategoria.improduttivo_uscito?.ubaGiorni||0)*1000)/1000,
+    {num:true, bold:true, colBg:"F5DDE6"}
+  );
+  riga++;
+
+  ws["!ref"] = XLSX.utils.encode_range({s:{c:0,r:0}, e:{c:COL_UBA.length-1, r:riga}});
+  ws["!cols"] = COL_UBA.map(c => ({wch:c.width||14}));
+  ws["!rows"] = [{hpx:38}];  // header più alto
+  ws["!freeze"] = {xSplit:1, ySplit:1};  // freeze prima riga E prima colonna
+  ws["!autofilter"] = { ref: XLSX.utils.encode_range({s:{c:0,r:0}, e:{c:COL_UBA.length-1, r:0}}) };
+
+  return ws;
+}
+
+// ─── COSTRUZIONE RIGHE UBA PER ANNO ──────────────────────────────────────────
+function costruisciRighe(animali, lotti, suiniLotto, anno, prezziRiforma, filtroSpecie) {
+  const righe = [];
+
+  for (const a of animali) {
+    if (!a.specie || !UBA_FASCE[a.specie]) continue;
+    if (filtroSpecie && filtroSpecie !== "tutti" && a.specie !== filtroSpecie) continue;
+    const nascita = a.nascita || a.data_ingresso;
+    if (!nascita) continue;
+
+    const periodo = periodoNellAnno({...a, nascita}, anno);
+    if (!periodo) continue;
+
+    const uba = calcolaUBAMedio(a.specie, periodo.giorni, periodo.etaAllInizio);
+    if (!uba) continue;
+
+    const ubaGiorni = Math.round(uba * periodo.giorni * 1000) / 1000;
+    const cat = categoriaContabile(a, anno);
+
+    // Prezzi riforma
+    const prezzo = prezziRiforma.find(p => p.specie===a.specie && p.razza===(a.razza_calcolata||a.razza));
+    const pesoStimato = a.peso_attuale || a.peso_vivo_uscita || 0;
+    const vRiforma = prezzo && pesoStimato
+      ? Math.round(pesoStimato * prezzo.prezzo_kg_vivo * (prezzo.resa_percentuale/100) * 100) / 100
+      : 0;
+
+    const costoIniz = a.costo_iniziale || 0;
+    const mantCum   = a.costi_mantenimento_cumulati || 0;
+    const quotaFig  = a.quota_scaricata_figli || 0;
+    const costoNetto = Math.max(0, costoIniz + mantCum - quotaFig - vRiforma);
+
+    righe.push({
+      "_categoria_key": cat,
+      "BDN": a.bdn || "",
+      "NUMERO CAPI": "",
+      "Nome": a.nome || "",
+      "Specie": a.specie,
+      "Razza": a.razza_calcolata || a.razza || "",
+      "Categoria età": categoriaEtà(a.specie, periodo.etaAllInizio, periodo.giorni),
+      "Data nascita": nascita,
+      "Inizio periodo": periodo.inizio,
+      "Fine periodo": periodo.fine,
+      "Giorni": periodo.giorni,
+      "UBA medio": uba,
+      "UBA-giorni": ubaGiorni,
+      "Categoria contabile": cat,
+      "Qualifica": a.riproduttore ? (a.sesso==="M"?"Riproduttore":"Riproduttrice") : "",
+      "Motivo uscita": a.motivo_uscita || "",
+      "Costo iniziale": costoIniz,
+      "Tipo costo iniziale": a.tipo_costo_iniziale || "",
+      "Costi mant. cumulati": mantCum,
+      "V(t) riforma": vRiforma,
+      "Quota scaricata figli": quotaFig,
+      "Costo netto residuo": costoNetto,
+      "Lotto": "",
+    });
+  }
+
+  // Suini da lotto
+  for (const l of lotti) {
+    if (!l.data_parto) continue;
+    if (filtroSpecie && filtroSpecie !== "tutti" && filtroSpecie !== "suino") continue;
+    const codLotto = l.codice_lotto || l.codice || "";
+    for (const u of suiniLotto.filter(x => x.lotto_id === l.id)) {
+      if (u.stato === "registrato_individuale") continue;
+      const nascita = l.data_parto;
+      const fintoAnimale = {
+        nascita,
+        data_uscita: u.data_uscita,
+        stato: u.stato==="attivo" ? "attivo" : "uscito",
+        motivo_uscita: u.motivo_uscita,
+        riproduttore: false,
+      };
+      const periodo = periodoNellAnno(fintoAnimale, anno);
+      if (!periodo) continue;
+      const uba = calcolaUBAMedio("suino", periodo.giorni, periodo.etaAllInizio);
+      if (!uba) continue;
+      const ubaGiorni = Math.round(uba * periodo.giorni * 1000) / 1000;
+      const cat = categoriaContabile(fintoAnimale, anno);
+      const codice = u.codice_completo || `${codLotto}${String(u.nr).padStart(2,"0")}`;
+
+      righe.push({
+        "_categoria_key": cat,
+        "BDN": codice,
+        "NUMERO CAPI": "",
+        "Nome": "",
+        "Specie": "suino",
+        "Razza": l.razza_madre || "",
+        "Categoria età": categoriaEtà("suino", periodo.etaAllInizio, periodo.giorni),
+        "Data nascita": nascita,
+        "Inizio periodo": periodo.inizio,
+        "Fine periodo": periodo.fine,
+        "Giorni": periodo.giorni,
+        "UBA medio": uba,
+        "UBA-giorni": ubaGiorni,
+        "Categoria contabile": cat,
+        "Qualifica": "",
+        "Motivo uscita": u.motivo_uscita || "",
+        "Costo iniziale": 0,
+        "Tipo costo iniziale": "pre_migrazione",
+        "Costi mant. cumulati": 0,
+        "V(t) riforma": 0,
+        "Quota scaricata figli": 0,
+        "Costo netto residuo": 0,
+        "Lotto": codLotto,
+      });
+    }
+  }
+
+  return righe;
+}
+
+// ─── EXPORT EXCEL COMPLETO ─────────────────────────────────────────────────────
+function esportaUBA(animali, lotti, suiniLotto, anni, prezziRiforma, filtroSpecie) {
+  const wb = XLSX.utils.book_new();
+
+  anni.forEach(anno => {
+    ["tutti","bovino","suino","ovino"].forEach(sp => {
+      if (filtroSpecie !== "tutti" && filtroSpecie !== sp && sp !== "tutti") return;
+      if (filtroSpecie === "tutti" && sp !== "tutti") {
+        // Genera solo il foglio "tutti" per l'anno se filtroSpecie=tutti
+      }
+    });
+
+    // Solo un foglio per anno: contiene tutti gli animali (o filtrati)
+    const righe = costruisciRighe(animali, lotti, suiniLotto, anno, prezziRiforma, filtroSpecie);
+    if (righe.length === 0) return;
+
+    const ws = creaFoglioAnno(righe, prezziRiforma, animali);
+    const nomeFoglio = `UBA ${anno}`;
+    XLSX.utils.book_append_sheet(wb, ws, nomeFoglio);
+  });
+
+  const nomeFile = `UBA_Podere_Verde_${anni[0]}${anni.length>1?"-"+anni[anni.length-1]:""}.xlsx`;
+  XLSX.writeFile(wb, nomeFile);
 }
 
 // ─── APP ROOT ─────────────────────────────────────────────────────────────────
@@ -265,154 +476,84 @@ export default function UBAReport() {
   const [animali,setAnimali]   = useState([]);
   const [lotti,setLotti]       = useState([]);
   const [suiniLotto,setSuini]  = useState([]);
+  const [prezzi,setPrezzi]     = useState([]);
   const [loading,setLoading]   = useState(true);
-  const [dataRif,setDataRif]   = useState(today());
+  const [annoRif,setAnnoRif]   = useState(new Date().getFullYear());
   const [filtroSpecie,setFiltro] = useState("tutti");
-  const [filtroStato,setFiltroStato] = useState("attivi");
-  const [dettaglioVista,setDettaglio] = useState(null); // null | {titolo, righe}
 
   const carica = async () => {
     setLoading(true);
-    const [{data:anim},{data:lot},{data:sui}] = await Promise.all([
-      supabase.from("animali").select("id,bdn,nome,specie,sesso,nascita,stato,data_uscita,motivo_uscita,data_ingresso,note").order("specie"),
-      supabase.from("lotti_suini").select("id,codice_lotto,codice,data_parto,specie,tipo_provenienza,fornitore"),
-      supabase.from("suini_lotto").select("id,lotto_id,nr,codice_completo,sesso,peso_nascita,vivo,stato,data_uscita,motivo_uscita"),
+    const [{data:anim},{data:lot},{data:sui},{data:pr}] = await Promise.all([
+      supabase.from("animali").select("*"),
+      supabase.from("lotti_suini").select("*"),
+      supabase.from("suini_lotto").select("*"),
+      supabase.from("prezzi_riforma").select("*"),
     ]);
     setAnimali(anim||[]);
     setLotti(lot||[]);
     setSuini(sui||[]);
+    setPrezzi(pr||[]);
     setLoading(false);
   };
   useEffect(()=>{carica();},[]);
 
-  // ── Costruzione righe UBA ──────────────────────────────────────────────────
-  const righeUBA = useMemo(()=>{
-    const rif = dataRif||today();
-    const out = [];
-
-    // 1. Animali del registro
-    for (const a of animali) {
-      if (!a.specie || !UBA_FASCE[a.specie]) continue;
-      const nascita = a.nascita||a.data_ingresso;
-      if (!nascita) continue;
-      const statoFine = a.stato==="attivo"?"attivo":"uscito";
-      const dataFine = statoFine==="attivo" ? rif : (a.data_uscita||rif);
-      const annoRif  = new Date(rif).getFullYear();
-      const dataInizio = periodoCalcolo(nascita, dataFine, annoRif);
-      const uba = calcolaUBAMedio(nascita, dataFine, a.specie, annoRif);
-      const eta = Math.round((new Date(dataFine)-new Date(dataInizio))/86400000);
-      out.push({
-        tipo:"animale",
-        id:a.id,
-        bdn:a.bdn,
-        nome:a.nome,
-        specie:a.specie,
-        nascita,
-        dataFine,
-        etaGiorni:eta>0?eta:null,
-        stato:statoFine,
-        motivoUscita:a.motivo_uscita,
-        categoria:categoriaAttuale(nascita,dataFine,a.specie),
-        categoriaInizio:categoriaAttuale(nascita,nascita,a.specie),
-        uba,
-        dataInizio,
-        lotto:null,
-        note:a.note,
-      });
-    }
-
-    // 2. Suini dei lotti
-    for (const l of lotti) {
-      if (!l.data_parto) continue;
-      const nascita = l.data_parto;
-      const unitaLotto = suiniLotto.filter(u=>u.lotto_id===l.id);
-      const codLotto = l.codice_lotto||l.codice||"";
-      for (const u of unitaLotto) {
-        if (u.stato==="registrato_individuale") continue; // già nel registro animali
-        const statoFine = u.vivo!==false&&u.stato==="attivo"?"attivo":"uscito";
-        const dataFine = statoFine==="attivo" ? rif : (u.data_uscita||rif);
-        const annoRif  = new Date(rif).getFullYear();
-        const dataInizio = periodoCalcolo(nascita, dataFine, annoRif);
-        const uba = calcolaUBAMedio(nascita, dataFine, "suino", annoRif);
-        const eta = Math.round((new Date(dataFine)-new Date(dataInizio))/86400000);
-        const codice = u.codice_completo||`${codLotto}${String(u.nr).padStart(2,"0")}`;
-        out.push({
-          tipo:"lotto",
-          id:`lotto_${u.id}`,
-          bdn:codice,
-          nome:null,
-          specie:"suino",
-          nascita,
-          dataFine,
-          etaGiorni:eta>0?eta:null,
-          stato:statoFine,
-          motivoUscita:u.motivo_uscita,
-          categoria:categoriaAttuale(nascita,dataFine,"suino"),
-          categoriaInizio:categoriaAttuale(nascita,nascita,"suino"),
-          uba,
-          lotto:codLotto,
-          note:null,
-        });
+  // Anni disponibili in base ai dati
+  const anniDisponibili = useMemo(()=>{
+    if (animali.length === 0) return [new Date().getFullYear()];
+    let annoMin = Infinity, annoMax = new Date().getFullYear();
+    animali.forEach(a => {
+      const nascita = a.nascita || a.data_ingresso;
+      if (nascita) {
+        const y = parseInt(nascita.slice(0,4));
+        if (y < annoMin) annoMin = y;
       }
-    }
-    return out;
-  },[animali,lotti,suiniLotto,dataRif]);
-
-  // ── Filtri applicati ───────────────────────────────────────────────────────
-  const righeFiltrate = useMemo(()=>{
-    return righeUBA.filter(r=>{
-      if(filtroSpecie!=="tutti"&&r.specie!==filtroSpecie) return false;
-      if(filtroStato==="attivi"&&r.stato!=="attivo") return false;
-      if(filtroStato==="usciti"&&r.stato==="attivo") return false;
-      return true;
+      if (a.data_uscita) {
+        const y = parseInt(a.data_uscita.slice(0,4));
+        if (y > annoMax) annoMax = y;
+      }
     });
-  },[righeUBA,filtroSpecie,filtroStato]);
+    if (annoMin === Infinity) annoMin = annoMax;
+    const out = [];
+    for (let y = annoMax; y >= annoMin; y--) out.push(y);
+    return out;
+  },[animali]);
 
-  // ── Aggregati ──────────────────────────────────────────────────────────────
-  const totaleUBA = righeFiltrate.filter(r=>r.uba).reduce((s,r)=>s+r.uba,0);
-  const totCapi = righeFiltrate.filter(r=>r.uba).length;
+  // Costruzione righe per anno di riferimento selezionato
+  const righeAnno = useMemo(()=>
+    costruisciRighe(animali, lotti, suiniLotto, annoRif, prezzi, filtroSpecie)
+  ,[animali, lotti, suiniLotto, annoRif, prezzi, filtroSpecie]);
 
-  const perSpecie = ["bovino","suino","ovino"].map(sp=>{
-    const r = righeFiltrate.filter(x=>x.specie===sp&&x.uba!=null);
-    const uba = r.reduce((s,x)=>s+x.uba,0);
-    return { specie:sp, n:r.length, uba, pct:totaleUBA>0?Math.round(uba/totaleUBA*1000)/10:0 };
-  }).filter(x=>x.n>0);
+  // Aggregati per specie
+  const perSpecie = ["bovino","suino","ovino"].map(sp => {
+    const r = righeAnno.filter(x => x.Specie === sp);
+    const uba = r.reduce((s,x) => s + x["UBA-giorni"], 0);
+    return { specie:sp, n:r.length, uba };
+  }).filter(x => x.n > 0);
+  const totUBAGiorni = perSpecie.reduce((s,x) => s + x.uba, 0);
 
-  const perCategoria = useMemo(()=>{
-    const map = {};
-    for (const r of righeFiltrate) {
-      if (!r.uba||!r.categoria) continue;
-      const key = r.specie+"||"+r.categoria;
-      if (!map[key]) map[key]={specie:r.specie,categoria:r.categoria,n:0,uba:0,righe:[]};
-      map[key].n++;
-      map[key].uba+=r.uba;
-      map[key].righe.push(r);
-    }
-    return Object.values(map).sort((a,b)=>b.uba-a.uba);
-  },[righeFiltrate]);
+  // Aggregati per categoria contabile
+  const perCategoria = ["produttivo","riproduttore","improduttivo_uscito"].map(cat => {
+    const r = righeAnno.filter(x => x["_categoria_key"] === cat);
+    const uba = r.reduce((s,x) => s + x["UBA-giorni"], 0);
+    return { cat, n:r.length, uba };
+  }).filter(x => x.n > 0);
 
-  // ── Lotti aggregati (solo suini da lotto) ─────────────────────────────────
-  const perLotto = useMemo(()=>{
-    const map = {};
-    for (const r of righeFiltrate.filter(x=>x.tipo==="lotto"&&x.lotto)) {
-      if (!map[r.lotto]) map[r.lotto]={lotto:r.lotto,n:0,uba:0,righe:[]};
-      map[r.lotto].n++;
-      if (r.uba) map[r.lotto].uba+=r.uba;
-      map[r.lotto].righe.push(r);
-    }
-    return Object.values(map).sort((a,b)=>b.uba-a.uba);
-  },[righeFiltrate]);
+  const catColor = c => ({
+    produttivo: C.blue,
+    riproduttore: C.green,
+    improduttivo_uscito: C.red,
+  }[c] || C.muted);
+  const catLabel = c => ({
+    produttivo: "Produttivi",
+    riproduttore: "Riproduttori",
+    improduttivo_uscito: "Improduttivi",
+  }[c] || c);
+  const catIcon = c => ({
+    produttivo: "🐾",
+    riproduttore: "♂♀",
+    improduttivo_uscito: "✝",
+  }[c] || "🐾");
 
-  // ── VISTA DETTAGLIO ────────────────────────────────────────────────────────
-  if (dettaglioVista) return (
-    <div style={{fontFamily:"'Segoe UI',system-ui,sans-serif",background:C.bg,
-      minHeight:"100vh",maxWidth:480,margin:"0 auto"}}>
-      <ListaAnimaliUBA righe={dettaglioVista.righe} titolo={dettaglioVista.titolo}
-        onBack={()=>setDettaglio(null)}/>
-    </div>
-  );
-
-  // ── VISTA PRINCIPALE ───────────────────────────────────────────────────────
   return (
     <div style={{fontFamily:"'Segoe UI',system-ui,sans-serif",background:C.bg,
       minHeight:"100vh",maxWidth:480,margin:"0 auto",paddingBottom:80}}>
@@ -420,194 +561,109 @@ export default function UBAReport() {
       {/* Header */}
       <div style={{background:`linear-gradient(135deg,${C.primary},${C.accent})`,
         borderRadius:"0 0 28px 28px",padding:"24px 16px 20px"}}>
-        <div style={{fontSize:22,fontWeight:800,color:"#FFF"}}>🐾 Calcolo UBA</div>
+        <div style={{fontSize:22,fontWeight:800,color:"#FFF"}}>🐾 Report UBA</div>
         <div style={{fontSize:13,color:"rgba(255,255,255,0.8)",marginTop:2}}>
-          Unità di Bestiame Adulto — ripartizione costi aziendali
+          Interfaccia con Prima App per ripartizione costi
         </div>
-        {/* Data di riferimento */}
+
+        {/* Selettore anno */}
         <div style={{display:"flex",alignItems:"center",gap:10,marginTop:12,
           background:"rgba(255,255,255,0.15)",borderRadius:10,padding:"8px 12px"}}>
-          <span style={{color:"rgba(255,255,255,0.8)",fontSize:13}}>📅 Data riferimento:</span>
-          <input type="date" value={dataRif} onChange={e=>setDataRif(e.target.value)}
+          <span style={{color:"rgba(255,255,255,0.85)",fontSize:13}}>📅 Anno:</span>
+          <select value={annoRif} onChange={e=>setAnnoRif(parseInt(e.target.value))}
             style={{background:"transparent",border:"none",color:"#FFF",
-              fontSize:13,fontWeight:700,outline:"none",cursor:"pointer"}}/>
+              fontSize:16,fontWeight:700,outline:"none",cursor:"pointer"}}>
+            {anniDisponibili.map(y => (
+              <option key={y} value={y} style={{color:"#000"}}>{y}</option>
+            ))}
+          </select>
         </div>
       </div>
 
       <div style={{padding:"14px"}}>
-        {loading?<Spinner/>:(
+        {loading ? <Spinner/> : (
           <>
-            {/* Totale UBA */}
+            {/* Totale UBA-giorni */}
             <Card style={{background:`linear-gradient(135deg,${C.primary}18,${C.card})`}}>
               <div style={{fontSize:11,fontWeight:700,color:C.muted,marginBottom:4}}>
-                UBA TOTALE AZIENDALE
+                TOTALE UBA-GIORNI · Anno {annoRif}
               </div>
-              <div style={{fontSize:40,fontWeight:900,color:C.primary}}>
-                {totaleUBA.toFixed(2)}
+              <div style={{fontSize:36,fontWeight:900,color:C.primary}}>
+                {totUBAGiorni.toFixed(2)}
               </div>
               <div style={{fontSize:13,color:C.muted}}>
-                su {totCapi} capi · data {dataRif}
+                {righeAnno.length} capi presenti nel {annoRif}
               </div>
             </Card>
 
-            {/* Filtri */}
+            {/* Filtri specie */}
             <div style={{display:"flex",gap:8,marginBottom:10,flexWrap:"wrap"}}>
-              {["tutti","bovino","suino","ovino"].map(s=>(
+              {["tutti","bovino","suino","ovino"].map(s => (
                 <button key={s} onClick={()=>setFiltro(s)}
                   style={{background:filtroSpecie===s?specieColor(s)||C.primary:C.card,
                     color:filtroSpecie===s?"#FFF":C.muted,
                     border:`1.5px solid ${filtroSpecie===s?specieColor(s)||C.primary:C.border}`,
                     borderRadius:20,padding:"5px 12px",fontSize:12,fontWeight:600,
-                    cursor:"pointer",whiteSpace:"nowrap"}}>
+                    cursor:"pointer"}}>
                   {s==="tutti"?"🐾 Tutti":specieIcon(s)+" "+s.charAt(0).toUpperCase()+s.slice(1)}
                 </button>
               ))}
-            </div>
-            <div style={{display:"flex",gap:8,marginBottom:14}}>
-              {[["attivi","In stalla"],["usciti","Usciti"],["tutti","Tutti"]].map(([v,l])=>(
-                <button key={v} onClick={()=>setFiltroStato(v)}
-                  style={{background:filtroStato===v?C.primary:C.card,
-                    color:filtroStato===v?"#FFF":C.muted,
-                    border:`1.5px solid ${filtroStato===v?C.primary:C.border}`,
-                    borderRadius:20,padding:"5px 12px",fontSize:12,fontWeight:600,
-                    cursor:"pointer"}}>
-                  {l}
-                </button>
-              ))}
-              <button onClick={()=>esportaUBA(righeFiltrate,dataRif)}
+              <button onClick={()=>esportaUBA(animali,lotti,suiniLotto,[annoRif],prezzi,filtroSpecie)}
                 style={{background:C.green,color:"#FFF",border:"none",borderRadius:20,
                   padding:"5px 14px",fontSize:12,fontWeight:700,cursor:"pointer",marginLeft:"auto"}}>
-                📊 Excel
+                📊 Excel {annoRif}
+              </button>
+            </div>
+            <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
+              <button onClick={()=>esportaUBA(animali,lotti,suiniLotto,anniDisponibili,prezzi,filtroSpecie)}
+                style={{background:C.blue,color:"#FFF",border:"none",borderRadius:20,
+                  padding:"5px 14px",fontSize:11,fontWeight:600,cursor:"pointer"}}>
+                📊 Excel tutti gli anni
               </button>
             </div>
 
-            {/* UBA per specie */}
+            {/* Ripartizione per categoria contabile */}
             <div style={{fontSize:12,fontWeight:700,color:C.muted,marginBottom:8}}>
-              RIPARTIZIONE PER SPECIE
+              RIPARTIZIONE PER CATEGORIA CONTABILE
             </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:16}}>
-              {perSpecie.map(s=>(
-                <div key={s.specie}
-                  onClick={()=>setDettaglio({
-                    titolo:`${specieIcon(s.specie)} ${s.specie} — UBA dettaglio`,
-                    righe:righeFiltrate.filter(r=>r.specie===s.specie)
-                  })}
-                  style={{background:C.card,borderRadius:14,padding:12,
-                    boxShadow:"0 2px 6px rgba(0,0,0,0.06)",cursor:"pointer",
-                    borderTop:`4px solid ${specieColor(s.specie)}`}}>
-                  <div style={{fontSize:22,textAlign:"center"}}>{specieIcon(s.specie)}</div>
-                  <div style={{fontSize:20,fontWeight:900,color:specieColor(s.specie),
-                    textAlign:"center"}}>{s.uba.toFixed(2)}</div>
-                  <div style={{fontSize:10,color:C.muted,textAlign:"center",fontWeight:600}}>
-                    UBA · {s.n} capi
-                  </div>
-                  <div style={{background:specieColor(s.specie)+"22",borderRadius:6,
-                    padding:"2px 6px",textAlign:"center",marginTop:4,
-                    fontSize:11,fontWeight:700,color:specieColor(s.specie)}}>
-                    {s.pct}%
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Barra percentuale specie */}
-            {perSpecie.length>0&&(
-              <Card style={{marginBottom:16}}>
-                <div style={{fontSize:11,fontWeight:700,color:C.muted,marginBottom:8}}>
-                  DISTRIBUZIONE UBA
-                </div>
-                <div style={{display:"flex",height:20,borderRadius:10,overflow:"hidden",gap:1}}>
-                  {perSpecie.map(s=>(
-                    <div key={s.specie} style={{width:`${s.pct}%`,background:specieColor(s.specie),
-                      display:"flex",alignItems:"center",justifyContent:"center",
-                      fontSize:10,color:"#FFF",fontWeight:700,minWidth:s.pct>8?undefined:0}}>
-                      {s.pct>8?s.pct+"%":""}
+            {perCategoria.map(c => (
+              <div key={c.cat} style={{background:C.card,borderRadius:12,padding:"10px 14px",
+                marginBottom:8,border:`1px solid ${C.border}`,
+                borderLeft:`5px solid ${catColor(c.cat)}`}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <div>
+                    <div style={{fontSize:13,fontWeight:700,color:catColor(c.cat)}}>
+                      {catIcon(c.cat)} {catLabel(c.cat)}
                     </div>
-                  ))}
-                </div>
-                <div style={{display:"flex",gap:12,marginTop:8,flexWrap:"wrap"}}>
-                  {perSpecie.map(s=>(
-                    <span key={s.specie} style={{fontSize:11,color:specieColor(s.specie),
-                      fontWeight:600}}>
-                      {specieIcon(s.specie)} {s.pct}%
-                    </span>
-                  ))}
-                </div>
-              </Card>
-            )}
-
-            {/* Dettaglio per categoria */}
-            <div style={{fontSize:12,fontWeight:700,color:C.muted,marginBottom:8}}>
-              DETTAGLIO PER CATEGORIA
-            </div>
-            {perCategoria.map((cat,i)=>(
-              <div key={i}
-                onClick={()=>setDettaglio({
-                  titolo:`${specieIcon(cat.specie)} ${cat.categoria}`,
-                  righe:cat.righe
-                })}
-                style={{background:C.card,borderRadius:12,padding:"10px 14px",
-                  marginBottom:8,border:`1px solid ${C.border}`,
-                  borderLeft:`4px solid ${specieColor(cat.specie)}`,cursor:"pointer",
-                  display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                <div>
-                  <div style={{fontWeight:700,fontSize:14}}>{cat.categoria}</div>
-                  <div style={{fontSize:12,color:C.muted}}>
-                    {specieIcon(cat.specie)} {cat.n} capi
+                    <div style={{fontSize:11,color:C.muted}}>{c.n} capi</div>
                   </div>
-                </div>
-                <div style={{textAlign:"right"}}>
-                  <div style={{fontSize:20,fontWeight:900,color:C.primary}}>
-                    {cat.uba.toFixed(3)}
+                  <div style={{textAlign:"right"}}>
+                    <div style={{fontSize:20,fontWeight:900,color:C.primary}}>{c.uba.toFixed(3)}</div>
+                    <div style={{fontSize:10,color:C.muted}}>UBA-giorni</div>
                   </div>
-                  <div style={{fontSize:10,color:C.muted}}>UBA totali</div>
                 </div>
               </div>
             ))}
 
-            {/* Sezione lotti suini */}
-            {perLotto.length>0&&(
-              <>
-                <div style={{fontSize:12,fontWeight:700,color:C.muted,margin:"16px 0 8px"}}>
-                  LOTTI SUINI — DETTAGLIO
-                </div>
-                {perLotto.map((l,i)=>(
-                  <div key={i}
-                    onClick={()=>setDettaglio({
-                      titolo:`🐷 Lotto ${l.lotto}`,
-                      righe:l.righe
-                    })}
-                    style={{background:C.card,borderRadius:12,padding:"10px 14px",
-                      marginBottom:8,border:`1px solid ${C.border}`,
-                      borderLeft:`4px solid ${C.suini}`,cursor:"pointer",
-                      display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                    <div>
-                      <div style={{fontWeight:800,fontSize:14,fontFamily:"monospace",
-                        color:C.suini}}>{l.lotto}</div>
-                      <div style={{fontSize:12,color:C.muted}}>🐷 {l.n} unità</div>
-                    </div>
-                    <div style={{textAlign:"right"}}>
-                      <div style={{fontSize:20,fontWeight:900,color:C.primary}}>
-                        {l.uba.toFixed(3)}
-                      </div>
-                      <div style={{fontSize:10,color:C.muted}}>UBA totali</div>
-                    </div>
+            {/* Ripartizione per specie */}
+            <div style={{fontSize:12,fontWeight:700,color:C.muted,margin:"16px 0 8px"}}>
+              RIPARTIZIONE PER SPECIE
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
+              {perSpecie.map(s => (
+                <div key={s.specie} style={{background:C.card,borderRadius:12,padding:12,
+                  textAlign:"center",borderTop:`4px solid ${specieColor(s.specie)}`,
+                  boxShadow:"0 2px 6px rgba(0,0,0,0.06)"}}>
+                  <div style={{fontSize:22}}>{specieIcon(s.specie)}</div>
+                  <div style={{fontSize:18,fontWeight:800,color:specieColor(s.specie)}}>
+                    {s.uba.toFixed(2)}
                   </div>
-                ))}
-              </>
-            )}
-
-            {/* Animali senza data nascita */}
-            {(()=>{
-              const senza=righeFiltrate.filter(r=>!r.uba);
-              if(senza.length===0) return null;
-              return(
-                <div style={{background:C.yellow+"15",border:`1px solid ${C.yellow}33`,
-                  borderRadius:12,padding:"10px 14px",marginTop:8,fontSize:12,color:C.muted}}>
-                  ⚠️ {senza.length} animali esclusi dal calcolo per mancanza di data di nascita
+                  <div style={{fontSize:10,color:C.muted,fontWeight:600}}>
+                    {s.n} capi
+                  </div>
                 </div>
-              );
-            })()}
+              ))}
+            </div>
           </>
         )}
       </div>

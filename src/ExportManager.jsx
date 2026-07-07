@@ -557,10 +557,16 @@ function fogli_uba(animali, lotti, suiniLotto) {
     if(!nascita) continue;
     const attivo=a.stato==="attivo";
     const dataFine=attivo?oggi:(a.data_uscita||oggi);
-    const inizio=new Date(nascita)>=new Date(inizioAnno)?nascita:inizioAnno;
+    // Inizio periodo = MAX(nascita, 1° gennaio dell'anno della dataFine)
+    const annoRifAnimale = new Date(dataFine).getFullYear();
+    const inizioAnnoRif = `${annoRifAnimale}-01-01`;
+    const inizio = new Date(nascita)>=new Date(inizioAnnoRif)?nascita:inizioAnnoRif;
+    // Se l'animale è uscito prima dell'anno di riferimento, il periodo è invalido
+    if(new Date(inizio)>=new Date(dataFine)) continue;
     const uba=calcUBA(nascita,dataFine,a.specie);
     if(!uba) continue;
     const gg=Math.round((new Date(dataFine)-new Date(inizio))/86400000);
+    if(gg<=0) continue;
     const ubaGiorni=Math.round(uba*gg*1000)/1000;
     const qualifica=a.riproduttore?(a.sesso==="M"?"Riproduttore":"Riproduttrice"):"";
     righe.push({
@@ -591,10 +597,14 @@ function fogli_uba(animali, lotti, suiniLotto) {
       if(u.stato==="registrato_individuale") continue;
       const attivo=u.vivo!==false&&u.stato==="attivo";
       const dataFine=attivo?oggi:(u.data_uscita||oggi);
-      const inizio=new Date(nascita)>=new Date(inizioAnno)?nascita:inizioAnno;
+      const annoRifAnimale = new Date(dataFine).getFullYear();
+      const inizioAnnoRif = `${annoRifAnimale}-01-01`;
+      const inizio = new Date(nascita)>=new Date(inizioAnnoRif)?nascita:inizioAnnoRif;
+      if(new Date(inizio)>=new Date(dataFine)) continue;
       const uba=calcUBA(nascita,dataFine,"suino");
       if(!uba) continue;
       const gg=Math.round((new Date(dataFine)-new Date(inizio))/86400000);
+      if(gg<=0) continue;
       const ubaGiorni=Math.round(uba*gg*1000)/1000;
       const codice=u.codice_completo||`${codLotto}${String(u.nr).padStart(2,"0")}`;
       righe.push({
