@@ -12,14 +12,65 @@ const C = {
 const today = () => new Date().toISOString().split("T")[0];
 
 // ─── Helpers foglio Excel ──────────────────────────────────────────────────────
-function creaFoglio(dati, colonne) {
-  if(!dati||dati.length===0) return XLSX.utils.json_to_sheet([{"Nessun dato":""}]);
+// Colonne "leggere": ogni colonna ha {key, label, width?, num?, cur?, center?, bold?, sumTotale?, media?}
+// Se una colonna ha sumTotale:true, nella riga TOTALE viene messa la somma dei valori
+// Se ha media:true, mette la media
+// Se il tipo è testo, resta vuota nel totale (a meno di totaleLabel)
+function creaFoglio(dati, colonne, opts={}) {
+  if(!dati||dati.length===0) {
+    const emptyCols = colonne.map(c => ({...c, key:c.key||c.label, label:c.label}));
+    return creaSheetFormattato([{[colonne[0].key||colonne[0].label]:"Nessun dato disponibile"}], emptyCols);
+  }
+  // Normalizzo le colonne per usare key come identificatore
+  const cols = colonne.map(c => ({
+    key: c.key || c.label,
+    label: c.label,
+    width: c.width || 16,
+    num: c.num || false,
+    cur: c.cur || false,
+    center: c.center || false,
+    bold: c.bold || false,
+    sumTotale: c.sumTotale || false,
+    totaleLabel: c.totaleLabel || null,
+  }));
+
+  // Righe convertite in oggetti con chiave = key colonna
   const righe = dati.map(d => {
     const r = {};
-    colonne.forEach(c => { r[c.label] = d[c.key] ?? ""; });
+    cols.forEach(col => {
+      const v = d[col.key] ?? d[col.label] ?? "";
+      r[col.key] = v;
+    });
     return r;
   });
-  return XLSX.utils.json_to_sheet(righe);
+
+  // Riga TOTALE se abilitata
+  if (opts.totale) {
+    const rigaTot = {};
+    cols.forEach((col, i) => {
+      if (col.totaleLabel) {
+        rigaTot[col.key] = col.totaleLabel;
+      } else if (i === 0) {
+        rigaTot[col.key] = opts.totaleLabel || "TOTALE";
+      } else if (col.sumTotale) {
+        const somma = righe.reduce((s,r) => {
+          const v = parseFloat(r[col.key]);
+          return s + (isNaN(v) ? 0 : v);
+        }, 0);
+        rigaTot[col.key] = col.cur ? Math.round(somma*100)/100 : Math.round(somma*1000)/1000;
+      } else {
+        rigaTot[col.key] = "";
+      }
+    });
+    // Aggiungo conteggio capi/righe come default nella seconda colonna se non ha totaleLabel/sumTotale
+    if (opts.contaRighe && !cols[1]?.totaleLabel && !cols[1]?.sumTotale) {
+      rigaTot[cols[1].key] = righe.length;
+    }
+    rigaTot["_isTotaleRow"] = true;
+    righe.push(rigaTot);
+  }
+
+  return creaSheetFormattato(righe, cols);
 }
 
 function scarica(wb, nomeFile) {
@@ -188,24 +239,24 @@ function foglio_uscite(animali) {
     note:             a.note||"",
   }));
   return creaFoglio(dati, [
-    {key:"bdn",              label:"BDN / Matricola"},
-    {key:"nome",             label:"Nome"},
-    {key:"specie",           label:"Specie"},
-    {key:"razza",            label:"Razza"},
-    {key:"sesso",            label:"Sesso"},
-    {key:"nascita",          label:"Data nascita"},
-    {key:"data_ingresso",    label:"Data ingresso"},
-    {key:"data_uscita",      label:"Data uscita"},
-    {key:"giorni_permanenza",label:"Giorni permanenza"},
-    {key:"stato",            label:"Stato"},
-    {key:"motivo_uscita",    label:"Motivo uscita"},
-    {key:"peso_vivo_uscita", label:"Peso vivo (kg)"},
-    {key:"peso_carcassa",    label:"Peso carcassa (kg)"},
-    {key:"resa_percent",     label:"Resa %"},
-    {key:"ipg_peso_vivo",    label:"IPG peso vivo (kg/gg)"},
-    {key:"ipg_carcassa",     label:"IPG carcassa (kg/gg)"},
-    {key:"note",             label:"Note"},
-  ]);
+    {key:"bdn",              label:"BDN / Matricola",         width:20, bold:true},
+    {key:"nome",             label:"Nome",                    width:18},
+    {key:"specie",           label:"Specie",                  width:10, center:true},
+    {key:"razza",            label:"Razza",                   width:16},
+    {key:"sesso",            label:"Sesso",                   width:8,  center:true},
+    {key:"nascita",          label:"Data nascita",            width:13, center:true},
+    {key:"data_ingresso",    label:"Data ingresso",           width:13, center:true},
+    {key:"data_uscita",      label:"Data uscita",             width:13, center:true},
+    {key:"giorni_permanenza",label:"Giorni permanenza",       width:11, num:true, center:true},
+    {key:"stato",            label:"Stato",                   width:10, center:true},
+    {key:"motivo_uscita",    label:"Motivo uscita",           width:20},
+    {key:"peso_vivo_uscita", label:"Peso vivo (kg)",          width:12, num:true, sumTotale:true},
+    {key:"peso_carcassa",    label:"Peso carcassa (kg)",      width:13, num:true, sumTotale:true},
+    {key:"resa_percent",     label:"Resa %",                  width:9,  num:true},
+    {key:"ipg_peso_vivo",    label:"IPG peso vivo (kg/gg)",   width:13, num:true},
+    {key:"ipg_carcassa",     label:"IPG carcassa (kg/gg)",    width:13, num:true},
+    {key:"note",             label:"Note",                    width:24},
+  ], {totale:true, contaRighe:true});
 }
 
 function foglio_lotti_riepilogo(lotti, suiniLotto, animali) {
@@ -409,14 +460,14 @@ const STYLE = {
 // Stili predefiniti
 const S_HEADER = {
   fill:{fgColor:{rgb:STYLE.primary}},
-  font:{color:{rgb:"FFFFFF"},bold:true,sz:11,name:"Segoe UI"},
+  font:{color:{rgb:"FFFFFF"},bold:true,sz:11,name:"Century Gothic"},
   alignment:{horizontal:"center",vertical:"center",wrapText:true},
   border:{top:{style:"thin",color:{rgb:"888888"}},bottom:{style:"thin",color:{rgb:"888888"}},
     left:{style:"thin",color:{rgb:"888888"}},right:{style:"thin",color:{rgb:"888888"}}},
 };
 const S_TOTALE = {
   fill:{fgColor:{rgb:STYLE.totale}},
-  font:{color:{rgb:STYLE.totaleTxt},bold:true,sz:11,name:"Segoe UI"},
+  font:{color:{rgb:STYLE.totaleTxt},bold:true,sz:11,name:"Century Gothic"},
   alignment:{horizontal:"center",vertical:"center"},
   border:{top:{style:"medium",color:{rgb:"000000"}},bottom:{style:"medium",color:{rgb:"000000"}},
     left:{style:"thin",color:{rgb:"888888"}},right:{style:"thin",color:{rgb:"888888"}}},
@@ -427,7 +478,7 @@ const bordo = {top:{style:"thin",color:{rgb:"DDDDDD"}},bottom:{style:"thin",colo
 function styleCella(v, opts={}) {
   const {isTotale, colBg, num, center, bold} = opts;
   if (isTotale) return {v, s:{...S_TOTALE, numFmt: num?"#,##0.000":undefined}};
-  const font = {sz:10, name:"Segoe UI", bold:bold||false};
+  const font = {sz:10, name:"Century Gothic", bold:bold||false};
   const fill = colBg ? {fgColor:{rgb:colBg}} : undefined;
   const alignment = center ? {horizontal:"center",vertical:"center"}
                      : num ? {horizontal:"right",vertical:"center"}
@@ -451,7 +502,10 @@ function creaSheetFormattato(righe, colonne) {
 
   // Righe dati
   righe.forEach((riga,ri)=>{
-    const isTotale = (riga.BDN||"").toString().toUpperCase().startsWith("TOTALE");
+    // Riconosco riga TOTALE via flag esplicita o via BDN iniziante per "TOTALE"
+    const isTotale = riga._isTotaleRow === true
+      || (riga.BDN||"").toString().toUpperCase().startsWith("TOTALE")
+      || (riga[colonne[0]?.key]||"").toString().toUpperCase().startsWith("TOTALE");
     const specie = (riga.Specie||"").toLowerCase();
     let rowBg = ri%2===1 ? STYLE.zebra : undefined;
     // Colore per specie (solo se non totale)
@@ -470,8 +524,10 @@ function creaSheetFormattato(righe, colonne) {
   });
 
   ws["!ref"] = XLSX.utils.encode_range(range);
-  // Freeze prima riga (intestazione)
-  ws["!freeze"] = {xSplit:0, ySplit:1};
+  // Freeze prima riga (intestazione) e prima colonna (BDN)
+  ws["!freeze"] = {xSplit:1, ySplit:1};
+  // Filtri automatici su ogni colonna
+  ws["!autofilter"] = { ref: XLSX.utils.encode_range({s:{c:0,r:0}, e:{c:colonne.length-1,r:0}}) };
   // Larghezza colonne
   ws["!cols"] = colonne.map(c=>({wch:c.width||14}));
   // Altezza righe (intestazione più alta)
@@ -479,322 +535,263 @@ function creaSheetFormattato(righe, colonne) {
   return ws;
 }
 
-// ─── CALCOLO UBA PER EXPORT ──────────────────────────────────────────────────
+// ─── CALCOLO UBA PER EXPORT (allineato modulo v54) ─────────────────────────
 const UBA_FASCE_EXP = {
-  bovino:[{fino:210,coeff:0.40,label:"Vitella (<7 mesi)"},{fino:730,coeff:0.70,label:"Vitellone (7m-2a)"},{fino:Infinity,coeff:1.00,label:"Bovino adulto (≥2a)"}],
+  bovino: [{fino:210,coeff:0.40,label:"Vitella (<7 mesi)"},{fino:730,coeff:0.70,label:"Vitellone (7m-2a)"},{fino:Infinity,coeff:1.00,label:"Bovino adulto (≥2a)"}],
   suino: [{fino:90,coeff:0.027,label:"Lattonzolo (<3 mesi)"},{fino:365,coeff:0.30,label:"Magrone (3m-1a)"},{fino:Infinity,coeff:0.50,label:"Suino adulto (≥1a)"}],
   ovino: [{fino:120,coeff:0.027,label:"Agnello (<4 mesi)"},{fino:365,coeff:0.10,label:"Agnellone (4m-1a)"},{fino:Infinity,coeff:0.15,label:"Ovino adulto (≥1a)"}],
 };
 
-function calcUBA(dataNascita, dataFine, specie) {
-  if(!dataNascita||!specie||!UBA_FASCE_EXP[specie]) return null;
-  const nascita=new Date(dataNascita);
-  const fine=new Date(dataFine);
-  const annoRif=fine.getFullYear();
-  const inizioAnno=new Date(annoRif,0,1);
-  const inizio=nascita>=inizioAnno?nascita:inizioAnno;
-  if(inizio>=fine) return null;
-  const totGiorni=Math.round((fine-inizio)/86400000);
-  const etaAllInizio=Math.round((inizio-nascita)/86400000);
-  const fasce=UBA_FASCE_EXP[specie];
-  let ubaPesata=0;
-  for(let i=0;i<fasce.length;i++){
-    const prevSoglia=i>0?fasce[i-1].fino:0;
-    const{fino,coeff}=fasce[i];
-    const inizioFascia=Math.max(prevSoglia,etaAllInizio);
-    const fineFascia=Math.min(fino===Infinity?etaAllInizio+totGiorni+1:fino,etaAllInizio+totGiorni);
-    if(fineFascia>inizioFascia) ubaPesata+=(fineFascia-inizioFascia)*coeff;
-  }
-  return Math.round(ubaPesata/totGiorni*1000)/1000;
-}
+const MOTIVI_PRODUTTIVI_EXP = ["macellazione","macellato","venduto","riformato","riforma","vendita"];
 
-function categoriaUBA(dataNascita, dataRif, specie) {
-  if(!dataNascita||!UBA_FASCE_EXP[specie]) return "—";
-  const eta=Math.round((new Date(dataRif)-new Date(dataNascita))/86400000);
-  for(const{fino,label} of UBA_FASCE_EXP[specie]) if(eta<fino) return label;
-  return UBA_FASCE_EXP[specie].at(-1).label;
-}
-
-// Colonne UBA con metadati per formattazione
-const COL_UBA = [
-  {key:"BDN",                    label:"BDN",                       width:20, bold:true},
-  {key:"NUMERO CAPI",            label:"NUMERO CAPI",               width:12, center:true, num:true},
-  {key:"Nome",                   label:"Nome",                      width:16},
-  {key:"Specie",                 label:"Specie",                    width:10, center:true},
-  {key:"Categoria alla data",    label:"Categoria alla data",       width:22},
-  {key:"Data nascita",           label:"Data nascita",              width:12, center:true},
-  {key:"Inizio calcolo",         label:"Inizio calcolo",            width:12, center:true},
-  {key:"Data riferimento",       label:"Data riferimento",          width:12, center:true},
-  {key:"Giorni nel periodo",     label:"Giorni",                    width:8,  center:true, num:true},
-  {key:"UBA medio",              label:"UBA medio",                 width:11, num:true},
-  {key:"UBA-giorni",             label:"UBA-giorni",                width:12, num:true, bold:true},
-  {key:"Stato",                  label:"Stato",                     width:9,  center:true},
-  {key:"Qualifica riproduzione", label:"Qualifica riproduzione",    width:18},
-  {key:"Data uscita",            label:"Data uscita",               width:12, center:true},
-  {key:"Motivo uscita",          label:"Motivo uscita",             width:16},
-  {key:"Lotto",                  label:"Lotto",                     width:10, center:true},
-];
-
-const COL_RIEP = [
-  {key:"Specie",              label:"Specie",             width:22, bold:true},
-  {key:"Categoria",           label:"Categoria",          width:24},
-  {key:"N° Capi",             label:"N° Capi",            width:10, center:true, num:true},
-  {key:"UBA medio unitario",  label:"UBA medio unitario", width:16, num:true},
-  {key:"UBA totale",          label:"UBA totale",         width:14, num:true},
-  {key:"UBA-giorni totali",   label:"UBA-giorni totali",  width:16, num:true, bold:true},
-];
-
-function fogli_uba(animali, lotti, suiniLotto) {
-  const oggi = today();
-  const anno = new Date().getFullYear();
-  const inizioAnno = `${anno}-01-01`;
-
-  // Costruisco righe
-  const righe = [];
-  for(const a of animali){
-    if(!a.specie||!UBA_FASCE_EXP[a.specie]) continue;
-    const nascita=a.nascita||a.data_ingresso;
-    if(!nascita) continue;
-    const attivo=a.stato==="attivo";
-    const dataFine=attivo?oggi:(a.data_uscita||oggi);
-    // Inizio periodo = MAX(nascita, 1° gennaio dell'anno della dataFine)
-    const annoRifAnimale = new Date(dataFine).getFullYear();
-    const inizioAnnoRif = `${annoRifAnimale}-01-01`;
-    const inizio = new Date(nascita)>=new Date(inizioAnnoRif)?nascita:inizioAnnoRif;
-    // Se l'animale è uscito prima dell'anno di riferimento, il periodo è invalido
-    if(new Date(inizio)>=new Date(dataFine)) continue;
-    const uba=calcUBA(nascita,dataFine,a.specie);
-    if(!uba) continue;
-    const gg=Math.round((new Date(dataFine)-new Date(inizio))/86400000);
-    if(gg<=0) continue;
-    const ubaGiorni=Math.round(uba*gg*1000)/1000;
-    const qualifica=a.riproduttore?(a.sesso==="M"?"Riproduttore":"Riproduttrice"):"";
-    righe.push({
-      "BDN":a.bdn||"",
-      "NUMERO CAPI":"",
-      "Nome":a.nome||"",
-      "Specie":a.specie,
-      "Categoria alla data":categoriaUBA(nascita,dataFine,a.specie),
-      "Data nascita":nascita,
-      "Inizio calcolo":inizio,
-      "Data riferimento":dataFine,
-      "Giorni nel periodo":gg,
-      "UBA medio":uba,
-      "UBA-giorni":ubaGiorni,
-      "Stato":a.stato==="attivo"?"Attivo":"Uscito",
-      "Qualifica riproduzione":qualifica,
-      "Data uscita":a.data_uscita||"",
-      "Motivo uscita":a.motivo_uscita||"",
-      "Lotto":"",
-    });
-  }
-  // Suini da lotto
-  for(const l of lotti){
-    if(!l.data_parto) continue;
-    const nascita=l.data_parto;
-    const codLotto=l.codice_lotto||l.codice||"";
-    for(const u of suiniLotto.filter(x=>x.lotto_id===l.id)){
-      if(u.stato==="registrato_individuale") continue;
-      const attivo=u.vivo!==false&&u.stato==="attivo";
-      const dataFine=attivo?oggi:(u.data_uscita||oggi);
-      const annoRifAnimale = new Date(dataFine).getFullYear();
-      const inizioAnnoRif = `${annoRifAnimale}-01-01`;
-      const inizio = new Date(nascita)>=new Date(inizioAnnoRif)?nascita:inizioAnnoRif;
-      if(new Date(inizio)>=new Date(dataFine)) continue;
-      const uba=calcUBA(nascita,dataFine,"suino");
-      if(!uba) continue;
-      const gg=Math.round((new Date(dataFine)-new Date(inizio))/86400000);
-      if(gg<=0) continue;
-      const ubaGiorni=Math.round(uba*gg*1000)/1000;
-      const codice=u.codice_completo||`${codLotto}${String(u.nr).padStart(2,"0")}`;
-      righe.push({
-        "BDN":codice,
-        "NUMERO CAPI":"",
-        "Nome":"",
-        "Specie":"suino",
-        "Categoria alla data":categoriaUBA(nascita,dataFine,"suino"),
-        "Data nascita":nascita,
-        "Inizio calcolo":inizio,
-        "Data riferimento":dataFine,
-        "Giorni nel periodo":gg,
-        "UBA medio":uba,
-        "UBA-giorni":ubaGiorni,
-        "Stato":attivo?"Attivo":"Uscito",
-        "Qualifica riproduzione":"",
-        "Data uscita":u.data_uscita||"",
-        "Motivo uscita":u.motivo_uscita||"",
-        "Lotto":codLotto,
-      });
-    }
-  }
-
-  // Funzione per creare riga TOTALE
-  const rigaTotale = (label, arr) => ({
-    "BDN":label,
-    "NUMERO CAPI":arr.length,
-    "Nome":"",
-    "Specie":"",
-    "Categoria alla data":"",
-    "Data nascita":"",
-    "Inizio calcolo":"",
-    "Data riferimento":"",
-    "Giorni nel periodo":"",
-    "UBA medio":"",
-    "UBA-giorni":Math.round(arr.reduce((s,r)=>s+r["UBA-giorni"],0)*1000)/1000,
-    "Stato":"",
-    "Qualifica riproduzione":"",
-    "Data uscita":"",
-    "Motivo uscita":"",
-    "Lotto":"",
-  });
-
-  // Foglio riepilogo per specie
-  const riepilogo=[];
-  ["bovino","suino","ovino"].forEach(sp=>{
-    const rSp=righe.filter(r=>r.Specie===sp);
-    if(!rSp.length) return;
-    const byCategoria={};
-    for(const r of rSp){
-      const cat=r["Categoria alla data"];
-      if(!byCategoria[cat]) byCategoria[cat]={cat,n:0,uba:0,ubaGiorni:0};
-      byCategoria[cat].n++;
-      byCategoria[cat].uba+=r["UBA medio"];
-      byCategoria[cat].ubaGiorni+=r["UBA-giorni"];
-    }
-    Object.values(byCategoria).forEach(x=>{
-      riepilogo.push({
-        "Specie":sp,
-        "Categoria":x.cat,
-        "N° Capi":x.n,
-        "UBA medio unitario":Math.round(x.uba/x.n*1000)/1000,
-        "UBA totale":Math.round(x.uba*1000)/1000,
-        "UBA-giorni totali":Math.round(x.ubaGiorni*1000)/1000,
-      });
-    });
-    riepilogo.push({
-      "Specie":sp.toUpperCase()+" TOTALE",
-      "Categoria":"",
-      "N° Capi":rSp.length,
-      "UBA medio unitario":"",
-      "UBA totale":Math.round(rSp.reduce((s,r)=>s+r["UBA medio"],0)*1000)/1000,
-      "UBA-giorni totali":Math.round(rSp.reduce((s,r)=>s+r["UBA-giorni"],0)*1000)/1000,
-    });
-  });
-  const totUBA=Math.round(righe.reduce((s,r)=>s+r["UBA medio"],0)*1000)/1000;
-  const totUBAGiorni=Math.round(righe.reduce((s,r)=>s+r["UBA-giorni"],0)*1000)/1000;
-  riepilogo.push({
-    "Specie":"TOTALE AZIENDALE",
-    "Categoria":"",
-    "N° Capi":righe.length,
-    "UBA medio unitario":"",
-    "UBA totale":totUBA,
-    "UBA-giorni totali":totUBAGiorni,
-  });
-
-  // Fogli per specie
-  const righeBovini = righe.filter(r=>r.Specie==="bovino");
-  const righeOvini  = righe.filter(r=>r.Specie==="ovino");
-  const righeSuini  = righe.filter(r=>r.Specie==="suino");
-
-  const dettaglioBovini = [...righeBovini, rigaTotale("TOTALE BOVINI", righeBovini)];
-  const dettaglioOvini  = [...righeOvini,  rigaTotale("TOTALE OVINI",  righeOvini)];
-  const dettaglioSuini  = [...righeSuini,  rigaTotale("TOTALE SUINI E LOTTI", righeSuini)];
-  const dettaglioTot    = [...righe,       rigaTotale("TOTALE AZIENDALE", righe)];
-
-  return{
-    riepilogo,
-    dettaglio:dettaglioTot,
-    bovini:dettaglioBovini,
-    ovini:dettaglioOvini,
-    suini:dettaglioSuini,
+// Perimetro annuale: solo se presenza effettiva nell'anno
+function periodoNellAnnoExp(nascita, dataUscita, stato, anno) {
+  if(!nascita) return null;
+  const inizioAnno = new Date(anno, 0, 1);
+  const fineAnno   = new Date(anno, 11, 31, 23, 59, 59);
+  const oggi = new Date();
+  const dataInizio = new Date(nascita);
+  const dataFine = dataUscita ? new Date(dataUscita) : (oggi < fineAnno ? oggi : fineAnno);
+  if(dataFine < inizioAnno) return null;
+  if(dataInizio > fineAnno) return null;
+  const inizio = dataInizio > inizioAnno ? dataInizio : inizioAnno;
+  const fine   = dataFine < fineAnno ? dataFine : fineAnno;
+  return {
+    inizio: inizio.toISOString().split("T")[0],
+    fine:   fine.toISOString().split("T")[0],
+    giorni: Math.round((fine - inizio) / 86400000) + 1,
+    etaAllInizio: Math.round((inizio - dataInizio) / 86400000),
   };
 }
 
-// ─── CONSANGUINEITÀ ──────────────────────────────────────────────────────────
-function analizzaAccoppiamentiRischio(animali) {
-  const attivi = animali.filter(a=>a.stato==="attivo"&&a.vivo!==false);
-  const maschi   = attivi.filter(a=>a.sesso==="M");
-  const femmine  = attivi.filter(a=>a.sesso==="F");
-  const rischi = [];
+function calcolaUBAMedioExp(specie, giorni, etaAllInizio) {
+  if(!specie || !UBA_FASCE_EXP[specie] || giorni <= 0) return null;
+  const fasce = UBA_FASCE_EXP[specie];
+  let uba = 0;
+  for(let i=0; i<fasce.length; i++){
+    const prev = i>0 ? fasce[i-1].fino : 0;
+    const {fino, coeff} = fasce[i];
+    const iniz = Math.max(prev, etaAllInizio);
+    const finz = Math.min(fino===Infinity?etaAllInizio+giorni+1:fino, etaAllInizio+giorni);
+    if(finz > iniz) uba += (finz - iniz) * coeff;
+  }
+  return Math.round(uba/giorni*1000)/1000;
+}
 
-  for(const m of maschi){
-    for(const f of femmine){
-      if(m.specie!==f.specie) continue;
-      let tipo=null;
-      if(f.padre_id===m.id) tipo="Padre × Figlia";
-      else if(m.madre_id===f.id) tipo="Madre × Figlio";
-      else {
-        const stessoPadre = m.padre_id&&f.padre_id&&m.padre_id===f.padre_id;
-        const stessaMadre = m.madre_id&&f.madre_id&&m.madre_id===f.madre_id;
-        if(stessoPadre&&stessaMadre) tipo="Fratelli pieni";
-        else if(stessoPadre) tipo="Fratellastri (stesso padre)";
-        else if(stessaMadre) tipo="Fratellastri (stessa madre)";
-      }
-      if(tipo) rischi.push({m,f,tipo});
+function categoriaEtàExp(specie, etaAllInizio, giorni) {
+  if(!UBA_FASCE_EXP[specie]) return "—";
+  const etaFinale = etaAllInizio + giorni;
+  for(const {fino, label} of UBA_FASCE_EXP[specie]) if(etaFinale < fino) return label;
+  return UBA_FASCE_EXP[specie].at(-1).label;
+}
+
+function categoriaContabileExp(animale) {
+  if(animale.stato === "attivo") return animale.riproduttore ? "riproduttore" : "produttivo";
+  const motivo = (animale.motivo_uscita||"").toLowerCase();
+  const isProduttivo = MOTIVI_PRODUTTIVI_EXP.some(k => motivo.includes(k));
+  if(isProduttivo) return animale.riproduttore ? "riproduttore" : "produttivo";
+  return "improduttivo_uscito";
+}
+
+// Colonne UBA complete (allineate al modulo v54)
+const COL_UBA = [
+  {key:"BDN",                    label:"BDN / Matricola",           width:20, bold:true},
+  {key:"NUMERO CAPI",            label:"N° Capi",                   width:9,  center:true, num:true},
+  {key:"Nome",                   label:"Nome",                      width:18},
+  {key:"Specie",                 label:"Specie",                    width:10, center:true},
+  {key:"Razza",                  label:"Razza",                     width:16},
+  {key:"Categoria età",          label:"Categoria età",             width:22},
+  {key:"Data nascita",           label:"Data nascita",              width:13, center:true},
+  {key:"Inizio periodo",         label:"Inizio periodo",            width:13, center:true},
+  {key:"Fine periodo",           label:"Fine periodo",              width:13, center:true},
+  {key:"Giorni",                 label:"Giorni",                    width:8,  center:true, num:true},
+  {key:"UBA medio",              label:"UBA medio",                 width:11, num:true},
+  {key:"UBA-giorni",             label:"UBA-giorni",                width:12, num:true, bold:true},
+  {key:"Categoria contabile",    label:"Categoria contabile",       width:20},
+  {key:"Qualifica",              label:"Qualifica",                 width:16},
+  {key:"Motivo uscita",          label:"Motivo uscita",             width:20},
+  {key:"Costo iniziale",         label:"Costo iniziale (€)",        width:14, cur:true},
+  {key:"Tipo costo iniziale",    label:"Tipo costo iniziale",       width:18},
+  {key:"Costi mant. cumulati",   label:"Costi mant. cumulati (€)",  width:16, cur:true},
+  {key:"V(t) riforma",           label:"V(t) riforma stimato (€)",  width:16, cur:true},
+  {key:"Quota scaricata figli",  label:"Quota scaricata figli (€)", width:16, cur:true},
+  {key:"Costo netto residuo",    label:"Costo netto residuo (€)",   width:16, cur:true, bold:true},
+  {key:"Lotto",                  label:"Lotto",                     width:12, center:true},
+];
+
+const COL_RIEP = [
+  {key:"Specie",             label:"Specie",             width:22, bold:true},
+  {key:"Categoria",          label:"Categoria",          width:24},
+  {key:"N° Capi",            label:"N° Capi",            width:10, center:true, num:true},
+  {key:"UBA medio unitario", label:"UBA medio unitario", width:16, num:true},
+  {key:"UBA-giorni totali",  label:"UBA-giorni totali",  width:16, num:true, bold:true},
+];
+
+// Costruzione righe per anno (accetta anno opzionale, default anno corrente)
+function fogli_uba(animali, lotti, suiniLotto, prezziRiforma, annoRif) {
+  const anno = annoRif || new Date().getFullYear();
+  const righe = [];
+
+  for(const a of animali) {
+    if(!a.specie || !UBA_FASCE_EXP[a.specie]) continue;
+    const nascita = a.nascita || a.data_ingresso;
+    if(!nascita) continue;
+    const periodo = periodoNellAnnoExp(nascita, a.data_uscita, a.stato, anno);
+    if(!periodo) continue;
+    const uba = calcolaUBAMedioExp(a.specie, periodo.giorni, periodo.etaAllInizio);
+    if(!uba) continue;
+    const ubaGiorni = Math.round(uba * periodo.giorni * 1000) / 1000;
+    const cat = categoriaContabileExp(a);
+
+    const prezzo = (prezziRiforma||[]).find(p => p.specie===a.specie && p.razza===(a.razza_calcolata||a.razza));
+    const pesoStimato = a.peso_attuale || a.peso_vivo_uscita || 0;
+    const vRiforma = prezzo && pesoStimato
+      ? Math.round(pesoStimato * prezzo.prezzo_kg_vivo * (prezzo.resa_percentuale/100) * 100) / 100
+      : 0;
+
+    const costoIniz = a.costo_iniziale || 0;
+    const mantCum   = a.costi_mantenimento_cumulati || 0;
+    const quotaFig  = a.quota_scaricata_figli || 0;
+    const costoNetto = Math.max(0, costoIniz + mantCum - quotaFig - vRiforma);
+
+    righe.push({
+      "_categoria_key": cat,
+      "BDN": a.bdn||"",
+      "NUMERO CAPI": "",
+      "Nome": a.nome||"",
+      "Specie": a.specie,
+      "Razza": a.razza_calcolata||a.razza||"",
+      "Categoria età": categoriaEtàExp(a.specie, periodo.etaAllInizio, periodo.giorni),
+      "Data nascita": nascita,
+      "Inizio periodo": periodo.inizio,
+      "Fine periodo": periodo.fine,
+      "Giorni": periodo.giorni,
+      "UBA medio": uba,
+      "UBA-giorni": ubaGiorni,
+      "Categoria contabile": cat,
+      "Qualifica": a.riproduttore ? (a.sesso==="M"?"Riproduttore":"Riproduttrice") : "",
+      "Motivo uscita": a.motivo_uscita||"",
+      "Costo iniziale": costoIniz,
+      "Tipo costo iniziale": a.tipo_costo_iniziale||"",
+      "Costi mant. cumulati": mantCum,
+      "V(t) riforma": vRiforma,
+      "Quota scaricata figli": quotaFig,
+      "Costo netto residuo": costoNetto,
+      "Lotto": "",
+    });
+  }
+
+  // Suini da lotto
+  for(const l of lotti) {
+    if(!l.data_parto) continue;
+    const codLotto = l.codice_lotto||l.codice||"";
+    for(const u of suiniLotto.filter(x=>x.lotto_id===l.id)) {
+      if(u.stato==="registrato_individuale") continue;
+      const finto = {
+        nascita: l.data_parto,
+        data_uscita: u.data_uscita,
+        stato: u.stato==="attivo" ? "attivo" : "uscito",
+        motivo_uscita: u.motivo_uscita,
+        riproduttore: false,
+      };
+      const periodo = periodoNellAnnoExp(finto.nascita, finto.data_uscita, finto.stato, anno);
+      if(!periodo) continue;
+      const uba = calcolaUBAMedioExp("suino", periodo.giorni, periodo.etaAllInizio);
+      if(!uba) continue;
+      const ubaGiorni = Math.round(uba * periodo.giorni * 1000) / 1000;
+      const cat = categoriaContabileExp(finto);
+      const codice = u.codice_completo || `${codLotto}${String(u.nr).padStart(2,"0")}`;
+
+      righe.push({
+        "_categoria_key": cat,
+        "BDN": codice,
+        "NUMERO CAPI": "",
+        "Nome": "",
+        "Specie": "suino",
+        "Razza": l.razza_madre||"",
+        "Categoria età": categoriaEtàExp("suino", periodo.etaAllInizio, periodo.giorni),
+        "Data nascita": l.data_parto,
+        "Inizio periodo": periodo.inizio,
+        "Fine periodo": periodo.fine,
+        "Giorni": periodo.giorni,
+        "UBA medio": uba,
+        "UBA-giorni": ubaGiorni,
+        "Categoria contabile": cat,
+        "Qualifica": "",
+        "Motivo uscita": u.motivo_uscita||"",
+        "Costo iniziale": 0,
+        "Tipo costo iniziale": "pre_migrazione",
+        "Costi mant. cumulati": 0,
+        "V(t) riforma": 0,
+        "Quota scaricata figli": 0,
+        "Costo netto residuo": 0,
+        "Lotto": codLotto,
+      });
     }
   }
-  return rischi;
-}
 
-function analizzaCapiInconsanguinei(animali) {
-  const result = [];
-  for(const a of animali){
-    if(a.stato!=="attivo"||a.vivo===false) continue;
-    if(!a.padre_id||!a.madre_id) continue;
-    const padre = animali.find(x=>x.id===a.padre_id);
-    const madre = animali.find(x=>x.id===a.madre_id);
-    if(!padre||!madre) continue;
-    let tipo=null;
-    if(madre.padre_id===padre.id) tipo="Padre × Figlia";
-    else if(padre.madre_id===madre.id) tipo="Madre × Figlio";
-    else {
-      const stessoPadre = padre.padre_id&&madre.padre_id&&padre.padre_id===madre.padre_id;
-      const stessaMadre = padre.madre_id&&madre.madre_id&&padre.madre_id===madre.madre_id;
-      if(stessoPadre&&stessaMadre) tipo="Genitori fratelli pieni";
-      else if(stessoPadre||stessaMadre) tipo="Genitori fratellastri";
-    }
-    if(tipo) result.push({a,padre,madre,tipo});
-  }
-  return result;
-}
+  // Riepilogo per specie e categoria
+  const riepilogo = [];
+  ["bovino","suino","ovino"].forEach(sp => {
+    const rSp = righe.filter(r=>r.Specie===sp);
+    if(!rSp.length) return;
+    ["produttivo","riproduttore","improduttivo_uscito"].forEach(cat => {
+      const rCat = rSp.filter(r=>r["_categoria_key"]===cat);
+      if(!rCat.length) return;
+      riepilogo.push({
+        "Specie": sp,
+        "Categoria": cat,
+        "N° Capi": rCat.length,
+        "UBA medio unitario": Math.round(rCat.reduce((s,r)=>s+r["UBA medio"],0)/rCat.length*1000)/1000,
+        "UBA-giorni totali": Math.round(rCat.reduce((s,r)=>s+r["UBA-giorni"],0)*1000)/1000,
+      });
+    });
+    riepilogo.push({
+      "Specie": sp.toUpperCase()+" TOTALE",
+      "Categoria": "",
+      "N° Capi": rSp.length,
+      "UBA medio unitario": "",
+      "UBA-giorni totali": Math.round(rSp.reduce((s,r)=>s+r["UBA-giorni"],0)*1000)/1000,
+    });
+  });
+  riepilogo.push({
+    "Specie": "TOTALE AZIENDALE",
+    "Categoria": "",
+    "N° Capi": righe.length,
+    "UBA medio unitario": "",
+    "UBA-giorni totali": Math.round(righe.reduce((s,r)=>s+r["UBA-giorni"],0)*1000)/1000,
+  });
 
-function foglio_consang_rischi(animali) {
-  const rischi = analizzaAccoppiamentiRischio(animali);
-  const righe = rischi.map(r=>({
-    "Specie": r.m.specie,
-    "Tipo rischio": r.tipo,
-    "Maschio BDN": r.m.bdn||"",
-    "Maschio Nome": r.m.nome||"",
-    "Maschio Razza": r.m.razza_calcolata||r.m.razza||"",
-    "Femmina BDN": r.f.bdn||"",
-    "Femmina Nome": r.f.nome||"",
-    "Femmina Razza": r.f.razza_calcolata||r.f.razza||"",
-  }));
-  if(righe.length===0) righe.push({"Info":"Nessun accoppiamento a rischio rilevato — bene!"});
-  const ws = XLSX.utils.json_to_sheet(righe);
-  ws["!cols"] = [{wch:10},{wch:24},{wch:20},{wch:18},{wch:18},{wch:20},{wch:18},{wch:18}];
-  return ws;
-}
+  // Righe TOTALE per specie (aggiunte alla fine di ogni foglio specie)
+  const rigaTotale = (label, arr) => ({
+    "_categoria_key": "totale",
+    "BDN": label,
+    "NUMERO CAPI": arr.length,
+    "Nome":"","Specie":"","Razza":"","Categoria età":"","Data nascita":"",
+    "Inizio periodo":"","Fine periodo":"","Giorni":"","UBA medio":"",
+    "UBA-giorni": Math.round(arr.reduce((s,r)=>s+r["UBA-giorni"],0)*1000)/1000,
+    "Categoria contabile":"","Qualifica":"","Motivo uscita":"",
+    "Costo iniziale": Math.round(arr.reduce((s,r)=>s+(r["Costo iniziale"]||0),0)*100)/100,
+    "Tipo costo iniziale":"",
+    "Costi mant. cumulati": Math.round(arr.reduce((s,r)=>s+(r["Costi mant. cumulati"]||0),0)*100)/100,
+    "V(t) riforma": Math.round(arr.reduce((s,r)=>s+(r["V(t) riforma"]||0),0)*100)/100,
+    "Quota scaricata figli": Math.round(arr.reduce((s,r)=>s+(r["Quota scaricata figli"]||0),0)*100)/100,
+    "Costo netto residuo": Math.round(arr.reduce((s,r)=>s+(r["Costo netto residuo"]||0),0)*100)/100,
+    "Lotto":"",
+  });
 
-function foglio_consang_capi(animali) {
-  const capi = analizzaCapiInconsanguinei(animali);
-  const righe = capi.map(x=>({
-    "Specie": x.a.specie,
-    "BDN": x.a.bdn||"",
-    "Nome": x.a.nome||"",
-    "Sesso": x.a.sesso,
-    "Razza calcolata": x.a.razza_calcolata||x.a.razza||"",
-    "Data nascita": x.a.nascita||"",
-    "Tipo consanguineità": x.tipo,
-    "Padre BDN": x.padre.bdn||"",
-    "Padre Nome": x.padre.nome||"",
-    "Madre BDN": x.madre.bdn||"",
-    "Madre Nome": x.madre.nome||"",
-  }));
-  if(righe.length===0) righe.push({"Info":"Nessun capo con consanguineità nella genealogia — bene!"});
-  const ws = XLSX.utils.json_to_sheet(righe);
-  ws["!cols"] = [{wch:10},{wch:20},{wch:18},{wch:8},{wch:18},{wch:12},{wch:26},{wch:20},{wch:18},{wch:20},{wch:18}];
-  return ws;
+  const righeBov = righe.filter(r=>r.Specie==="bovino");
+  const righeOv  = righe.filter(r=>r.Specie==="ovino");
+  const righeSu  = righe.filter(r=>r.Specie==="suino");
+
+  return {
+    riepilogo,
+    dettaglio: [...righe, rigaTotale("TOTALE AZIENDALE", righe)],
+    bovini:    [...righeBov, rigaTotale("TOTALE BOVINI", righeBov)],
+    ovini:     [...righeOv,  rigaTotale("TOTALE OVINI",  righeOv)],
+    suini:     [...righeSu,  rigaTotale("TOTALE SUINI E LOTTI", righeSu)],
+    anno,
+  };
 }
 
 // ─── SEZIONI DISPONIBILI ──────────────────────────────────────────────────────
@@ -850,8 +847,9 @@ export default function ExportManager() {
         {data:animali},{data:sanitari},{data:alim},{data:evRiprod},
         {data:costiAnim},{data:costiGen},{data:macchinari},
         {data:lotti},{data:suiniLotto}
-      ] = await Promise.all([
-        supabase.from("animali").select("id,bdn,nome,specie,sesso,nascita,stato,data_uscita,motivo_uscita,data_ingresso,razza,razza_calcolata,categoria,peso_nascita,peso_attuale,provenienza,origine,prezzo_acquisto,lotto_box,destinazione,resa_percent,peso_carcassa,peso_vivo_uscita,note_sanitarie,note,riproduttore,data_registrazione_bdn,padre_id,madre_id").order("specie").order("nome"),
+      ,{data:prezziRif}] = await Promise.all([
+        supabase.from("animali").select("id,bdn,nome,specie,sesso,nascita,stato,data_uscita,motivo_uscita,data_ingresso,razza,razza_calcolata,categoria,peso_nascita,peso_attuale,provenienza,origine,prezzo_acquisto,lotto_box,destinazione,resa_percent,peso_carcassa,peso_vivo_uscita,note_sanitarie,note,riproduttore,data_registrazione_bdn,padre_id,madre_id,costo_iniziale,tipo_costo_iniziale,costi_mantenimento_cumulati,quota_scaricata_figli,valore_v_riforma,categoria_contabile").order("specie").order("nome"),
+        supabase.from("prezzi_riforma").select("*"),
         supabase.from("eventi_sanitari").select("*").order("data",{ascending:false}),
         supabase.from("alimentazione").select("*").order("data",{ascending:false}),
         supabase.from("eventi_riproduttivi").select("*").order("data_evento",{ascending:false}),
@@ -906,7 +904,7 @@ export default function ExportManager() {
         XLSX.utils.book_append_sheet(wb, foglio_macchinari(macchinari||[]), "Macchinari");
       if(sel.has("uba_riepilogo")||sel.has("uba_dettaglio")||
          sel.has("uba_bovini")||sel.has("uba_ovini")||sel.has("uba_suini")){
-        const ubaData=fogli_uba(an,lotti||[],suiniLotto||[]);
+        const ubaData=fogli_uba(an,lotti||[],suiniLotto||[],prezziRif||[]);
         if(sel.has("uba_riepilogo"))
           XLSX.utils.book_append_sheet(wb,creaSheetFormattato(ubaData.riepilogo,COL_RIEP),"UBA Riepilogo");
         if(sel.has("uba_dettaglio"))
