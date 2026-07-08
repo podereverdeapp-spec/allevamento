@@ -794,6 +794,70 @@ function fogli_uba(animali, lotti, suiniLotto, prezziRiforma, annoRif) {
   };
 }
 
+// ─── SCADENZE RICHIAMI SANITARI ────────────────────────────────────────────
+function foglio_scadenze(eventi, animali, tipo) {
+  // tipo: "scaduti" | "imminenti" | "programmati"
+  const oggi = new Date(today());
+  const in30 = new Date(oggi); in30.setDate(oggi.getDate()+30);
+  const in90 = new Date(oggi); in90.setDate(oggi.getDate()+90);
+
+  const filtrati = (eventi||[]).filter(e => {
+    if (!e.scadenza) return false;
+    const sc = new Date(e.scadenza);
+    if (tipo === "scaduti") return sc < oggi;
+    if (tipo === "imminenti") return sc >= oggi && sc <= in30;
+    if (tipo === "programmati") return sc > in30 && sc <= in90;
+    return false;
+  }).sort((a,b) => new Date(a.scadenza) - new Date(b.scadenza));
+
+  const righe = filtrati.map(e => {
+    const a = e.animale_id ? animali.find(x=>x.id===e.animale_id) : null;
+    const gg = Math.round((new Date(e.scadenza) - oggi)/86400000);
+    return {
+      "Data scadenza":   e.scadenza,
+      "Giorni":          tipo === "scaduti" ? -gg : gg,
+      "Stato":           tipo === "scaduti" ? `Scaduto da ${-gg} gg` : `Tra ${gg} gg`,
+      "BDN":             a?a.bdn:"—",
+      "Nome":            a?a.nome:"",
+      "Specie":          a?a.specie:"",
+      "Tipo evento":     e.tipo||"",
+      "Descrizione":     e.descrizione||"",
+      "Prodotto":        e.prodotto||"",
+      "Veterinario":     e.veterinario||"",
+      "Data ultimo":     e.data||"",
+      "Costo (€)":       e.costo||"",
+    };
+  });
+
+  if (righe.length === 0) {
+    righe.push({
+      "Data scadenza":"","Giorni":"","Stato":"","BDN":"","Nome":"","Specie":"",
+      "Tipo evento":"","Descrizione": tipo==="scaduti"
+        ? "✓ Nessun richiamo scaduto — tutto in regola"
+        : tipo==="imminenti"
+          ? "✓ Nessun richiamo in scadenza nei prossimi 30 giorni"
+          : "✓ Nessun richiamo programmato tra 30 e 90 giorni",
+      "Prodotto":"","Veterinario":"","Data ultimo":"","Costo (€)":"",
+    });
+  }
+
+  return creaFoglio(righe, [
+    {key:"Data scadenza", label:"Data scadenza",  width:13, center:true, bold:true},
+    {key:"Giorni",        label:"Giorni",         width:8,  num:true, center:true},
+    {key:"Stato",         label:"Stato",          width:16, bold:true},
+    {key:"BDN",           label:"BDN",            width:20},
+    {key:"Nome",          label:"Nome",           width:16},
+    {key:"Specie",        label:"Specie",         width:10, center:true},
+    {key:"Tipo evento",   label:"Tipo evento",    width:16},
+    {key:"Descrizione",   label:"Descrizione",    width:26},
+    {key:"Prodotto",      label:"Prodotto",       width:18},
+    {key:"Veterinario",   label:"Veterinario",    width:18},
+    {key:"Data ultimo",   label:"Data ultimo trattamento", width:14, center:true},
+    {key:"Costo (€)",     label:"Costo (€)",      width:12, cur:true, sumTotale:true},
+  ], {totale:filtrati.length>0, contaRighe:true,
+    totaleLabel: tipo==="scaduti"?"TOTALE SCADUTI":tipo==="imminenti"?"TOTALE IMMINENTI (30gg)":"TOTALE PROGRAMMATI (30-90gg)"});
+}
+
 // ─── CONSANGUINEITÀ ─────────────────────────────────────────────────────────
 function analizzaAccoppiamentiRischio(animali) {
   const attivi = animali.filter(a=>a.stato==="attivo"&&a.vivo!==false);
@@ -938,6 +1002,9 @@ const SEZIONI = [
   { id:"uba_bovini",         label:"UBA — Bovini",              icon:"🐄", gruppo:"UBA" },
   { id:"uba_ovini",          label:"UBA — Ovini",               icon:"🐑", gruppo:"UBA" },
   { id:"uba_suini",          label:"UBA — Suini e Lotti",       icon:"🐷", gruppo:"UBA" },
+  { id:"scadenze_scaduti",   label:"Richiami SCADUTI",          icon:"⚠️", gruppo:"SCADENZE SANITARIE" },
+  { id:"scadenze_imminenti", label:"Richiami in scadenza 30gg", icon:"⏰", gruppo:"SCADENZE SANITARIE" },
+  { id:"scadenze_programmati",label:"Richiami programmati 30-90gg",icon:"📅",gruppo:"SCADENZE SANITARIE" },
   { id:"consang_rischi",     label:"Accoppiamenti a rischio",   icon:"⚠️", gruppo:"CONSANGUINEITÀ" },
   { id:"consang_capi",       label:"Capi con genealogia consanguinea", icon:"🧬", gruppo:"CONSANGUINEITÀ" },
 ];
@@ -1037,6 +1104,12 @@ export default function ExportManager() {
         if(sel.has("uba_suini"))
           XLSX.utils.book_append_sheet(wb,creaSheetFormattato(ubaData.suini,COL_UBA),"UBA SUINI e LOTTI");
       }
+      if(sel.has("scadenze_scaduti"))
+        XLSX.utils.book_append_sheet(wb, foglio_scadenze(sanitari, an, "scaduti"), "Richiami scaduti");
+      if(sel.has("scadenze_imminenti"))
+        XLSX.utils.book_append_sheet(wb, foglio_scadenze(sanitari, an, "imminenti"), "Richiami imminenti 30gg");
+      if(sel.has("scadenze_programmati"))
+        XLSX.utils.book_append_sheet(wb, foglio_scadenze(sanitari, an, "programmati"), "Richiami programmati 30-90gg");
       if(sel.has("consang_rischi"))
         XLSX.utils.book_append_sheet(wb, foglio_consang_rischi(an), "Accoppiamenti a rischio");
       if(sel.has("consang_capi"))

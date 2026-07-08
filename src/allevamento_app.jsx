@@ -1874,10 +1874,35 @@ function Sanitario({animali,eventi,loading,aggiungi}){
                   const a = animali.find(x=>x.id===e.animale_id);
                   const gg = Math.round((oggi - new Date(e.scadenza))/86400000);
                   return (
-                    <div key={e.id} style={{fontSize:12,padding:"4px 0",
-                      borderTop:`1px solid ${C.red}22`}}>
-                      <b>{e.descrizione}</b> — {a?(a.nome||a.bdn):"Lotto"} —
-                      <span style={{color:C.red,fontWeight:700}}> scaduto da {gg} giorni</span>
+                    <div key={e.id} style={{fontSize:12,padding:"6px 0",
+                      borderTop:`1px solid ${C.red}22`,
+                      display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
+                      <div style={{flex:1,minWidth:0}}>
+                        <b>{e.descrizione}</b>
+                        <div style={{fontSize:11,color:C.muted}}>
+                          {a?(a.nome||a.bdn):"Lotto"} · <span style={{color:C.red,fontWeight:700}}>scaduto da {gg} giorni</span>
+                        </div>
+                      </div>
+                      <button onClick={()=>{
+                        // Precompila form con dati dell'evento originale
+                        setForm({
+                          animale_id: e.animale_id||"",
+                          tipo: e.tipo==="vaccino"?"richiamo vaccinale":e.tipo,
+                          descrizione: `Richiamo: ${e.descrizione}`,
+                          data: today(),
+                          veterinario: e.veterinario||"",
+                          prodotto: e.prodotto||"",
+                          scadenza: "",
+                          costo: e.costo||"",
+                          _evento_originale_id: e.id,
+                        });
+                        setFiltroSpecieSingolo("tutti");
+                      }}
+                        style={{background:C.red,color:"#FFF",border:"none",
+                          borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:600,
+                          cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>
+                        ✓ Registra
+                      </button>
                     </div>
                   );
                 })}
@@ -1896,12 +1921,36 @@ function Sanitario({animali,eventi,loading,aggiungi}){
                   const gg = Math.round((new Date(e.scadenza) - oggi)/86400000);
                   const urgColor = gg<=7 ? C.red : gg<=15 ? C.yellow : C.muted;
                   return (
-                    <div key={e.id} style={{fontSize:12,padding:"4px 0",
-                      borderTop:`1px solid ${C.yellow}33`}}>
-                      <b>{e.descrizione}</b> — {a?(a.nome||a.bdn):"Lotto"} —
-                      <span style={{color:urgColor,fontWeight:700}}>
-                        {" "}tra {gg} {gg===1?"giorno":"giorni"} ({e.scadenza})
-                      </span>
+                    <div key={e.id} style={{fontSize:12,padding:"6px 0",
+                      borderTop:`1px solid ${C.yellow}33`,
+                      display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
+                      <div style={{flex:1,minWidth:0}}>
+                        <b>{e.descrizione}</b>
+                        <div style={{fontSize:11,color:C.muted}}>
+                          {a?(a.nome||a.bdn):"Lotto"} · <span style={{color:urgColor,fontWeight:700}}>
+                            tra {gg} {gg===1?"giorno":"giorni"} ({e.scadenza})
+                          </span>
+                        </div>
+                      </div>
+                      <button onClick={()=>{
+                        setForm({
+                          animale_id: e.animale_id||"",
+                          tipo: e.tipo==="vaccino"?"richiamo vaccinale":e.tipo,
+                          descrizione: `Richiamo: ${e.descrizione}`,
+                          data: today(),
+                          veterinario: e.veterinario||"",
+                          prodotto: e.prodotto||"",
+                          scadenza: "",
+                          costo: e.costo||"",
+                          _evento_originale_id: e.id,
+                        });
+                        setFiltroSpecieSingolo("tutti");
+                      }}
+                        style={{background:urgColor,color:"#FFF",border:"none",
+                          borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:600,
+                          cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>
+                        ✓ Registra
+                      </button>
                     </div>
                   );
                 })}
@@ -2535,10 +2584,21 @@ export default function AllevamentoApp(){
   const{eventi:riproduttivi,loading:loadR,carica:ricaricaEventiRip,aggiungi:addEvRip,aggiorna:updEvRip,elimina:delEvRip}=useEventiRiproduttivi();
   const{scorte:magazzino,loading:loadM,aggiungi:addM,aggiorna:updM}=useMagazzino();
 
+  // Calcolo scadenze richiami per badge notifica
+  const oggiTS = today();
+  const oggiDate = new Date(oggiTS);
+  const in30ggDate = new Date(oggiDate); in30ggDate.setDate(oggiDate.getDate()+30);
+  const nScadenze = sanitari.filter(e =>
+    e.scadenza && (new Date(e.scadenza) < oggiDate || new Date(e.scadenza) <= in30ggDate)
+  ).length;
+  const nScaduti = sanitari.filter(e =>
+    e.scadenza && new Date(e.scadenza) < oggiDate
+  ).length;
+
   const TABS=[
     {id:"dashboard",   label:"Home",   icon:"🏠"},
     {id:"anagrafica",  label:"Animali",icon:"🏷️"},
-    {id:"sanitario",   label:"Salute", icon:"💉"},
+    {id:"sanitario",   label:"Salute", icon:"💉", badge:nScadenze, badgeUrgente:nScaduti>0},
     {id:"alimentazione",label:"Dieta", icon:"🌾"},
     {id:"magazzino",   label:"Magazz.",icon:"📦"},
     {id:"report",      label:"Report", icon:"📊"},
@@ -2573,8 +2633,17 @@ export default function AllevamentoApp(){
           <button key={t.id} onClick={()=>setTab(t.id)}
             style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,
               background:"none",border:"none",cursor:"pointer",padding:"4px 6px",minWidth:50}}>
-            <div style={{background:tab===t.id?C.primary+"18":"transparent",borderRadius:10,padding:"6px 8px"}}>
+            <div style={{background:tab===t.id?C.primary+"18":"transparent",borderRadius:10,padding:"6px 8px",position:"relative"}}>
               <span style={{fontSize:18}}>{t.icon}</span>
+              {t.badge>0&&(
+                <span style={{position:"absolute",top:-2,right:-4,
+                  background:t.badgeUrgente?C.red:C.yellow,color:"#FFF",
+                  fontSize:9,fontWeight:800,borderRadius:10,
+                  minWidth:16,height:16,display:"flex",alignItems:"center",justifyContent:"center",
+                  padding:"0 4px",border:"2px solid #FFF"}}>
+                  {t.badge}
+                </span>
+              )}
             </div>
             <span style={{fontSize:10,fontWeight:tab===t.id?700:500,
               color:tab===t.id?C.primary:C.muted}}>{t.label}</span>
