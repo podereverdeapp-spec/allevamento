@@ -1633,6 +1633,8 @@ function Sanitario({animali,eventi,loading,aggiungi}){
   const [modGruppo,setModGruppo]=useState(false);
   const [selezionati,setSelezionati]=useState([]);
   const [cercaGruppo,setCercaGruppo]=useState("");
+  const [filtroSpecieGruppo,setFiltroSpecieGruppo]=useState("tutti"); // tutti|bovino|suino|ovino
+  const [filtroSpecieSingolo,setFiltroSpecieSingolo]=useState("tutti");
   const [formGruppo,setFormGruppo]=useState(null);
   const [savingGruppo,setSavingGruppo]=useState(false);
   // Modalità lotto suini
@@ -1659,10 +1661,29 @@ function Sanitario({animali,eventi,loading,aggiungi}){
         <button onClick={()=>setForm(null)} style={{background:"none",border:"none",cursor:"pointer",fontSize:22}}>←</button>
         <span style={{fontSize:18,fontWeight:800}}>Nuovo evento sanitario</span>
       </div>
+      {/* Filtri specie per singolo */}
+      <div style={{fontSize:12,color:C.muted,marginBottom:4,marginTop:6,fontWeight:600}}>Filtra per specie:</div>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:10}}>
+        {[
+          {v:"tutti",l:"🐾 Tutti",c:C.primary},
+          {v:"bovino",l:"🐄 Bovini",c:"#8B6914"},
+          {v:"suino",l:"🐷 Suini",c:"#B5547A"},
+          {v:"ovino",l:"🐑 Ovini",c:"#4A7C59"},
+        ].map(x=>(
+          <button key={x.v} onClick={()=>setFiltroSpecieSingolo(x.v)}
+            style={{background:filtroSpecieSingolo===x.v?x.c:C.card,
+              color:filtroSpecieSingolo===x.v?"#FFF":C.muted,
+              border:`1.5px solid ${filtroSpecieSingolo===x.v?x.c:C.border}`,
+              borderRadius:20,padding:"5px 12px",fontSize:12,fontWeight:600,cursor:"pointer"}}>
+            {x.l}
+          </button>
+        ))}
+      </div>
       <Field label="Animale" value={form.animale_id} onChange={v=>setForm(f=>({...f,animale_id:v}))}
-        options={animali.filter(a=>a.stato==="attivo").map(a=>({value:a.id,label:`${a.nome||a.bdn} (${specieLabel(a.specie)})`}))} required/>
+        options={animali.filter(a=>a.stato==="attivo"&&(filtroSpecieSingolo==="tutti"||a.specie===filtroSpecieSingolo))
+          .map(a=>({value:a.id,label:`${a.nome||a.bdn} (${specieLabel(a.specie)})`}))} required/>
       <Field label="Tipo" value={form.tipo} onChange={v=>setForm(f=>({...f,tipo:v}))}
-        options={["vaccino","farmaco","visita","intervento","altro"]}/>
+        options={["vaccino","richiamo vaccinale","farmaco","antiparassitario","visita","intervento chirurgico","diagnostica","gravidanza","malattia","cura","altro"]}/>
       <Field label="Descrizione" value={form.descrizione} onChange={v=>setForm(f=>({...f,descrizione:v}))} required/>
       <Field label="Data" value={form.data} onChange={v=>setForm(f=>({...f,data:v}))} type="date"/>
       <Field label="Veterinario" value={form.veterinario} onChange={v=>setForm(f=>({...f,veterinario:v}))}/>
@@ -1675,7 +1696,19 @@ function Sanitario({animali,eventi,loading,aggiungi}){
       </div>
     </div>
   );
-  const tipoColor={vaccino:C.green,farmaco:C.blue,visita:C.yellow,intervento:C.red,altro:C.muted};
+  const tipoColor={
+    vaccino:C.green,
+    "richiamo vaccinale":"#7FA96B",
+    farmaco:C.blue,
+    antiparassitario:"#8B7FBA",
+    visita:C.yellow,
+    "intervento chirurgico":C.red,
+    diagnostica:"#3B9EAA",
+    gravidanza:"#D9628F",
+    malattia:"#B8395C",
+    cura:"#F5A623",
+    altro:C.muted
+  };
 
   // Carica lotti quando si apre la modal lotto
   const caricaLotti=async()=>{
@@ -1738,6 +1771,7 @@ function Sanitario({animali,eventi,loading,aggiungi}){
 
   const animaliGruppo=animali.filter(a=>{
     if(a.stato!=="attivo") return false;
+    if(filtroSpecieGruppo!=="tutti"&&a.specie!==filtroSpecieGruppo) return false;
     if(!cercaGruppo.trim()) return true;
     const q=cercaGruppo.trim().toLowerCase();
     return (a.bdn||"").toLowerCase().includes(q)||
@@ -1903,7 +1937,7 @@ function Sanitario({animali,eventi,loading,aggiungi}){
                   </div>
                   {[
                     ["Tipo",formGruppo.tipo,v=>setFormGruppo(f=>({...f,tipo:v})),
-                      ["vaccino","farmaco","visita","intervento","altro"]],
+                      ["vaccino","richiamo vaccinale","farmaco","antiparassitario","visita","intervento chirurgico","diagnostica","gravidanza","malattia","cura","altro"]],
                     ["Descrizione *",formGruppo.descrizione,v=>setFormGruppo(f=>({...f,descrizione:v})),null],
                     ["Data",formGruppo.data,v=>setFormGruppo(f=>({...f,data:v})),"date"],
                     ["Prodotto",formGruppo.prodotto,v=>setFormGruppo(f=>({...f,prodotto:v})),null],
@@ -1969,6 +2003,31 @@ function Sanitario({animali,eventi,loading,aggiungi}){
               <div style={{fontSize:13,fontWeight:700,color:C.primary,marginBottom:8}}>
                 STEP 1 — Seleziona gli animali ({selezionati.length} selezionati)
               </div>
+              {/* Filtro specie */}
+              <div style={{fontSize:11,color:C.muted,marginBottom:4,fontWeight:600}}>Filtra per specie:</div>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>
+                {[
+                  {v:"tutti",l:"🐾 Tutti",c:C.primary},
+                  {v:"bovino",l:"🐄 Bovini",c:"#8B6914"},
+                  {v:"suino",l:"🐷 Suini",c:"#B5547A"},
+                  {v:"ovino",l:"🐑 Ovini",c:"#4A7C59"},
+                ].map(x=>{
+                  const n=x.v==="tutti"?animali.filter(a=>a.stato==="attivo").length
+                    :animali.filter(a=>a.stato==="attivo"&&a.specie===x.v).length;
+                  return (
+                    <button key={x.v} onClick={()=>{
+                        setFiltroSpecieGruppo(x.v);
+                        setSelezionati([]); // reset selezione quando cambio specie
+                      }}
+                      style={{background:filtroSpecieGruppo===x.v?x.c:C.card,
+                        color:filtroSpecieGruppo===x.v?"#FFF":C.muted,
+                        border:`1.5px solid ${filtroSpecieGruppo===x.v?x.c:C.border}`,
+                        borderRadius:20,padding:"4px 11px",fontSize:11,fontWeight:600,cursor:"pointer"}}>
+                      {x.l} ({n})
+                    </button>
+                  );
+                })}
+              </div>
               {/* Cerca */}
               <div style={{position:"relative",marginBottom:10}}>
                 <span style={{position:"absolute",left:10,top:"50%",
@@ -2031,7 +2090,7 @@ function Sanitario({animali,eventi,loading,aggiungi}){
               </div>
               <Field label="Tipo evento" value={formGruppo.tipo}
                 onChange={v=>setFormGruppo(f=>({...f,tipo:v}))}
-                options={["vaccino","farmaco","visita","intervento","altro"]}/>
+                options={["vaccino","richiamo vaccinale","farmaco","antiparassitario","visita","intervento chirurgico","diagnostica","gravidanza","malattia","cura","altro"]}/>
               <Field label="Descrizione *" value={formGruppo.descrizione}
                 onChange={v=>setFormGruppo(f=>({...f,descrizione:v}))}
                 placeholder="Es. Vaccino IBR, Antiparassitario..." required/>
@@ -2144,6 +2203,8 @@ function Alimentazione({voci,loading,aggiungi,animali}){
   const [modGruppo,setModGruppo]=useState(false);
   const [selezionati,setSelezionati]=useState([]);
   const [cercaGruppo,setCercaGruppo]=useState("");
+  const [filtroSpecieGruppo,setFiltroSpecieGruppo]=useState("tutti"); // tutti|bovino|suino|ovino
+  const [filtroSpecieSingolo,setFiltroSpecieSingolo]=useState("tutti");
   const [formGruppo,setFormGruppo]=useState(null);
   const [savingGruppo,setSavingGruppo]=useState(false);
   // Modalità lotto suini
