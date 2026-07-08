@@ -255,10 +255,34 @@ function Dashboard({animali,eventi_sanitari,magazzino,onNav,suiniLotto}){
   const suiniLottoAttivi=(suiniLotto||[]).filter(u=>u.vivo!==false&&u.stato==="attivo").length;
   const allerte=magazzino.filter(m=>m.quantita<=m.minimo);
   const ultimiSan=eventi_sanitari.slice(0,3);
+  // Scadenze richiami
+  const oggi=new Date(today());
+  const in30gg=new Date(oggi); in30gg.setDate(oggi.getDate()+30);
+  const richiamiScaduti=eventi_sanitari.filter(e=>e.scadenza&&new Date(e.scadenza)<oggi);
+  const richiamiImminenti=eventi_sanitari.filter(e=>e.scadenza&&new Date(e.scadenza)>=oggi&&new Date(e.scadenza)<=in30gg);
   return(
     <div style={{padding:"16px 16px 80px"}}>
       <div style={{fontSize:22,fontWeight:800,marginBottom:4}}>Buongiorno 👋</div>
       <div style={{fontSize:14,color:C.muted,marginBottom:20}}>{new Date().toLocaleDateString("it-IT",{weekday:"long",day:"numeric",month:"long"})}</div>
+      {/* Alert scadenze richiami */}
+      {(richiamiScaduti.length>0||richiamiImminenti.length>0)&&(
+        <Card style={{background:richiamiScaduti.length>0?C.red+"12":C.yellow+"14",
+          border:`1.5px solid ${richiamiScaduti.length>0?C.red+"44":C.yellow+"55"}`,
+          cursor:"pointer"}} onClick={()=>onNav&&onNav("sanitario")}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div>
+              <div style={{fontSize:13,fontWeight:700,color:richiamiScaduti.length>0?C.red:C.yellow,marginBottom:4}}>
+                {richiamiScaduti.length>0?"⚠️ Richiami sanitari SCADUTI":"⏰ Richiami sanitari in scadenza"}
+              </div>
+              <div style={{fontSize:12,color:C.text}}>
+                {richiamiScaduti.length>0&&<><b>{richiamiScaduti.length}</b> scaduti · </>}
+                <b>{richiamiImminenti.length}</b> in scadenza (30 gg)
+              </div>
+            </div>
+            <div style={{fontSize:18,color:C.muted}}>›</div>
+          </div>
+        </Card>
+      )}
       <Card style={{background:`linear-gradient(135deg,${C.primary},${C.accent})`}}>
         <div style={{color:"rgba(255,255,255,0.8)",fontSize:13,marginBottom:8}}>CAPI ATTIVI</div>
         <div style={{fontSize:36,fontWeight:800,color:"#FFF",marginBottom:12}}>{attivi.length}</div>
@@ -1797,12 +1821,21 @@ function Sanitario({animali,eventi,loading,aggiungi}){
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
         <span style={{fontSize:20,fontWeight:800}}>Registro Sanitario</span>
         <div style={{display:"flex",gap:8}}>
-          <Btn label="💉 Gruppo" onClick={()=>{setModGruppo(true);setFormGruppo({
+          <Btn label="🌾 Tutti" onClick={()=>{
+              setModGruppo(true);
+              setFiltroSpecieGruppo("tutti");
+              setSelezionati(animali.filter(a=>a.stato==="attivo").map(a=>a.id));
+              setFormGruppo({tipo:"vaccino",descrizione:"",data:today(),
+                veterinario:"",prodotto:"",scadenza:"",costo:""});}}
+            variant="outline" small/>
+          <Btn label="💉 Gruppo" onClick={()=>{setModGruppo(true);setSelezionati([]);setFormGruppo({
             tipo:"vaccino",descrizione:"",data:today(),
             veterinario:"",prodotto:"",scadenza:"",costo:""});}}
             variant="outline" small/>
-          <Btn label="🐷 Lotto" onClick={()=>{
+          <Btn label="🐷 Lotto suini" onClick={()=>{
             setModLotto(true);
+            setUnitaSel([]);
+            setLottoSel(null);
             setFormGruppo({tipo:"vaccino",descrizione:"",data:today(),
               veterinario:"",prodotto:"",scadenza:"",costo:""});
             caricaLotti();}}
@@ -1811,6 +1844,77 @@ function Sanitario({animali,eventi,loading,aggiungi}){
             descrizione:"",data:today(),veterinario:"",prodotto:"",scadenza:"",costo:""})} small/>
         </div>
       </div>
+
+      {/* ─── BOX SCADENZE RICHIAMI ─────────────────────────────────────────── */}
+      {(()=>{
+        const oggi = new Date(today());
+        const eventiConScadenza = eventi.filter(e => e.scadenza && new Date(e.scadenza) >= oggi);
+        // Ordino per scadenza crescente
+        eventiConScadenza.sort((a,b) => new Date(a.scadenza) - new Date(b.scadenza));
+        // Prossimi 30 giorni
+        const in30gg = new Date(oggi); in30gg.setDate(oggi.getDate()+30);
+        const imminenti = eventiConScadenza.filter(e => new Date(e.scadenza) <= in30gg);
+        // Scaduti
+        const scaduti = eventi.filter(e => e.scadenza && new Date(e.scadenza) < oggi)
+          .sort((a,b) => new Date(b.scadenza) - new Date(a.scadenza)).slice(0,5);
+
+        if (imminenti.length === 0 && scaduti.length === 0) return null;
+
+        return (
+          <div style={{marginBottom:14}}>
+            {scaduti.length>0&&(
+              <Card style={{background:C.red+"12",border:`1.5px solid ${C.red}44`}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                  <span style={{fontSize:20}}>⚠️</span>
+                  <span style={{fontWeight:700,color:C.red,fontSize:14}}>
+                    Richiami SCADUTI ({scaduti.length})
+                  </span>
+                </div>
+                {scaduti.map(e=>{
+                  const a = animali.find(x=>x.id===e.animale_id);
+                  const gg = Math.round((oggi - new Date(e.scadenza))/86400000);
+                  return (
+                    <div key={e.id} style={{fontSize:12,padding:"4px 0",
+                      borderTop:`1px solid ${C.red}22`}}>
+                      <b>{e.descrizione}</b> — {a?(a.nome||a.bdn):"Lotto"} —
+                      <span style={{color:C.red,fontWeight:700}}> scaduto da {gg} giorni</span>
+                    </div>
+                  );
+                })}
+              </Card>
+            )}
+            {imminenti.length>0&&(
+              <Card style={{background:C.yellow+"14",border:`1.5px solid ${C.yellow}55`}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                  <span style={{fontSize:20}}>⏰</span>
+                  <span style={{fontWeight:700,color:C.yellow,fontSize:14}}>
+                    Richiami in scadenza nei prossimi 30 giorni ({imminenti.length})
+                  </span>
+                </div>
+                {imminenti.slice(0,6).map(e=>{
+                  const a = animali.find(x=>x.id===e.animale_id);
+                  const gg = Math.round((new Date(e.scadenza) - oggi)/86400000);
+                  const urgColor = gg<=7 ? C.red : gg<=15 ? C.yellow : C.muted;
+                  return (
+                    <div key={e.id} style={{fontSize:12,padding:"4px 0",
+                      borderTop:`1px solid ${C.yellow}33`}}>
+                      <b>{e.descrizione}</b> — {a?(a.nome||a.bdn):"Lotto"} —
+                      <span style={{color:urgColor,fontWeight:700}}>
+                        {" "}tra {gg} {gg===1?"giorno":"giorni"} ({e.scadenza})
+                      </span>
+                    </div>
+                  );
+                })}
+                {imminenti.length>6&&(
+                  <div style={{fontSize:11,color:C.muted,marginTop:6,fontStyle:"italic"}}>
+                    ... e altri {imminenti.length-6} richiami
+                  </div>
+                )}
+              </Card>
+            )}
+          </div>
+        );
+      })()}
 
       {/* MODAL TRATTAMENTO SU LOTTO SUINI */}
       {modLotto&&formGruppo&&(
