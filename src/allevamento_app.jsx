@@ -881,6 +881,75 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
     const figli=animali.filter(x=>x.padre_id===a.id||x.madre_id===a.id);
     const mieEventi=eventiRiproduttivi.filter(e=>e.animale_id===a.id).sort((x,y)=>y.data_evento>x.data_evento?1:-1);
     const partiMadre=eventiRiproduttivi.filter(e=>e.animale_id===a.id&&e.tipo_evento==="parto");
+    // Eventi sanitari dell'animale
+    const mieiSanitari = (sanitari||[]).filter(e=>e.animale_id===a.id);
+
+    // ── TIMELINE UNIFICATA (parti + sanitari + nascita + uscita) ───────────
+    const timeline = [];
+    // Nascita/Ingresso
+    if(a.nascita) timeline.push({
+      _cat:"vita", _data:a.nascita, _icona:"🌱",
+      _colore:C.green, _tipo:"Nascita",
+      _titolo: `Nascita${a.data_registrazione_bdn?" (BDN: "+a.data_registrazione_bdn+")":""}`,
+      _dettaglio: a.peso_nascita ? `Peso alla nascita: ${a.peso_nascita} kg` : "",
+    });
+    if(a.data_ingresso&&a.data_ingresso!==a.nascita) timeline.push({
+      _cat:"vita", _data:a.data_ingresso, _icona:"📥",
+      _colore:C.blue, _tipo:"Ingresso in azienda",
+      _titolo:"Ingresso in azienda",
+      _dettaglio: a.origine ? `Origine: ${a.origine}` : "",
+    });
+    if(a.data_qualifica_riproduttore) timeline.push({
+      _cat:"vita", _data:a.data_qualifica_riproduttore, _icona:"♂♀",
+      _colore:C.accent, _tipo:"Qualifica riproduttore",
+      _titolo: a.sesso==="M"?"Diventato Riproduttore":"Diventata Riproduttrice",
+      _dettaglio:"",
+    });
+    // Parti (per femmine)
+    partiMadre.forEach(p => timeline.push({
+      _cat:"riproduzione", _data:p.data_evento, _icona:"🐣",
+      _colore: p.nati_vivi>1?"#D9628F":C.accent, _tipo:"Parto",
+      _titolo: `Parto${p.tipo_parto?" ("+p.tipo_parto+")":""}`,
+      _dettaglio: `${p.nati_vivi||0} nati vivi${p.nati_morti>0?" · "+p.nati_morti+" morti":""}${p.nati_mummificati>0?" · "+p.nati_mummificati+" mummificati":""}`,
+      _originale: p,
+    }));
+    // Eventi sanitari
+    mieiSanitari.forEach(s => timeline.push({
+      _cat:"sanitario", _data:s.data, _icona:"💉",
+      _colore: s.tipo==="malattia"||s.tipo==="intervento chirurgico"?C.red
+        : s.tipo==="vaccino"||s.tipo==="richiamo vaccinale"?C.green
+        : s.tipo==="antiparassitario"?"#8B7FBA"
+        : C.blue,
+      _tipo: (s.tipo||"altro").toUpperCase(),
+      _titolo: s.descrizione,
+      _dettaglio: [
+        s.prodotto?`💊 ${s.prodotto}`:null,
+        s.veterinario?`👨‍⚕️ ${s.veterinario}`:null,
+        s.costo?`💰 €${s.costo}`:null,
+        s.scadenza?`⏰ Richiamo: ${s.scadenza}`:null,
+      ].filter(Boolean).join(" · "),
+      _originale: s,
+    }));
+    // Uscita
+    if(a.stato!=="attivo"&&a.data_uscita) timeline.push({
+      _cat:"vita", _data:a.data_uscita, _icona:"📤",
+      _colore: a.motivo_uscita?.toLowerCase().includes("morte")||
+               a.motivo_uscita?.toLowerCase().includes("predaz")||
+               a.motivo_uscita?.toLowerCase().includes("smarr")?C.red:C.muted,
+      _tipo:"Uscita",
+      _titolo: a.motivo_uscita||"Uscita dall'azienda",
+      _dettaglio: [
+        a.peso_vivo_uscita?`⚖️ Peso vivo ${a.peso_vivo_uscita} kg`:null,
+        a.peso_carcassa?`🥩 Carcassa ${a.peso_carcassa} kg`:null,
+        a.resa_percent?`resa ${a.resa_percent}%`:null,
+      ].filter(Boolean).join(" · "),
+    });
+    // Ordino per data DECRESCENTE (più recente in alto)
+    timeline.sort((x,y) => (y._data||"").localeCompare(x._data||""));
+    // Statistiche timeline
+    const nSanitari = mieiSanitari.length;
+    const costoSanitario = mieiSanitari.reduce((s,e)=>s+(parseFloat(e.costo)||0),0);
+    const scadenzePendenti = mieiSanitari.filter(e=>e.scadenza&&new Date(e.scadenza)>=new Date(today())).length;
 
     return(
       <div style={{padding:"0 0 100px"}}>
@@ -1356,54 +1425,136 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
                 )
               )}
               <div style={{height:12}}/>
-              {mieEventi.length===0?(
+
+              {/* Statistiche timeline */}
+              {timeline.length>0&&(
+                <div style={{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap"}}>
+                  <div style={{background:C.card,borderRadius:10,padding:"6px 10px",
+                    fontSize:11,border:`1px solid ${C.border}`}}>
+                    📅 <b>{timeline.length}</b> eventi totali
+                  </div>
+                  <div style={{background:C.green+"12",borderRadius:10,padding:"6px 10px",
+                    fontSize:11,border:`1px solid ${C.green}33`,color:C.green}}>
+                    💉 <b>{nSanitari}</b> sanitari
+                  </div>
+                  {partiMadre.length>0&&(
+                    <div style={{background:C.accent+"12",borderRadius:10,padding:"6px 10px",
+                      fontSize:11,border:`1px solid ${C.accent}33`,color:C.accent}}>
+                      🐣 <b>{partiMadre.length}</b> parti
+                    </div>
+                  )}
+                  {costoSanitario>0&&(
+                    <div style={{background:C.yellow+"14",borderRadius:10,padding:"6px 10px",
+                      fontSize:11,border:`1px solid ${C.yellow}44`,color:C.yellow}}>
+                      💰 <b>€{costoSanitario.toFixed(2)}</b> spese san.
+                    </div>
+                  )}
+                  {scadenzePendenti>0&&(
+                    <div style={{background:C.red+"12",borderRadius:10,padding:"6px 10px",
+                      fontSize:11,border:`1px solid ${C.red}33`,color:C.red}}>
+                      ⏰ <b>{scadenzePendenti}</b> richiami futuri
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* TIMELINE UNIFICATA */}
+              {timeline.length===0?(
                 <div style={{textAlign:"center",padding:32,color:C.muted}}>
                   <div style={{fontSize:36,marginBottom:8}}>📅</div>
                   <div>Nessun evento registrato</div>
                 </div>
-              ):mieEventi.map(e=>(
-                <Card key={e.id}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-                    <div>
-                      <Badge label={e.tipo_evento?.toUpperCase()} color={C.primary}/>
-                      <div style={{fontSize:13,marginTop:6,color:C.muted}}>{e.data_evento}</div>
-                      {e.tipo_evento==="parto"&&(
-                        <div style={{fontSize:13,marginTop:4}}>
-                          🟢 {e.nati_vivi} vivi
-                          {e.nati_morti>0&&<span style={{color:C.red}}> · 🔴 {e.nati_morti} morti</span>}
-                          {e.data_accoppiamento&&(
-                            <div style={{fontSize:11,color:C.suini,marginTop:3}}>
-                              🐷 Accoppiamento: {e.data_accoppiamento}
+              ):(
+                <div style={{position:"relative",paddingLeft:26}}>
+                  {/* Linea verticale continua */}
+                  <div style={{position:"absolute",left:11,top:8,bottom:8,width:2,
+                    background:`linear-gradient(to bottom,${C.border},${C.border} 90%,transparent)`}}/>
+                  {timeline.map((ev,idx)=>{
+                    // Anno diverso dall'evento precedente = separatore anno
+                    const anno = (ev._data||"").substring(0,4);
+                    const annoPrec = idx>0 ? (timeline[idx-1]._data||"").substring(0,4) : null;
+                    const mostraAnno = anno && anno !== annoPrec;
+                    return (
+                      <div key={idx}>
+                        {mostraAnno&&(
+                          <div style={{position:"relative",margin:"14px 0 8px -26px",
+                            paddingLeft:26}}>
+                            <div style={{display:"inline-block",
+                              background:C.primary,color:"#FFF",
+                              borderRadius:12,padding:"3px 12px",
+                              fontSize:11,fontWeight:800,letterSpacing:1}}>
+                              {anno}
                             </div>
-                          )}
+                          </div>
+                        )}
+                        <div style={{position:"relative",marginBottom:10}}>
+                          {/* Puntino evento sulla timeline */}
+                          <div style={{position:"absolute",left:-21,top:14,
+                            width:18,height:18,borderRadius:9,
+                            background:"#FFF",border:`3px solid ${ev._colore}`,
+                            display:"flex",alignItems:"center",justifyContent:"center",
+                            fontSize:9,zIndex:2}}>
+                            {ev._icona}
+                          </div>
+                          {/* Card evento */}
+                          <div style={{background:C.card,borderRadius:12,padding:"10px 12px",
+                            border:`1px solid ${C.border}`,borderLeft:`4px solid ${ev._colore}`,
+                            boxShadow:"0 1px 3px rgba(0,0,0,0.05)"}}>
+                            <div style={{display:"flex",justifyContent:"space-between",
+                              alignItems:"flex-start",gap:8}}>
+                              <div style={{flex:1,minWidth:0}}>
+                                <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:3,flexWrap:"wrap"}}>
+                                  <span style={{fontSize:10,fontWeight:800,color:ev._colore,
+                                    background:ev._colore+"15",padding:"2px 7px",borderRadius:8,
+                                    letterSpacing:0.5}}>
+                                    {ev._tipo}
+                                  </span>
+                                  <span style={{fontSize:11,color:C.muted}}>{ev._data}</span>
+                                </div>
+                                <div style={{fontWeight:600,fontSize:14,color:C.text,marginBottom:2}}>
+                                  {ev._titolo}
+                                </div>
+                                {ev._dettaglio&&(
+                                  <div style={{fontSize:12,color:C.muted}}>
+                                    {ev._dettaglio}
+                                  </div>
+                                )}
+                                {ev._originale?.note&&(
+                                  <div style={{fontSize:11,color:C.muted,marginTop:4,fontStyle:"italic"}}>
+                                    "{ev._originale.note}"
+                                  </div>
+                                )}
+                              </div>
+                              {/* Azioni solo su parti */}
+                              {ev._cat==="riproduzione"&&ev._originale&&(
+                                <div style={{display:"flex",gap:4,flexShrink:0}}>
+                                  <button onClick={()=>setFormParto({
+                                      id:ev._originale.id,
+                                      data_evento:ev._originale.data_evento||"",
+                                      tipo_parto:ev._originale.tipo_parto||"Naturale",
+                                      nati_totali:String((ev._originale.nati_vivi||0)+(ev._originale.nati_morti||0)),
+                                      nati_morti:String(ev._originale.nati_morti||0),
+                                      nati_mummificati:String(ev._originale.nati_mummificati||0),
+                                      padre_id:ev._originale.padre_id||"",
+                                      note:ev._originale.note||"",
+                                      data_accoppiamento:ev._originale.data_accoppiamento||"",
+                                      nati:[],storico:false,
+                                    })}
+                                    style={{background:C.blue+"20",border:"none",borderRadius:8,
+                                      padding:"4px 8px",cursor:"pointer",fontSize:12}}>✏️</button>
+                                  <button onClick={()=>eliminaParto(ev._originale.id)}
+                                    style={{background:C.red+"20",border:"none",borderRadius:8,
+                                      padding:"4px 8px",cursor:"pointer",fontSize:12}}>🗑️</button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                      )}
-                    </div>
-                    {e.tipo_evento==="parto"&&(
-                      <div style={{display:"flex",gap:6,flexShrink:0}}>
-                        <button onClick={()=>setFormParto({
-                            id:e.id,
-                            data_evento:e.data_evento||"",
-                            tipo_parto:e.tipo_parto||"Naturale",
-                            nati_totali:String((e.nati_vivi||0)+(e.nati_morti||0)),
-                            nati_morti:String(e.nati_morti||0),
-                            nati_mummificati:String(e.nati_mummificati||0),
-                            padre_id:e.padre_id||"",
-                            note:e.note||"",
-                            data_accoppiamento:e.data_accoppiamento||"",
-                            nati:[],storico:false,
-                          })}
-                          style={{background:C.blue+"20",border:"none",borderRadius:8,
-                            padding:"6px 9px",cursor:"pointer",fontSize:13}}>✏️</button>
-                        <button onClick={()=>eliminaParto(e.id)}
-                          style={{background:C.red+"20",border:"none",borderRadius:8,
-                            padding:"6px 9px",cursor:"pointer",fontSize:13}}>🗑️</button>
                       </div>
-                    )}
-                  </div>
-                  {e.note&&<div style={{fontSize:12,color:C.muted,marginTop:6,fontStyle:"italic"}}>{e.note}</div>}
-                </Card>
-              ))}
+                    );
+                  })}
+                </div>
+              )}
             </>
           )}
         </div>
