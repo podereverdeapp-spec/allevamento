@@ -794,6 +794,127 @@ function fogli_uba(animali, lotti, suiniLotto, prezziRiforma, annoRif) {
   };
 }
 
+// ─── CONSANGUINEITÀ ─────────────────────────────────────────────────────────
+function analizzaAccoppiamentiRischio(animali) {
+  const attivi = animali.filter(a=>a.stato==="attivo"&&a.vivo!==false);
+  const maschi   = attivi.filter(a=>a.sesso==="M");
+  const femmine  = attivi.filter(a=>a.sesso==="F");
+  const rischi = [];
+
+  for(const m of maschi){
+    for(const f of femmine){
+      if(m.specie!==f.specie) continue;
+      let tipo=null;
+      if(f.padre_id===m.id) tipo="Padre × Figlia";
+      else if(m.madre_id===f.id) tipo="Madre × Figlio";
+      else {
+        const stessoPadre = m.padre_id&&f.padre_id&&m.padre_id===f.padre_id;
+        const stessaMadre = m.madre_id&&f.madre_id&&m.madre_id===f.madre_id;
+        if(stessoPadre&&stessaMadre) tipo="Fratelli pieni";
+        else if(stessoPadre) tipo="Fratellastri (stesso padre)";
+        else if(stessaMadre) tipo="Fratellastri (stessa madre)";
+      }
+      if(tipo) rischi.push({m,f,tipo});
+    }
+  }
+  return rischi;
+}
+
+function analizzaCapiInconsanguinei(animali) {
+  const result = [];
+  for(const a of animali){
+    if(a.stato!=="attivo"||a.vivo===false) continue;
+    if(!a.padre_id||!a.madre_id) continue;
+    const padre = animali.find(x=>x.id===a.padre_id);
+    const madre = animali.find(x=>x.id===a.madre_id);
+    if(!padre||!madre) continue;
+    let tipo=null;
+    if(madre.padre_id===padre.id) tipo="Padre × Figlia";
+    else if(padre.madre_id===madre.id) tipo="Madre × Figlio";
+    else {
+      const stessoPadre = padre.padre_id&&madre.padre_id&&padre.padre_id===madre.padre_id;
+      const stessaMadre = padre.madre_id&&madre.madre_id&&padre.madre_id===madre.madre_id;
+      if(stessoPadre&&stessaMadre) tipo="Genitori fratelli pieni";
+      else if(stessoPadre||stessaMadre) tipo="Genitori fratellastri";
+    }
+    if(tipo) result.push({a,padre,madre,tipo});
+  }
+  return result;
+}
+
+function foglio_consang_rischi(animali) {
+  const rischi = analizzaAccoppiamentiRischio(animali);
+  const righe = rischi.map(r=>({
+    "Specie": r.m.specie,
+    "Tipo rischio": r.tipo,
+    "Maschio BDN": r.m.bdn||"",
+    "Maschio Nome": r.m.nome||"",
+    "Maschio Razza": r.m.razza_calcolata||r.m.razza||"",
+    "Femmina BDN": r.f.bdn||"",
+    "Femmina Nome": r.f.nome||"",
+    "Femmina Razza": r.f.razza_calcolata||r.f.razza||"",
+    "Info": "",
+  }));
+  if(righe.length===0) {
+    righe.push({
+      "Specie":"","Tipo rischio":"","Maschio BDN":"","Maschio Nome":"",
+      "Maschio Razza":"","Femmina BDN":"","Femmina Nome":"","Femmina Razza":"",
+      "Info":"✓ Nessun accoppiamento a rischio rilevato — situazione ottimale",
+    });
+  }
+  return creaFoglio(righe, [
+    {key:"Specie",         label:"Specie",              width:10, center:true},
+    {key:"Tipo rischio",   label:"Tipo rischio",        width:24, bold:true},
+    {key:"Maschio BDN",    label:"Maschio BDN",         width:20},
+    {key:"Maschio Nome",   label:"Maschio Nome",        width:18},
+    {key:"Maschio Razza",  label:"Maschio Razza",       width:18},
+    {key:"Femmina BDN",    label:"Femmina BDN",         width:20},
+    {key:"Femmina Nome",   label:"Femmina Nome",        width:18},
+    {key:"Femmina Razza",  label:"Femmina Razza",       width:18},
+    {key:"Info",           label:"Info",                width:40},
+  ], {totale:rischi.length>0, contaRighe:true, totaleLabel:"TOTALE COPPIE A RISCHIO"});
+}
+
+function foglio_consang_capi(animali) {
+  const capi = analizzaCapiInconsanguinei(animali);
+  const righe = capi.map(x=>({
+    "Specie": x.a.specie,
+    "BDN": x.a.bdn||"",
+    "Nome": x.a.nome||"",
+    "Sesso": x.a.sesso,
+    "Razza calcolata": x.a.razza_calcolata||x.a.razza||"",
+    "Data nascita": x.a.nascita||"",
+    "Tipo consanguineità": x.tipo,
+    "Padre BDN": x.padre.bdn||"",
+    "Padre Nome": x.padre.nome||"",
+    "Madre BDN": x.madre.bdn||"",
+    "Madre Nome": x.madre.nome||"",
+    "Info": "",
+  }));
+  if(righe.length===0) {
+    righe.push({
+      "Specie":"","BDN":"","Nome":"","Sesso":"","Razza calcolata":"",
+      "Data nascita":"","Tipo consanguineità":"","Padre BDN":"","Padre Nome":"",
+      "Madre BDN":"","Madre Nome":"",
+      "Info":"✓ Nessun capo con consanguineità nella genealogia — situazione ottimale",
+    });
+  }
+  return creaFoglio(righe, [
+    {key:"Specie",              label:"Specie",             width:10, center:true},
+    {key:"BDN",                 label:"BDN",                width:20, bold:true},
+    {key:"Nome",                label:"Nome",               width:18},
+    {key:"Sesso",               label:"Sesso",              width:8,  center:true},
+    {key:"Razza calcolata",     label:"Razza calcolata",    width:18},
+    {key:"Data nascita",        label:"Data nascita",       width:13, center:true},
+    {key:"Tipo consanguineità", label:"Tipo consanguineità",width:26, bold:true},
+    {key:"Padre BDN",           label:"Padre BDN",          width:20},
+    {key:"Padre Nome",          label:"Padre Nome",         width:18},
+    {key:"Madre BDN",           label:"Madre BDN",          width:20},
+    {key:"Madre Nome",          label:"Madre Nome",         width:18},
+    {key:"Info",                label:"Info",               width:40},
+  ], {totale:capi.length>0, contaRighe:true, totaleLabel:"TOTALE CAPI CONSANGUINEI"});
+}
+
 // ─── SEZIONI DISPONIBILI ──────────────────────────────────────────────────────
 const SEZIONI = [
   { id:"anagrafica_bovini",       label:"Bovini attivi",             icon:"🐄", gruppo:"ANIMALI ATTIVI" },
