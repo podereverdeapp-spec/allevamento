@@ -13,6 +13,7 @@ import CostiComplessivi    from "./costi_complessivi";
 import Guida               from "./Guida";
 import ExportManager       from "./ExportManager";
 import UBAReport            from "./UBAReport";
+import Destinatari          from "./destinatari";
 import { exportCompleto }  from "./exportExcel";
 import "./App.css";
 
@@ -29,6 +30,7 @@ const TABS = [
   { id:"generali",    label:"Struttura",  icon:"🏭" },
   { id:"uba",         label:"UBA",        icon:"🐾" },
   { id:"export",      label:"Esporta",    icon:"📥" },
+  { id:"email",       label:"Email",      icon:"📮" },
   { id:"guida",       label:"Guida",      icon:"📖" },
 ];
 
@@ -130,6 +132,7 @@ export default function App() {
         {tab==="generali"    && <CostiGenerali     supabase={supabase}/>}
         {tab==="uba"       && <UBAReport/>}
         {tab==="export"     && <ExportManager/>}
+        {tab==="email"       && <Destinatari/>}
         {tab==="guida"       && <Guida/>}
       </div>
 
