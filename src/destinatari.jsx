@@ -66,12 +66,42 @@ export default function Destinatari() {
     setConfig(prev => ({...prev, [chiave]: valore}));
   };
 
+  const [inviandoTest, setInviandoTest] = useState(false);
   const testInvio = async () => {
-    alert("⚠️ Il sistema di invio automatico non è ancora attivo.\n\n" +
-      "Dopo aver configurato Resend e Google Drive (FASE 3), da qui potrai:\n" +
-      "1. Testare l'invio email a tutti i destinatari attivi\n" +
-      "2. Verificare l'upload su Google Drive\n" +
-      "3. Consultare il log degli invii mensili");
+    if (!window.confirm(
+      "Verrà inviata un'email di TEST a tutti i destinatari attivi con permesso Report.\n\n" +
+      "Vuoi procedere?"
+    )) return;
+    setInviandoTest(true);
+    try {
+      const resp = await fetch(
+        "https://pyjymnpnxatqwfhguaus.supabase.co/functions/v1/invio-report-mensile",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+          },
+          body: JSON.stringify({ test: true }),
+        }
+      );
+      const data = await resp.json();
+      if (resp.ok && data.success) {
+        alert(
+          `✅ Test completato!\n\n` +
+          `Destinatari: ${data.destinatari_totali}\n` +
+          `Inviate con successo: ${data.inviati_con_successo}\n` +
+          `Errori: ${data.errori}\n\n` +
+          `Controlla le caselle email dei destinatari.`
+        );
+      } else {
+        alert(`⚠️ Errore durante il test:\n\n${data.error || JSON.stringify(data)}`);
+      }
+      carica(); // ricarica log
+    } catch (e) {
+      alert(`⚠️ Errore di connessione:\n\n${e.message}`);
+    }
+    setInviandoTest(false);
   };
 
   if (loading) {
@@ -274,10 +304,11 @@ export default function Destinatari() {
             padding:"8px 14px",fontSize:13,fontWeight:700,cursor:"pointer"}}>
           ➕ Nuovo destinatario
         </button>
-        <button onClick={testInvio}
+        <button onClick={testInvio} disabled={inviandoTest}
           style={{background:C.blue,color:"#FFF",border:"none",borderRadius:20,
-            padding:"8px 14px",fontSize:13,fontWeight:700,cursor:"pointer"}}>
-          🧪 Test invio
+            padding:"8px 14px",fontSize:13,fontWeight:700,
+            cursor:inviandoTest?"wait":"pointer",opacity:inviandoTest?0.7:1}}>
+          {inviandoTest?"⏳ Invio in corso...":"🧪 Test invio"}
         </button>
         <button onClick={()=>setShowLogs(true)}
           style={{background:C.card,color:C.primary,border:`1.5px solid ${C.primary}`,
