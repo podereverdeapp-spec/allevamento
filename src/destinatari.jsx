@@ -87,15 +87,19 @@ export default function Destinatari() {
       );
       const data = await resp.json();
       if (resp.ok && data.success) {
-        alert(
-          `✅ Test completato!\n\n` +
+        let msg = `✅ Test completato!\n\n` +
           `Destinatari: ${data.destinatari_totali}\n` +
           `Inviate con successo: ${data.inviati_con_successo}\n` +
-          `Errori: ${data.errori}\n\n` +
-          `Controlla le caselle email dei destinatari.`
-        );
+          `Errori: ${data.errori}\n\n`;
+        if (data.errori > 0 && data.dettagli) {
+          const primoErrore = data.dettagli.find(d => !d.ok);
+          msg += `Dettaglio primo errore (${primoErrore?.email}):\n${primoErrore?.error}\n\n`;
+        } else {
+          msg += `Controlla le caselle email dei destinatari.`;
+        }
+        alert(msg);
       } else {
-        alert(`⚠️ Errore durante il test:\n\n${data.error || JSON.stringify(data)}`);
+        alert(`⚠️ Errore durante il test:\n\n${data.error || JSON.stringify(data, null, 2)}`);
       }
       carica(); // ricarica log
     } catch (e) {
