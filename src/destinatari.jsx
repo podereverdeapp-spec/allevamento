@@ -301,6 +301,59 @@ export default function Destinatari() {
         </div>
       </div>
 
+      {/* Card promemoria upload manuale mensile */}
+      {(()=>{
+        const oggi = new Date();
+        const meseCorrente = `${oggi.getFullYear()}-${String(oggi.getMonth()+1).padStart(2,"0")}`;
+        const ultimoUpload = config.ultimo_upload_manuale_mese || "";
+        const giornoDelMese = oggi.getDate();
+        const daConfermare = ultimoUpload !== meseCorrente;
+        const inFinestraPromemoria = giornoDelMese <= 10; // primi 10 giorni del mese
+
+        if (!daConfermare) {
+          return (
+            <div style={{background:C.green+"12",border:`1.5px solid ${C.green}44`,
+              borderRadius:14,padding:14,marginBottom:12,display:"flex",
+              justifyContent:"space-between",alignItems:"center"}}>
+              <div>
+                <div style={{fontSize:13,fontWeight:700,color:C.green}}>
+                  ✅ Upload di questo mese confermato
+                </div>
+                <div style={{fontSize:11,color:C.muted,marginTop:2}}>
+                  Report caricati su Drive per {meseCorrente}
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        return (
+          <div style={{background:inFinestraPromemoria?C.yellow+"14":C.card,
+            border:`1.5px solid ${inFinestraPromemoria?C.yellow+"55":C.border}`,
+            borderRadius:14,padding:14,marginBottom:12}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>
+              <div style={{flex:1}}>
+                <div style={{fontSize:13,fontWeight:700,color:inFinestraPromemoria?C.yellow:C.muted}}>
+                  {inFinestraPromemoria?"⏰ Promemoria: ":""}📁 Carica i report su Google Drive
+                </div>
+                <div style={{fontSize:11,color:C.muted,marginTop:2}}>
+                  Genera gli Excel dal tab 📥 Esporta e caricali nella cartella del mese {meseCorrente}.
+                  Poi conferma qui sotto.
+                </div>
+              </div>
+              <button onClick={async()=>{
+                  await salvaConfig("ultimo_upload_manuale_mese", meseCorrente);
+                }}
+                style={{background:C.green,color:"#FFF",border:"none",borderRadius:16,
+                  padding:"8px 14px",fontSize:12,fontWeight:700,cursor:"pointer",
+                  whiteSpace:"nowrap",flexShrink:0}}>
+                ✓ Fatto
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Pulsanti azione */}
       <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
         <button onClick={()=>setForm({attivo:true,riceve_report:true,riceve_backup:false,riceve_alert:false})}

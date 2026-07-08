@@ -248,6 +248,15 @@ function useMagazzino() {
 
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
 function Dashboard({animali,eventi_sanitari,magazzino,onNav,suiniLotto}){
+  const [configDrive,setConfigDrive]=useState(null);
+  useEffect(()=>{
+    supabase.from("configurazione").select("chiave,valore")
+      .in("chiave",["ultimo_upload_manuale_mese"])
+      .then(({data})=>{
+        const v = data?.find(c=>c.chiave==="ultimo_upload_manuale_mese")?.valore || "";
+        setConfigDrive(v);
+      });
+  },[]);
   const attivi=animali.filter(a=>a.stato==="attivo");
   const bovini=attivi.filter(a=>a.specie==="bovino").length;
   const suini =attivi.filter(a=>a.specie==="suino").length;
@@ -283,6 +292,30 @@ function Dashboard({animali,eventi_sanitari,magazzino,onNav,suiniLotto}){
           </div>
         </Card>
       )}
+      {/* Alert promemoria upload Drive mensile */}
+      {(()=>{
+        if (configDrive===null) return null; // ancora in caricamento
+        const oggiD = new Date();
+        const meseCorrente = `${oggiD.getFullYear()}-${String(oggiD.getMonth()+1).padStart(2,"0")}`;
+        const giornoDelMese = oggiD.getDate();
+        const daConfermare = configDrive !== meseCorrente;
+        const inFinestra = giornoDelMese <= 10;
+        if (!daConfermare || !inFinestra) return null;
+        return (
+          <Card style={{background:C.yellow+"14",border:`1.5px solid ${C.yellow}55`}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div>
+                <div style={{fontSize:13,fontWeight:700,color:C.yellow,marginBottom:4}}>
+                  📁 Promemoria: carica i report su Drive
+                </div>
+                <div style={{fontSize:12,color:C.text}}>
+                  Report di {meseCorrente} ancora da caricare · vai al tab 📮 Email (menu in alto)
+                </div>
+              </div>
+            </div>
+          </Card>
+        );
+      })()}
       <Card style={{background:`linear-gradient(135deg,${C.primary},${C.accent})`}}>
         <div style={{color:"rgba(255,255,255,0.8)",fontSize:13,marginBottom:8}}>CAPI ATTIVI</div>
         <div style={{fontSize:36,fontWeight:800,color:"#FFF",marginBottom:12}}>{attivi.length}</div>

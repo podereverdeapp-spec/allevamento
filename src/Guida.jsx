@@ -35,6 +35,7 @@ const SEZIONI = [
         ["🐷 Lotti","Lotti suini (nati e acquistati) con tatuaggio automatico"],
         ["🏆 Selezione","Ranking genetico: IIP, produttività, età primo parto, resa media figli"],
         ["🐾 UBA","Calcolo UBA medio per fascia di età con ripartizione presenza effettiva"],
+        ["📮 Email","Destinatari e invio automatico mensile di report e backup"],
         ["📊 Costi","Costi aggregati da tutte le fonti"],
         ["🧾 Origine","Costo di origine per singolo animale"],
         ["📤 Uscite","Macellazioni, vendite, morti — con resa % e IPG"],
@@ -281,8 +282,37 @@ const SEZIONI = [
     ]
   },
   {
-    id:"nuove_funzionalita", icon:"✨", titolo:"Novità v29 → v51 (aggiornamento 2026)",
+    id:"nuove_funzionalita", icon:"✨", titolo:"Novità v29 → v64 (aggiornamento 2026)",
     contenuto:[
+      {tipo:"h3",testo:"⚖️ Modifica peso carcassa su animali già usciti"},
+      {tipo:"p",testo:"Spesso passa del tempo tra il momento in cui un animale esce dall'allevamento (e un operatore registra data uscita e peso vivo) e il momento in cui arriva il referto del macello con il peso della carcassa (registrato magari da un altro operatore, giorni dopo)."},
+      {tipo:"bullets",voci:[
+        "Apri la scheda dell'animale già uscito dall'Anagrafica (anche se il capo non è più attivo)",
+        "Tocca Modifica e vai alla sezione Dati Uscita",
+        "Inserisci o correggi il Peso carcassa (kg) in qualsiasi momento, anche mesi dopo",
+        "La Resa % (carcassa/peso vivo) si ricalcola automaticamente ogni volta che aggiorni il dato",
+        "Utile per completare progressivamente la scheda man mano che arrivano i referti dal macello",
+      ]},
+      {tipo:"h3",testo:"📮 Report Mensili automatici via Email"},
+      {tipo:"p",testo:"Nuovo tab 📮 Email per gestire l'invio automatico di report e backup ai soggetti registrati (commercialista, direttore allevamento, consulenti, ecc.)."},
+      {tipo:"bullets",voci:[
+        "Registra destinatari con nome, email, ruolo e permessi (Report / Backup / Alert)",
+        "Il 1° di ogni mese alle 06:00 il sistema invia automaticamente via email: report Excel (anagrafica, uscite del mese, sanitario) allegato a chi ha permesso Report",
+        "Backup completo del database (file .sql) allegato a chi ha permesso Backup",
+        "Pulsante 🧪 Test invio per verificare il funzionamento in qualsiasi momento senza aspettare fine mese",
+        "Storico di tutti gli invii consultabile dal tab Email",
+      ]},
+      {tipo:"h3",testo:"🐾 Registro Sanitario — Filtri specie e scadenze"},
+      {tipo:"bullets",voci:[
+        "Filtro per specie (bovino/suino/ovino/tutti) nella registrazione singola e di gruppo — utile per vaccini specie-specifici",
+        "Pulsante 🌾 Tutti per selezionare in un click tutti gli animali attivi dell'azienda",
+        "11 tipi di evento sanitario (vaccino, richiamo, farmaco, antiparassitario, visita, intervento chirurgico, diagnostica, gravidanza, malattia, cura, altro)",
+        "Box scadenze richiami in cima al Registro Sanitario (scaduti in rosso, imminenti 30gg in giallo)",
+        "Badge notifica sull'icona 💉 Salute nel menu con il numero di richiami da gestire",
+        "Pulsante ✓ Registra su ogni scadenza per aprire il form già pre-compilato (nessuna registrazione automatica, sempre conferma manuale)",
+      ]},
+      {tipo:"h3",testo:"📅 Timeline eventi unificata nella scheda animale"},
+      {tipo:"p",testo:"Nella scheda di ogni animale, il tab 📅 Eventi mostra ora una timeline cronologica che unisce nascita, ingresso, qualifica riproduttore, parti, eventi sanitari e uscita, con separatori per anno e statistiche riassuntive in cima."},
       {tipo:"h3",testo:"🐷 Lotti suini — Rifatti completamente"},
       {tipo:"bullets",voci:[
         "Al salvataggio del parto suino, il lotto viene creato automaticamente nella sezione Lotti",
