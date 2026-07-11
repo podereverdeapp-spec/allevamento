@@ -277,7 +277,7 @@ function foglio_lotti_riepilogo(lotti, suiniLotto, animali) {
       nati_morti:  l.nati_morti||0,
       vivi_attuali:us.filter(u=>u.vivo!==false&&u.stato==="attivo").length,
       macellati:   us.filter(u=>u.stato==="macellato").length,
-      deceduti:    us.filter(u=>u.stato==="deceduto").length,
+      deceduti:    us.filter(u=>u.stato==="morto").length,
       venduti:     us.filter(u=>u.stato==="venduto").length,
       riproduttori:us.filter(u=>u.destinazione==="riproduzione").length,
       maschi:      us.filter(u=>u.sesso==="M").length,

@@ -175,10 +175,10 @@ function FormUscitaUnita({unita, lotto, onSave, onCancel}) {
 
   const MOTIVI = [
     {label:"Macellato",stato:"macellato"},
-    {label:"Morto (malattia)",stato:"deceduto"},
-    {label:"Morto (causa naturale)",stato:"deceduto"},
+    {label:"Morto (malattia)",stato:"morto"},
+    {label:"Morto (causa naturale)",stato:"morto"},
     {label:"Venduto vivo",stato:"venduto"},
-    {label:"Predato",stato:"deceduto"},
+    {label:"Predato",stato:"morto"},
     {label:"Smarrito",stato:"disperso"},
     {label:"Altro",stato:"uscito"},
   ];
@@ -329,7 +329,7 @@ function SchedaLotto({lotto, suini, animali, onBack, onUpdate}) {
   const padre = animali.find(a=>a.id===lotto.padre_id);
   const vivi = unita.filter(u=>u.vivo!==false&&u.stato==="attivo").length;
   const macellati = unita.filter(u=>u.stato==="macellato").length;
-  const deceduti = unita.filter(u=>["deceduto","disperso"].includes(u.stato)).length;
+  const deceduti = unita.filter(u=>["morto","disperso"].includes(u.stato)).length;
   const conBDN = unita.filter(u=>u.stato==="registrato_individuale").length;
   const maschi = unita.filter(u=>u.sesso==="M").length;
   const femmine = unita.filter(u=>u.sesso==="F").length;
