@@ -244,9 +244,46 @@ function FormUscitaUnita({unita, lotto, onSave, onCancel}) {
   );
 }
 
+// ─── FORM PESO UNITÀ (nascita o entrata) ──────────────────────────────────────
+function FormPesoUnita({unita, lotto, onSave, onCancel}) {
+  const [peso,setPeso] = useState(unita.peso_nascita ?? "");
+  const [saving,setSaving] = useState(false);
+  const codice = unita.codice_completo||codiceUnita(lotto.codice_lotto||lotto.codice, unita.nr);
+  const acquistato = lotto.tipo_provenienza==="acquistato";
+
+  const salva = async () => {
+    setSaving(true);
+    const {error} = await supabase.from("suini_lotto").update({
+      peso_nascita: peso!==""?parseFloat(peso):null,
+    }).eq("id", unita.id);
+    setSaving(false);
+    if(error){
+      alert(`⚠️ Errore nel salvataggio del peso:\n\n${error.message}`);
+      return;
+    }
+    onSave();
+  };
+
+  return (
+    <div style={{background:"#FFF3E0",border:`2px solid ${C.yellow}`,
+      borderRadius:14,padding:14,marginBottom:10}}>
+      <div style={{fontWeight:700,color:C.yellow,marginBottom:10,fontSize:14}}>
+        ⚖️ Peso {acquistato?"in entrata":"alla nascita"} — {codice}
+      </div>
+      <Field label={`Peso ${acquistato?"in entrata":"alla nascita"} (kg)`} value={peso}
+        onChange={setPeso} type="number" placeholder="Es. 1.4"/>
+      <div style={{display:"flex",gap:8}}>
+        <Btn label={saving?"...":"✓ Salva"} onClick={salva}
+          variant="success" disabled={saving} small/>
+        <Btn label="Annulla" onClick={onCancel} variant="ghost" small/>
+      </div>
+    </div>
+  );
+}
+
 // ─── CARD UNITÀ ───────────────────────────────────────────────────────────────
 function CardUnita({u, lotto, animali, onUpdate}) {
-  const [modal,setModal] = useState(null); // null | "bdn" | "uscita"
+  const [modal,setModal] = useState(null); // null | "bdn" | "uscita" | "peso"
   const codice = u.codice_completo||codiceUnita(lotto.codice_lotto||lotto.codice, u.nr);
   const vivo = u.vivo!==false&&u.stato==="attivo";
   const sessoColor = s=>({M:C.blue,F:C.suini,Castrato:C.muted}[s]||C.muted);
@@ -258,6 +295,11 @@ function CardUnita({u, lotto, animali, onUpdate}) {
   );
   if(modal==="uscita") return (
     <FormUscitaUnita unita={u} lotto={lotto}
+      onSave={()=>{setModal(null);onUpdate();}}
+      onCancel={()=>setModal(null)}/>
+  );
+  if(modal==="peso") return (
+    <FormPesoUnita unita={u} lotto={lotto}
       onSave={()=>{setModal(null);onUpdate();}}
       onCancel={()=>setModal(null)}/>
   );
@@ -289,6 +331,11 @@ function CardUnita({u, lotto, animali, onUpdate}) {
         </div>
         {vivo&&(
           <div style={{display:"flex",gap:6,flexShrink:0}}>
+            <button onClick={()=>setModal("peso")}
+              style={{background:C.yellow+"20",border:"none",borderRadius:8,
+                padding:"6px 8px",cursor:"pointer",fontSize:12,fontWeight:700,color:C.yellow}}>
+              ⚖️
+            </button>
             <button onClick={()=>setModal("bdn")}
               style={{background:C.blue+"20",border:"none",borderRadius:8,
                 padding:"6px 8px",cursor:"pointer",fontSize:12,fontWeight:700,color:C.blue}}>
