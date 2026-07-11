@@ -251,6 +251,10 @@ function foglio_uscite(animali, suiniLotto, lotti) {
     const dataIngresso = l.data_parto||"";
     const gg = u.data_uscita&&dataIngresso
       ? Math.round((new Date(u.data_uscita)-new Date(dataIngresso))/86400000) : 0;
+    const acquistato = l.tipo_provenienza==="acquistato";
+    const guadagnoPeso = acquistato
+      ? (u.peso_vivo_uscita!=null&&u.peso_nascita!=null ? u.peso_vivo_uscita-u.peso_nascita : null)
+      : u.peso_vivo_uscita;
     dati.push({
       bdn:              u.codice_completo||`${codLotto}${String(u.nr||"").padStart(2,"0")}`,
       nome:             "",
@@ -266,7 +270,7 @@ function foglio_uscite(animali, suiniLotto, lotti) {
       peso_vivo_uscita: u.peso_vivo_uscita||"",
       peso_carcassa:    u.peso_carcassa||"",
       resa_percent:     u.resa_percent||"",
-      ipg_peso_vivo:    gg>0&&u.peso_vivo_uscita ? Math.round(u.peso_vivo_uscita/gg*1000)/1000 : "",
+      ipg_peso_vivo:    gg>0&&guadagnoPeso!=null ? Math.round(guadagnoPeso/gg*1000)/1000 : "",
       ipg_carcassa:     gg>0&&u.peso_carcassa    ? Math.round(u.peso_carcassa/gg*1000)/1000 : "",
       note:             `Lotto ${codLotto}`,
     });
@@ -364,6 +368,12 @@ function foglio_lotti_unita(suiniLotto, lotti) {
     const dataIngresso = l?.data_parto||"";
     const gg = u.data_uscita&&dataIngresso
       ? Math.round((new Date(u.data_uscita)-new Date(dataIngresso))/86400000) : 0;
+    const acquistato = l?.tipo_provenienza==="acquistato";
+    // Per i lotti acquistati l'IPG è un vero accrescimento: (peso uscita - peso entrata) / giorni.
+    // Per i nati in azienda il peso alla nascita è trascurabile, resta peso uscita / giorni (come per gli animali individuali).
+    const guadagnoPeso = acquistato
+      ? (u.peso_vivo_uscita!=null&&u.peso_nascita!=null ? u.peso_vivo_uscita-u.peso_nascita : null)
+      : u.peso_vivo_uscita;
     return {
       tatuaggio:       cod,
       codice_lotto:    l?.codice_lotto||l?.codice||"",
@@ -380,7 +390,7 @@ function foglio_lotti_unita(suiniLotto, lotti) {
       peso_vivo_uscita:u.peso_vivo_uscita||"",
       peso_carcassa:   u.peso_carcassa||"",
       resa_percent:    u.resa_percent||"",
-      ipg_peso_vivo:   gg>0&&u.peso_vivo_uscita ? Math.round(u.peso_vivo_uscita/gg*1000)/1000 : "",
+      ipg_peso_vivo:   gg>0&&guadagnoPeso!=null ? Math.round(guadagnoPeso/gg*1000)/1000 : "",
       ipg_carcassa:    gg>0&&u.peso_carcassa    ? Math.round(u.peso_carcassa/gg*1000)/1000 : "",
     };
   });
