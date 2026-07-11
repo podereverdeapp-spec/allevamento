@@ -344,6 +344,32 @@ function foglio_lotti_unita(suiniLotto, lotti) {
   ]);
 }
 
+// Un lotto è "attivo" se ha almeno un'unità ancora viva/attiva (o se non ha ancora unità registrate)
+function foglio_lotti_attivi(lotti, suiniLotto, animali) {
+  const attivi = lotti.filter(l => {
+    const us = suiniLotto.filter(s=>s.lotto_id===l.id);
+    return us.length===0 || us.some(u=>u.vivo!==false && u.stato==="attivo");
+  });
+  return foglio_lotti_riepilogo(attivi, suiniLotto, animali);
+}
+
+// Un lotto è "uscito/chiuso" quando tutte le sue unità sono uscite (nessuna più attiva)
+function foglio_lotti_usciti(lotti, suiniLotto, animali) {
+  const usciti = lotti.filter(l => {
+    const us = suiniLotto.filter(s=>s.lotto_id===l.id);
+    return us.length>0 && us.every(u=>u.vivo===false || u.stato!=="attivo");
+  });
+  return foglio_lotti_riepilogo(usciti, suiniLotto, animali);
+}
+
+function foglio_unita_attive(suiniLotto, lotti) {
+  return foglio_lotti_unita(suiniLotto.filter(u=>u.vivo!==false && u.stato==="attivo"), lotti);
+}
+
+function foglio_unita_uscite(suiniLotto, lotti) {
+  return foglio_lotti_unita(suiniLotto.filter(u=>u.vivo===false || u.stato!=="attivo"), lotti);
+}
+
 function foglio_kpi(animali, eventiRiprod) {
   const daysBetween = (d1,d2) => Math.round((new Date(d2)-new Date(d1))/86400000);
   const fattrici = animali.filter(a=>a.sesso==="F");
@@ -991,8 +1017,12 @@ const SEZIONI = [
   { id:"parti",              label:"Registro Parti",            icon:"🐣", gruppo:"MOVIMENTI" },
   { id:"sanitario",          label:"Registro Sanitario",        icon:"💉", gruppo:"REGISTRI" },
   { id:"alimentazione",      label:"Alimentazione",             icon:"🌾", gruppo:"REGISTRI" },
-  { id:"lotti_riepilogo",    label:"Lotti Suini — Riepilogo",   icon:"📋", gruppo:"LOTTI SUINI" },
-  { id:"lotti_unita",        label:"Lotti Suini — Unità",       icon:"🏷️", gruppo:"LOTTI SUINI" },
+  { id:"lotti_riepilogo",    label:"Lotti Suini — Riepilogo (tutti)", icon:"📋", gruppo:"LOTTI SUINI" },
+  { id:"lotti_attivi",       label:"Lotti Attivi",              icon:"🟢", gruppo:"LOTTI SUINI" },
+  { id:"lotti_usciti",       label:"Lotti Usciti/Chiusi",       icon:"🔴", gruppo:"LOTTI SUINI" },
+  { id:"lotti_unita",        label:"Lotti Suini — Unità (tutte)",icon:"🏷️", gruppo:"LOTTI SUINI" },
+  { id:"unita_attive",       label:"Unità di Lotto — Attive",   icon:"🟢", gruppo:"LOTTI SUINI" },
+  { id:"unita_uscite",       label:"Unità di Lotto — Uscite",   icon:"🔴", gruppo:"LOTTI SUINI" },
   { id:"kpi_selezione",      label:"Selezione Genetica (KPI)",  icon:"🏆", gruppo:"GENETICA" },
   { id:"costi_animale",      label:"Costi per Animale",         icon:"🧾", gruppo:"COSTI" },
   { id:"costi_generali",     label:"Costi Generali",            icon:"📊", gruppo:"COSTI" },
@@ -1080,8 +1110,16 @@ export default function ExportManager() {
         XLSX.utils.book_append_sheet(wb, foglio_alimentazione(filtraData(alim||[],"data")), "Alimentazione");
       if(sel.has("lotti_riepilogo"))
         XLSX.utils.book_append_sheet(wb, foglio_lotti_riepilogo(lotti||[], suiniLotto||[], an), "Lotti riepilogo");
+      if(sel.has("lotti_attivi"))
+        XLSX.utils.book_append_sheet(wb, foglio_lotti_attivi(lotti||[], suiniLotto||[], an), "Lotti attivi");
+      if(sel.has("lotti_usciti"))
+        XLSX.utils.book_append_sheet(wb, foglio_lotti_usciti(lotti||[], suiniLotto||[], an), "Lotti usciti");
       if(sel.has("lotti_unita"))
         XLSX.utils.book_append_sheet(wb, foglio_lotti_unita(suiniLotto||[], lotti||[]), "Lotti unità");
+      if(sel.has("unita_attive"))
+        XLSX.utils.book_append_sheet(wb, foglio_unita_attive(suiniLotto||[], lotti||[]), "Unità attive");
+      if(sel.has("unita_uscite"))
+        XLSX.utils.book_append_sheet(wb, foglio_unita_uscite(suiniLotto||[], lotti||[]), "Unità uscite");
       if(sel.has("kpi_selezione"))
         XLSX.utils.book_append_sheet(wb, foglio_kpi(an, evRiprod||[]), "KPI Selezione genetica");
       if(sel.has("costi_animale"))

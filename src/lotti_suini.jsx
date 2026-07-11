@@ -91,7 +91,7 @@ function FormAssegnaBDN({unita, lotto, animali, onSave, onCancel}) {
     if(!bdn.trim()) return;
     setSaving(true);
     // 1. Crea scheda animale individuale con dati ereditati
-    await supabase.from("animali").insert([{
+    const {error: errInsert} = await supabase.from("animali").insert([{
       bdn: bdn.trim(),
       nome: nome||null,
       specie: "suino",
@@ -107,8 +107,13 @@ function FormAssegnaBDN({unita, lotto, animali, onSave, onCancel}) {
       stato: "attivo", vivo: true,
       note: `Da lotto ${lotto.codice_lotto||lotto.codice} unità ${codice}`,
     }]);
+    if(errInsert){
+      setSaving(false);
+      alert(`⚠️ Errore nella creazione della scheda animale:\n\n${errInsert.message}`);
+      return;
+    }
     // 2. Aggiorna unità lotto: segna come "uscita con BDN"
-    await supabase.from("suini_lotto").update({
+    const {error: errUpdate} = await supabase.from("suini_lotto").update({
       bdn: bdn.trim(),
       matricola: bdn.trim(),
       stato: "registrato_individuale",
@@ -118,6 +123,10 @@ function FormAssegnaBDN({unita, lotto, animali, onSave, onCancel}) {
       data_uscita: today(),
     }).eq("id", unita.id);
     setSaving(false);
+    if(errUpdate){
+      alert(`⚠️ La scheda animale è stata creata, ma l'aggiornamento del lotto ha dato errore:\n\n${errUpdate.message}`);
+      return;
+    }
     onSave();
   };
 
@@ -176,7 +185,7 @@ function FormUscitaUnita({unita, lotto, onSave, onCancel}) {
 
   const salva = async () => {
     setSaving(true);
-    await supabase.from("suini_lotto").update({
+    const {error} = await supabase.from("suini_lotto").update({
       stato: form.stato,
       vivo: false,
       motivo_uscita: form.motivo,
@@ -186,6 +195,10 @@ function FormUscitaUnita({unita, lotto, onSave, onCancel}) {
       resa_percent: resa,
     }).eq("id", unita.id);
     setSaving(false);
+    if(error){
+      alert(`⚠️ Errore nel salvataggio dell'uscita:\n\n${error.message}`);
+      return;
+    }
     onSave();
   };
 
