@@ -361,6 +361,9 @@ function foglio_lotti_unita(suiniLotto, lotti) {
   const dati = suiniLotto.map(u => {
     const l = lotti.find(x=>x.id===u.lotto_id);
     const cod = u.codice_completo || `${l?.codice_lotto||l?.codice||""}${String(u.nr).padStart(2,"0")}`;
+    const dataIngresso = l?.data_parto||"";
+    const gg = u.data_uscita&&dataIngresso
+      ? Math.round((new Date(u.data_uscita)-new Date(dataIngresso))/86400000) : 0;
     return {
       tatuaggio:       cod,
       codice_lotto:    l?.codice_lotto||l?.codice||"",
@@ -369,12 +372,16 @@ function foglio_lotti_unita(suiniLotto, lotti) {
       destinazione:    u.destinazione||"ingrasso",
       stato:           u.stato||"",
       matricola:       u.matricola||u.bdn||"",
+      data_ingresso:   dataIngresso,
       peso_nascita:    u.peso_nascita||"",
       data_uscita:     u.data_uscita||"",
+      giorni_permanenza:gg>0?gg:"",
       motivo_uscita:   u.motivo_uscita||"",
       peso_vivo_uscita:u.peso_vivo_uscita||"",
       peso_carcassa:   u.peso_carcassa||"",
       resa_percent:    u.resa_percent||"",
+      ipg_peso_vivo:   gg>0&&u.peso_vivo_uscita ? Math.round(u.peso_vivo_uscita/gg*1000)/1000 : "",
+      ipg_carcassa:    gg>0&&u.peso_carcassa    ? Math.round(u.peso_carcassa/gg*1000)/1000 : "",
     };
   });
   return creaFoglio(dati, [
@@ -385,12 +392,16 @@ function foglio_lotti_unita(suiniLotto, lotti) {
     {key:"destinazione",    label:"Destinazione"},
     {key:"stato",           label:"Stato"},
     {key:"matricola",       label:"Matricola individuale"},
-    {key:"peso_nascita",    label:"Peso nascita (kg)"},
+    {key:"data_ingresso",   label:"Data ingresso/nascita"},
+    {key:"peso_nascita",    label:"Peso nascita/entrata (kg)"},
     {key:"data_uscita",     label:"Data uscita"},
+    {key:"giorni_permanenza",label:"Giorni permanenza"},
     {key:"motivo_uscita",   label:"Motivo uscita"},
     {key:"peso_vivo_uscita",label:"Peso vivo uscita (kg)"},
     {key:"peso_carcassa",   label:"Peso carcassa (kg)"},
     {key:"resa_percent",    label:"Resa %"},
+    {key:"ipg_peso_vivo",   label:"IPG peso vivo (kg/gg)"},
+    {key:"ipg_carcassa",    label:"IPG carcassa (kg/gg)"},
   ]);
 }
 
