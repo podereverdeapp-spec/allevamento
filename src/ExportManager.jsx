@@ -259,20 +259,26 @@ function foglio_uscite(animali) {
   ], {totale:true, contaRighe:true});
 }
 
-function foglio_lotti_riepilogo(lotti, suiniLotto, animali) {
+function foglio_lotti_riepilogo(lotti, suiniLotto, animali, costoNascitaPerLotto) {
+  const cnl = costoNascitaPerLotto || {};
   const dati = lotti.map(l => {
     const us = suiniLotto.filter(s=>s.lotto_id===l.id);
     const madre = animali.find(a=>a.id===l.madre_id);
     const padre = animali.find(a=>a.id===l.padre_id);
+    const nTotale = l.nati_totali||us.length;
+    const codice = l.codice_lotto||l.codice||"";
+    const cn = cnl[codice];
     return {
-      codice:      l.codice_lotto||l.codice||"",
+      codice,
+      tipo:        l.tipo_provenienza==="acquistato"?"Acquistato":"Parto",
       data_parto:  l.data_parto||"",
+      fornitore:   l.fornitore||"",
       madre_bdn:   madre?.bdn||"",
       madre_nome:  madre?.nome||"",
       razza_madre: l.razza_madre||madre?.razza||"",
       padre_bdn:   padre?.bdn||"",
       razza_padre: l.razza_padre||padre?.razza||"",
-      nati_totali: l.nati_totali||us.length,
+      nati_totali: nTotale,
       nati_vivi:   l.nati_vivi||us.filter(u=>u.vivo!==false).length,
       nati_morti:  l.nati_morti||0,
       vivi_attuali:us.filter(u=>u.vivo!==false&&u.stato==="attivo").length,
@@ -282,12 +288,18 @@ function foglio_lotti_riepilogo(lotti, suiniLotto, animali) {
       riproduttori:us.filter(u=>u.destinazione==="riproduzione").length,
       maschi:      us.filter(u=>u.sesso==="M").length,
       femmine:     us.filter(u=>u.sesso==="F").length,
+      prezzo_acquisto:          l.prezzo_acquisto||"",
+      prezzo_acquisto_per_capo: l.prezzo_acquisto&&nTotale?Math.round(l.prezzo_acquisto/nTotale*100)/100:"",
+      costo_nascita_stimato:          cn?cn.costoTotale:"",
+      costo_nascita_stimato_per_capo: cn?cn.costoPerCapo:"",
       note:        l.note||"",
     };
   });
   return creaFoglio(dati, [
     {key:"codice",      label:"Codice lotto"},
-    {key:"data_parto",  label:"Data parto"},
+    {key:"tipo",        label:"Tipo"},
+    {key:"data_parto",  label:"Data parto/acquisto"},
+    {key:"fornitore",   label:"Fornitore"},
     {key:"madre_bdn",   label:"BDN Madre"},
     {key:"madre_nome",  label:"Nome Madre"},
     {key:"razza_madre", label:"Razza Madre"},
@@ -303,6 +315,10 @@ function foglio_lotti_riepilogo(lotti, suiniLotto, animali) {
     {key:"riproduttori",label:"Riproduttori"},
     {key:"maschi",      label:"Maschi"},
     {key:"femmine",     label:"Femmine"},
+    {key:"prezzo_acquisto",          label:"Prezzo acquisto (€)", cur:true, sumTotale:true},
+    {key:"prezzo_acquisto_per_capo", label:"Prezzo acquisto/capo (€)", cur:true},
+    {key:"costo_nascita_stimato",          label:"Costo nascita stimato (€)", cur:true, sumTotale:true},
+    {key:"costo_nascita_stimato_per_capo", label:"Costo nascita stimato/capo (€)", cur:true},
     {key:"note",        label:"Note"},
   ]);
 }
@@ -345,21 +361,21 @@ function foglio_lotti_unita(suiniLotto, lotti) {
 }
 
 // Un lotto è "attivo" se ha almeno un'unità ancora viva/attiva (o se non ha ancora unità registrate)
-function foglio_lotti_attivi(lotti, suiniLotto, animali) {
+function foglio_lotti_attivi(lotti, suiniLotto, animali, costoNascitaPerLotto) {
   const attivi = lotti.filter(l => {
     const us = suiniLotto.filter(s=>s.lotto_id===l.id);
     return us.length===0 || us.some(u=>u.vivo!==false && u.stato==="attivo");
   });
-  return foglio_lotti_riepilogo(attivi, suiniLotto, animali);
+  return foglio_lotti_riepilogo(attivi, suiniLotto, animali, costoNascitaPerLotto);
 }
 
 // Un lotto è "uscito/chiuso" quando tutte le sue unità sono uscite (nessuna più attiva)
-function foglio_lotti_usciti(lotti, suiniLotto, animali) {
+function foglio_lotti_usciti(lotti, suiniLotto, animali, costoNascitaPerLotto) {
   const usciti = lotti.filter(l => {
     const us = suiniLotto.filter(s=>s.lotto_id===l.id);
     return us.length>0 && us.every(u=>u.vivo===false || u.stato!=="attivo");
   });
-  return foglio_lotti_riepilogo(usciti, suiniLotto, animali);
+  return foglio_lotti_riepilogo(usciti, suiniLotto, animali, costoNascitaPerLotto);
 }
 
 function foglio_unita_attive(suiniLotto, lotti) {
@@ -654,9 +670,10 @@ const COL_RIEP = [
 ];
 
 // Costruzione righe per anno (accetta anno opzionale, default anno corrente)
-function fogli_uba(animali, lotti, suiniLotto, prezziRiforma, annoRif) {
+function fogli_uba(animali, lotti, suiniLotto, prezziRiforma, annoRif, costiGenerali, costiAnimale) {
   const anno = annoRif || new Date().getFullYear();
   const righe = [];
+  const perLotto = {}; // codLotto -> {ubaGiorni, vRiforma, nCapi}
 
   for(const a of animali) {
     if(!a.specie || !UBA_FASCE_EXP[a.specie]) continue;
@@ -728,6 +745,17 @@ function fogli_uba(animali, lotti, suiniLotto, prezziRiforma, annoRif) {
       const cat = categoriaContabileExp(finto);
       const codice = u.codice_completo || `${codLotto}${String(u.nr).padStart(2,"0")}`;
 
+      const prezzoU = (prezziRiforma||[]).find(p => p.specie==="suino" && p.razza===(l.razza_madre||""));
+      const pesoU = u.peso_vivo_uscita || 0;
+      const vRiformaU = prezzoU && pesoU
+        ? Math.round(pesoU * prezzoU.prezzo_kg_vivo * (prezzoU.resa_percentuale/100) * 100) / 100
+        : 0;
+
+      if(!perLotto[codLotto]) perLotto[codLotto] = {ubaGiorni:0, vRiforma:0, nCapi:0};
+      perLotto[codLotto].ubaGiorni += ubaGiorni;
+      perLotto[codLotto].vRiforma  += vRiformaU;
+      perLotto[codLotto].nCapi     += 1;
+
       righe.push({
         "_categoria_key": cat,
         "BDN": codice,
@@ -748,13 +776,36 @@ function fogli_uba(animali, lotti, suiniLotto, prezziRiforma, annoRif) {
         "Costo iniziale": 0,
         "Tipo costo iniziale": "pre_migrazione",
         "Costi mant. cumulati": 0,
-        "V(t) riforma": 0,
+        "V(t) riforma": vRiformaU,
         "Quota scaricata figli": 0,
         "Costo netto residuo": 0,
         "Lotto": codLotto,
       });
     }
   }
+
+  // ── Allocazione costo di nascita per lotto (stesso motore [C(t)-V(t)]/F(t), esteso al gruppo) ──
+  // C(t): costi generali + costi animale dell'anno di riferimento
+  const annoDi = d => d ? new Date(d).getFullYear() : null;
+  const cTot = (costiGenerali||[]).filter(c=>annoDi(c.data_inizio)===anno).reduce((s,c)=>s+(parseFloat(c.importo)||0),0)
+             + (costiAnimale||[]).filter(c=>annoDi(c.data)===anno).reduce((s,c)=>s+(parseFloat(c.importo)||0),0);
+  // F(t): UBA-giorni totali dell'anno (tutto il perimetro aziendale, animali + lotti)
+  const fTot = righe.reduce((s,r)=>s+(r["UBA-giorni"]||0), 0);
+  // V(t): valore riforma totale dell'anno (animali + unità di lotto)
+  const vTot = righe.reduce((s,r)=>s+(r["V(t) riforma"]||0), 0);
+  const rateUbaGiorno = fTot>0 ? (cTot - vTot) / fTot : 0;
+
+  const costoNascitaPerLotto = {};
+  Object.entries(perLotto).forEach(([cod, v]) => {
+    const costoTot = Math.max(0, rateUbaGiorno * v.ubaGiorni);
+    costoNascitaPerLotto[cod] = {
+      costoTotale: Math.round(costoTot*100)/100,
+      costoPerCapo: v.nCapi>0 ? Math.round(costoTot/v.nCapi*100)/100 : 0,
+      ubaGiorni: Math.round(v.ubaGiorni*1000)/1000,
+      nCapi: v.nCapi,
+    };
+  });
+
 
   // Riepilogo per specie e categoria
   const riepilogo = [];
@@ -817,6 +868,11 @@ function fogli_uba(animali, lotti, suiniLotto, prezziRiforma, annoRif) {
     ovini:     [...righeOv,  rigaTotale("TOTALE OVINI",  righeOv)],
     suini:     [...righeSu,  rigaTotale("TOTALE SUINI E LOTTI", righeSu)],
     anno,
+    costoNascitaPerLotto,
+    cTot: Math.round(cTot*100)/100,
+    vTot: Math.round(vTot*100)/100,
+    fTot: Math.round(fTot*1000)/1000,
+    rateUbaGiorno: Math.round(rateUbaGiorno*10000)/10000,
   };
 }
 
@@ -1062,10 +1118,10 @@ export default function ExportManager() {
     try {
       // Carico solo i dati necessari
       const [
-        {data:animali},{data:sanitari},{data:alim},{data:evRiprod},
-        {data:costiAnim},{data:costiGen},{data:macchinari},
+        {data:animali},{data:prezziRif},{data:sanitari},{data:alim},
+        {data:evRiprod},{data:costiAnim},{data:costiGen},{data:macchinari},
         {data:lotti},{data:suiniLotto}
-      ,{data:prezziRif}] = await Promise.all([
+      ] = await Promise.all([
         supabase.from("animali").select("id,bdn,nome,specie,sesso,nascita,stato,data_uscita,motivo_uscita,data_ingresso,razza,razza_calcolata,categoria,peso_nascita,peso_attuale,provenienza,origine,prezzo_acquisto,lotto_box,destinazione,resa_percent,peso_carcassa,peso_vivo_uscita,note_sanitarie,note,riproduttore,data_registrazione_bdn,padre_id,madre_id,costo_iniziale,tipo_costo_iniziale,costi_mantenimento_cumulati,quota_scaricata_figli,valore_v_riforma,categoria_contabile").order("specie").order("nome"),
         supabase.from("prezzi_riforma").select("*"),
         supabase.from("eventi_sanitari").select("*").order("data",{ascending:false}),
@@ -1108,12 +1164,21 @@ export default function ExportManager() {
         XLSX.utils.book_append_sheet(wb, foglio_sanitario(filtraData(sanitari||[],"data"), an, suiniLotto||[], lotti||[]), "Sanitario");
       if(sel.has("alimentazione"))
         XLSX.utils.book_append_sheet(wb, foglio_alimentazione(filtraData(alim||[],"data")), "Alimentazione");
+      // Calcolo il motore UBA in anticipo se serve sia per i fogli UBA sia per il costo di nascita nei lotti
+      const needUba = sel.has("uba_riepilogo")||sel.has("uba_dettaglio")||
+                      sel.has("uba_bovini")||sel.has("uba_ovini")||sel.has("uba_suini");
+      const needCostoLotti = sel.has("lotti_riepilogo")||sel.has("lotti_attivi")||sel.has("lotti_usciti");
+      const ubaData = (needUba||needCostoLotti)
+        ? fogli_uba(an, lotti||[], suiniLotto||[], prezziRif||[], undefined, costiGen||[], costiAnim||[])
+        : null;
+      const costoNascitaPerLotto = ubaData?.costoNascitaPerLotto || {};
+
       if(sel.has("lotti_riepilogo"))
-        XLSX.utils.book_append_sheet(wb, foglio_lotti_riepilogo(lotti||[], suiniLotto||[], an), "Lotti riepilogo");
+        XLSX.utils.book_append_sheet(wb, foglio_lotti_riepilogo(lotti||[], suiniLotto||[], an, costoNascitaPerLotto), "Lotti riepilogo");
       if(sel.has("lotti_attivi"))
-        XLSX.utils.book_append_sheet(wb, foglio_lotti_attivi(lotti||[], suiniLotto||[], an), "Lotti attivi");
+        XLSX.utils.book_append_sheet(wb, foglio_lotti_attivi(lotti||[], suiniLotto||[], an, costoNascitaPerLotto), "Lotti attivi");
       if(sel.has("lotti_usciti"))
-        XLSX.utils.book_append_sheet(wb, foglio_lotti_usciti(lotti||[], suiniLotto||[], an), "Lotti usciti");
+        XLSX.utils.book_append_sheet(wb, foglio_lotti_usciti(lotti||[], suiniLotto||[], an, costoNascitaPerLotto), "Lotti usciti");
       if(sel.has("lotti_unita"))
         XLSX.utils.book_append_sheet(wb, foglio_lotti_unita(suiniLotto||[], lotti||[]), "Lotti unità");
       if(sel.has("unita_attive"))
@@ -1128,9 +1193,7 @@ export default function ExportManager() {
         XLSX.utils.book_append_sheet(wb, foglio_costi_generali(costiGen||[]), "Costi generali");
       if(sel.has("macchinari"))
         XLSX.utils.book_append_sheet(wb, foglio_macchinari(macchinari||[]), "Macchinari");
-      if(sel.has("uba_riepilogo")||sel.has("uba_dettaglio")||
-         sel.has("uba_bovini")||sel.has("uba_ovini")||sel.has("uba_suini")){
-        const ubaData=fogli_uba(an,lotti||[],suiniLotto||[],prezziRif||[]);
+      if(needUba){
         if(sel.has("uba_riepilogo"))
           XLSX.utils.book_append_sheet(wb,creaSheetFormattato(ubaData.riepilogo,COL_RIEP),"UBA Riepilogo");
         if(sel.has("uba_dettaglio"))
