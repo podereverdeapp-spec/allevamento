@@ -208,7 +208,7 @@ function foglio_parti(eventi, animali) {
   ]);
 }
 
-function foglio_uscite(animali) {
+function foglio_uscite(animali, suiniLotto, lotti) {
   const usciti = animali.filter(a=>a.stato!=="attivo");
   const dati = usciti.map(a => ({
     bdn:              a.bdn||"",
@@ -238,6 +238,40 @@ function foglio_uscite(animali) {
     })(),
     note:             a.note||"",
   }));
+
+  // Aggiungo le unità di lotto uscite (macellate/morte/vendute/altro) — prima mancavano del tutto
+  const lottiById = {};
+  (lotti||[]).forEach(l => { lottiById[l.id] = l; });
+  const unitaUscite = (suiniLotto||[]).filter(u =>
+    (u.vivo===false || (u.stato&&u.stato!=="attivo")) && u.stato!=="registrato_individuale"
+  );
+  unitaUscite.forEach(u => {
+    const l = lottiById[u.lotto_id] || {};
+    const codLotto = l.codice_lotto||l.codice||"";
+    const dataIngresso = l.data_parto||"";
+    const gg = u.data_uscita&&dataIngresso
+      ? Math.round((new Date(u.data_uscita)-new Date(dataIngresso))/86400000) : 0;
+    dati.push({
+      bdn:              u.codice_completo||`${codLotto}${String(u.nr||"").padStart(2,"0")}`,
+      nome:             "",
+      specie:           "suino",
+      razza:            l.razza_madre||"",
+      sesso:            u.sesso||"",
+      nascita:          dataIngresso,
+      data_ingresso:    dataIngresso,
+      data_uscita:      u.data_uscita||"",
+      giorni_permanenza:gg>0?gg:"",
+      stato:            u.stato||"",
+      motivo_uscita:    u.motivo_uscita||"",
+      peso_vivo_uscita: u.peso_vivo_uscita||"",
+      peso_carcassa:    u.peso_carcassa||"",
+      resa_percent:     u.resa_percent||"",
+      ipg_peso_vivo:    gg>0&&u.peso_vivo_uscita ? Math.round(u.peso_vivo_uscita/gg*1000)/1000 : "",
+      ipg_carcassa:     gg>0&&u.peso_carcassa    ? Math.round(u.peso_carcassa/gg*1000)/1000 : "",
+      note:             `Lotto ${codLotto}`,
+    });
+  });
+
   return creaFoglio(dati, [
     {key:"bdn",              label:"BDN / Matricola",         width:20, bold:true},
     {key:"nome",             label:"Nome",                    width:18},
@@ -1165,7 +1199,7 @@ export default function ExportManager() {
       if(sel.has("anagrafica_ovini_usciti"))
         XLSX.utils.book_append_sheet(wb, foglio_anagrafica(an.filter(a=>a.specie==="ovino"&&a.stato!=="attivo")), "Ovini usciti");
       if(sel.has("uscite"))
-        XLSX.utils.book_append_sheet(wb, foglio_uscite(an), "Uscite");
+        XLSX.utils.book_append_sheet(wb, foglio_uscite(an, suiniLotto||[], lotti||[]), "Uscite");
       if(sel.has("parti"))
         XLSX.utils.book_append_sheet(wb, foglio_parti(filtraData(evRiprod||[],"data_evento"), an), "Parti");
       if(sel.has("sanitario"))
