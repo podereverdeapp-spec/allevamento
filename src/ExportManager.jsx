@@ -728,7 +728,14 @@ function fogli_uba(animali, lotti, suiniLotto, prezziRiforma, annoRif, costiGene
   for(const l of lotti) {
     if(!l.data_parto) continue;
     const codLotto = l.codice_lotto||l.codice||"";
-    for(const u of suiniLotto.filter(x=>x.lotto_id===l.id)) {
+    const unitaLotto = suiniLotto.filter(x=>x.lotto_id===l.id);
+    const nTotaleLotto = l.nati_totali||unitaLotto.length;
+    // Per i lotti acquistati, il prezzo pagato va allocato pro-capite come costo iniziale
+    const costoInizPerCapo = (l.tipo_provenienza==="acquistato" && l.prezzo_acquisto && nTotaleLotto)
+      ? Math.round(l.prezzo_acquisto / nTotaleLotto * 100) / 100
+      : 0;
+
+    for(const u of unitaLotto) {
       if(u.stato==="registrato_individuale") continue;
       const finto = {
         nascita: l.data_parto,
@@ -750,6 +757,7 @@ function fogli_uba(animali, lotti, suiniLotto, prezziRiforma, annoRif, costiGene
       const vRiformaU = prezzoU && pesoU
         ? Math.round(pesoU * prezzoU.prezzo_kg_vivo * (prezzoU.resa_percentuale/100) * 100) / 100
         : 0;
+      const costoNettoU = Math.max(0, costoInizPerCapo - vRiformaU);
 
       if(!perLotto[codLotto]) perLotto[codLotto] = {ubaGiorni:0, vRiforma:0, nCapi:0};
       perLotto[codLotto].ubaGiorni += ubaGiorni;
@@ -773,12 +781,12 @@ function fogli_uba(animali, lotti, suiniLotto, prezziRiforma, annoRif, costiGene
         "Categoria contabile": cat,
         "Qualifica": "",
         "Motivo uscita": u.motivo_uscita||"",
-        "Costo iniziale": 0,
-        "Tipo costo iniziale": "pre_migrazione",
+        "Costo iniziale": costoInizPerCapo,
+        "Tipo costo iniziale": l.tipo_provenienza==="acquistato" ? "acquisto_lotto" : "pre_migrazione",
         "Costi mant. cumulati": 0,
         "V(t) riforma": vRiformaU,
         "Quota scaricata figli": 0,
-        "Costo netto residuo": 0,
+        "Costo netto residuo": costoNettoU,
         "Lotto": codLotto,
       });
     }
