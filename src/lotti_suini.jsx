@@ -329,8 +329,8 @@ function CardUnita({u, lotto, animali, onUpdate}) {
             </div>
           )}
         </div>
-        {vivo&&(
-          <div style={{display:"flex",gap:6,flexShrink:0}}>
+        <div style={{display:"flex",gap:6,flexShrink:0}}>
+          {vivo&&(<>
             <button onClick={()=>setModal("peso")}
               style={{background:C.yellow+"20",border:"none",borderRadius:8,
                 padding:"6px 8px",cursor:"pointer",fontSize:12,fontWeight:700,color:C.yellow}}>
@@ -346,22 +346,57 @@ function CardUnita({u, lotto, animali, onUpdate}) {
                 padding:"6px 8px",cursor:"pointer",fontSize:12,fontWeight:700,color:C.red}}>
               📤
             </button>
-          </div>
-        )}
+          </>)}
+          <button onClick={async()=>{
+              if(!window.confirm(`Eliminare definitivamente l'unità ${codice}?\nQuesta operazione NON è reversibile.`)) return;
+              const {error} = await supabase.from("suini_lotto").delete().eq("id", u.id);
+              if(error){ alert(`⚠️ Errore nell'eliminazione:\n\n${error.message}`); return; }
+              onUpdate();
+            }}
+            style={{background:"#00000015",border:"none",borderRadius:8,
+              padding:"6px 8px",cursor:"pointer",fontSize:12,fontWeight:700,color:C.muted}}>
+            🗑️
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
 // ─── SCHEDA LOTTO ─────────────────────────────────────────────────────────────
-function SchedaLotto({lotto, suini, animali, onBack, onUpdate}) {
+function SchedaLotto({lotto, suini, animali, onBack, onUpdate, onDelete}) {
   const [cerca,setCerca] = useState("");
   const [form,setForm] = useState(null);
   const [saving,setSaving] = useState(false);
+  const [eliminando,setEliminando] = useState(false);
 
   const unita = useMemo(()=>
     suini.filter(s=>s.lotto_id===lotto.id).sort((a,b)=>a.nr-b.nr)
   ,[suini,lotto.id]);
+
+  const eliminaLotto = async () => {
+    const nUnita = unita.length;
+    if(!window.confirm(
+      `Eliminare definitivamente il lotto ${lotto.codice_lotto||lotto.codice}?\n\n`+
+      `Verranno cancellate anche tutte le ${nUnita} unità al suo interno.\n`+
+      `Questa operazione NON è reversibile.`
+    )) return;
+    if(!window.confirm("Confermi? Non si può tornare indietro.")) return;
+    setEliminando(true);
+    const {error: errUnita} = await supabase.from("suini_lotto").delete().eq("lotto_id", lotto.id);
+    if(errUnita){
+      setEliminando(false);
+      alert(`⚠️ Errore nell'eliminazione delle unità del lotto:\n\n${errUnita.message}`);
+      return;
+    }
+    const {error: errLotto} = await supabase.from("lotti_suini").delete().eq("id", lotto.id);
+    setEliminando(false);
+    if(errLotto){
+      alert(`⚠️ Le unità sono state eliminate, ma il lotto stesso ha dato errore:\n\n${errLotto.message}`);
+      return;
+    }
+    onDelete();
+  };
 
   const unitaFiltrate = useMemo(()=>{
     if(!cerca.trim()) return unita;
@@ -469,9 +504,14 @@ function SchedaLotto({lotto, suini, animali, onBack, onUpdate}) {
               </div>
             </div>
           </div>
-          <button onClick={()=>setForm({...lotto})} style={{background:"rgba(255,255,255,0.2)",
-            border:"none",borderRadius:10,padding:"6px 10px",color:"#FFF",
-            cursor:"pointer",fontSize:16,flexShrink:0}}>✏️ Modifica</button>
+          <div style={{display:"flex",gap:8,flexShrink:0}}>
+            <button onClick={()=>setForm({...lotto})} style={{background:"rgba(255,255,255,0.2)",
+              border:"none",borderRadius:10,padding:"6px 10px",color:"#FFF",
+              cursor:"pointer",fontSize:16}}>✏️ Modifica</button>
+            <button onClick={eliminaLotto} disabled={eliminando} style={{background:"rgba(0,0,0,0.25)",
+              border:"none",borderRadius:10,padding:"6px 10px",color:"#FFF",
+              cursor:"pointer",fontSize:16}}>{eliminando?"...":"🗑️"}</button>
+          </div>
         </div>
         {(madre||padre)&&(
           <div style={{fontSize:13,color:"rgba(255,255,255,0.85)"}}>
@@ -800,7 +840,8 @@ export default function LottiSuini() {
   if(view==="lotto"&&selLotto) return wrap(
     <SchedaLotto lotto={selLotto} suini={suini} animali={animali}
       onBack={()=>{setView("lista");setSelLottoId(null);}}
-      onUpdate={async()=>{await carica();}}/>
+      onUpdate={async()=>{await carica();}}
+      onDelete={async()=>{setView("lista");setSelLottoId(null);await carica();}}/>
   );
   return wrap(
     <ListaLotti lotti={lotti} suini={suini} animali={animali}

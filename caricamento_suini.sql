@@ -1,0 +1,8 @@
+-- Import 4 suini individuali (usciti/macellati 2021) da caricamento.xlsx
+insert into animali (
+  bdn, nome, specie, razza, razza_calcolata, sesso, riproduttore, categoria, nascita, data_registrazione_bdn, peso_nascita, peso_attuale, provenienza, origine, prezzo_acquisto, data_ingresso, lotto_box, destinazione, stato, data_uscita, motivo_uscita, peso_vivo_uscita, peso_carcassa, resa_percent, vivo, note_sanitarie, note
+) values
+  ('AZAGRAUR1120203', NULL, 'suino', 'Cinta Senese', 'Cinta Senese', 'F', false, 'Magroncello', NULL, NULL, 55.0, NULL, 'Acquistato', 'AZIENDA AGRICOLA AURELIA', 223.0, '2020-11-18', NULL, 'Macello', 'macellato', '2021-05-05', 'Macellato', 175.95999999999998, 134.67224285714283, 76.53571428571428, false, NULL, NULL),
+  ('AZAGRAUR1120204', NULL, 'suino', 'Cinta Senese', 'Cinta Senese', 'F', false, 'Magroncello', NULL, NULL, 55.0, NULL, 'Acquistato', 'AZIENDA AGRICOLA AURELIA', 223.0, '2020-11-18', NULL, 'Ingrasso', 'macellato', '2021-05-05', 'Macellato', 175.95999999999998, 134.67224285714283, 76.53571428571428, false, NULL, NULL),
+  ('AZAGRAUR1120205', NULL, 'suino', 'Cinta Senese', 'Cinta Senese', 'F', false, 'Magroncello', NULL, NULL, 55.0, NULL, 'Acquistato', 'AZIENDA AGRICOLA AURELIA', 223.0, '2020-11-18', NULL, 'Macello', 'macellato', '2021-05-05', 'Macellato', 175.95999999999998, 134.67224285714283, 76.53571428571428, false, NULL, NULL),
+  ('AZAGRAUR1120206', NULL, 'suino', 'Cinta Senese', 'Cinta Senese', 'F', false, 'Magroncello', NULL, NULL, 55.0, NULL, 'Acquistato', 'AZIENDA AGRICOLA AURELIA', 223.0, '2020-11-18', NULL, 'Ingrasso', 'macellato', '2021-05-05', 'Macellato', 175.95999999999998, 134.67224285714283, 76.53571428571428, false, NULL, NULL);
