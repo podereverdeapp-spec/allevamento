@@ -693,7 +693,12 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
             stato:"attivo",
             destinazione:"ingrasso",
           }));
-          await supabase.from("suini_lotto").insert(righeUnita);
+          const{error:errUnita}=await supabase.from("suini_lotto").insert(righeUnita);
+          if(errUnita){
+            setSavingParto(false);
+            alert(`⚠️ Il lotto ${codLotto} è stato creato, ma il salvataggio delle singole unità è fallito:\n\n${errUnita.message}\n\nIl lotto risulterà con "0 vivi attuali" finché non correggi questo problema (segnalalo, o elimina il lotto e riprova).`);
+            return;
+          }
         }
       }
     }

@@ -156,10 +156,13 @@ function FormAssegnaBDN({unita, lotto, animali, onSave, onCancel}) {
 
 // ─── FORM USCITA UNITÀ ────────────────────────────────────────────────────────
 function FormUscitaUnita({unita, lotto, onSave, onCancel}) {
+  const giaUscita = unita.vivo===false || (unita.stato&&unita.stato!=="attivo");
   const [form,setForm] = useState({
-    motivo:"Macellato", stato:"macellato",
-    data_uscita:today(),
-    peso_vivo_uscita:"", peso_carcassa:"",
+    motivo: unita.motivo_uscita || "Macellato",
+    stato: giaUscita ? unita.stato : "macellato",
+    data_uscita: unita.data_uscita || today(),
+    peso_vivo_uscita: unita.peso_vivo_uscita ?? "",
+    peso_carcassa: unita.peso_carcassa ?? "",
   });
   const [saving,setSaving] = useState(false);
   const codice = unita.codice_completo||codiceUnita(lotto.codice_lotto||lotto.codice, unita.nr);
@@ -206,7 +209,7 @@ function FormUscitaUnita({unita, lotto, onSave, onCancel}) {
     <div style={{background:"#FFEBEE",border:`2px solid ${C.red}`,
       borderRadius:14,padding:14,marginBottom:10}}>
       <div style={{fontWeight:700,color:C.red,marginBottom:10,fontSize:14}}>
-        📤 Registra uscita — {codice}
+        📤 {giaUscita?"Modifica":"Registra"} uscita — {codice}
       </div>
       <Field label="Motivo uscita" value={form.motivo}
         onChange={v=>{
@@ -341,12 +344,12 @@ function CardUnita({u, lotto, animali, onUpdate}) {
                 padding:"6px 8px",cursor:"pointer",fontSize:12,fontWeight:700,color:C.blue}}>
               🏷️ BDN
             </button>
-            <button onClick={()=>setModal("uscita")}
-              style={{background:C.red+"20",border:"none",borderRadius:8,
-                padding:"6px 8px",cursor:"pointer",fontSize:12,fontWeight:700,color:C.red}}>
-              📤
-            </button>
           </>)}
+          <button onClick={()=>setModal("uscita")}
+            style={{background:C.red+"20",border:"none",borderRadius:8,
+              padding:"6px 8px",cursor:"pointer",fontSize:12,fontWeight:700,color:C.red}}>
+            📤{!vivo&&" ✏️"}
+          </button>
           <button onClick={async()=>{
               if(!window.confirm(`Eliminare definitivamente l'unità ${codice}?\nQuesta operazione NON è reversibile.`)) return;
               const {error} = await supabase.from("suini_lotto").delete().eq("id", u.id);

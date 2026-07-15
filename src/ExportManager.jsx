@@ -699,14 +699,18 @@ const COL_UBA = [
   {key:"Razza",                  label:"Razza",                     width:16},
   {key:"Categoria età",          label:"Categoria età",             width:22},
   {key:"Data nascita",           label:"Data nascita",              width:13, center:true},
+  {key:"Data ingresso",          label:"Data ingresso",             width:13, center:true},
+  {key:"Giorni permanenza",      label:"Giorni permanenza",         width:11, center:true, num:true},
   {key:"Inizio periodo",         label:"Inizio periodo",            width:13, center:true},
   {key:"Fine periodo",           label:"Fine periodo",              width:13, center:true},
-  {key:"Giorni",                 label:"Giorni",                    width:8,  center:true, num:true},
+  {key:"Giorni",                 label:"Giorni (nell'anno)",        width:8,  center:true, num:true},
   {key:"UBA medio",              label:"UBA medio",                 width:11, num:true},
   {key:"UBA-giorni",             label:"UBA-giorni",                width:12, num:true, bold:true},
   {key:"Categoria contabile",    label:"Categoria contabile",       width:20},
   {key:"Qualifica",              label:"Qualifica",                 width:16},
   {key:"Motivo uscita",          label:"Motivo uscita",             width:20},
+  {key:"IPG peso vivo",          label:"IPG peso vivo (kg/gg)",     width:13, num:true},
+  {key:"IPG carcassa",           label:"IPG carcassa (kg/gg)",      width:13, num:true},
   {key:"Costo iniziale",         label:"Costo iniziale (€)",        width:14, cur:true},
   {key:"Tipo costo iniziale",    label:"Tipo costo iniziale",       width:18},
   {key:"Costi mant. cumulati",   label:"Costi mant. cumulati (€)",  width:16, cur:true},
@@ -752,6 +756,15 @@ function fogli_uba(animali, lotti, suiniLotto, prezziRiforma, annoRif, costiGene
     const quotaFig  = a.quota_scaricata_figli || 0;
     const costoNetto = Math.max(0, costoIniz + mantCum - quotaFig - vRiforma);
 
+    const dataIngresso = a.data_ingresso || nascita;
+    const dataRif = a.data_uscita || new Date().toISOString().slice(0,10);
+    const ggPermanenza = dataIngresso
+      ? Math.round((new Date(dataRif)-new Date(dataIngresso))/86400000) : 0;
+    const acquistatoA = a.provenienza==="Acquistato";
+    const guadagnoPesoA = acquistatoA
+      ? (a.peso_vivo_uscita!=null&&a.peso_nascita!=null ? a.peso_vivo_uscita-a.peso_nascita : null)
+      : a.peso_vivo_uscita;
+
     righe.push({
       "_categoria_key": cat,
       "BDN": a.bdn||"",
@@ -761,6 +774,8 @@ function fogli_uba(animali, lotti, suiniLotto, prezziRiforma, annoRif, costiGene
       "Razza": a.razza_calcolata||a.razza||"",
       "Categoria età": categoriaEtàExp(a.specie, periodo.etaAllInizio, periodo.giorni),
       "Data nascita": nascita,
+      "Data ingresso": dataIngresso,
+      "Giorni permanenza": ggPermanenza>0?ggPermanenza:"",
       "Inizio periodo": periodo.inizio,
       "Fine periodo": periodo.fine,
       "Giorni": periodo.giorni,
@@ -769,6 +784,8 @@ function fogli_uba(animali, lotti, suiniLotto, prezziRiforma, annoRif, costiGene
       "Categoria contabile": cat,
       "Qualifica": a.riproduttore ? (a.sesso==="M"?"Riproduttore":"Riproduttrice") : "",
       "Motivo uscita": a.motivo_uscita||"",
+      "IPG peso vivo": ggPermanenza>0&&guadagnoPesoA!=null ? Math.round(guadagnoPesoA/ggPermanenza*1000)/1000 : "",
+      "IPG carcassa":  ggPermanenza>0&&a.peso_carcassa       ? Math.round(a.peso_carcassa/ggPermanenza*1000)/1000 : "",
       "Costo iniziale": costoIniz,
       "Tipo costo iniziale": a.tipo_costo_iniziale||"",
       "Costi mant. cumulati": mantCum,
@@ -814,6 +831,15 @@ function fogli_uba(animali, lotti, suiniLotto, prezziRiforma, annoRif, costiGene
         : 0;
       const costoNettoU = Math.max(0, costoInizPerCapo - vRiformaU);
 
+      const dataIngressoU = l.data_parto;
+      const dataRifU = u.data_uscita || new Date().toISOString().slice(0,10);
+      const ggPermanenzaU = dataIngressoU
+        ? Math.round((new Date(dataRifU)-new Date(dataIngressoU))/86400000) : 0;
+      const acquistatoU = l.tipo_provenienza==="acquistato";
+      const guadagnoPesoU = acquistatoU
+        ? (u.peso_vivo_uscita!=null&&u.peso_nascita!=null ? u.peso_vivo_uscita-u.peso_nascita : null)
+        : u.peso_vivo_uscita;
+
       if(!perLotto[codLotto]) perLotto[codLotto] = {ubaGiorni:0, vRiforma:0, nCapi:0};
       perLotto[codLotto].ubaGiorni += ubaGiorni;
       perLotto[codLotto].vRiforma  += vRiformaU;
@@ -828,6 +854,8 @@ function fogli_uba(animali, lotti, suiniLotto, prezziRiforma, annoRif, costiGene
         "Razza": l.razza_madre||"",
         "Categoria età": categoriaEtàExp("suino", periodo.etaAllInizio, periodo.giorni),
         "Data nascita": l.data_parto,
+        "Data ingresso": dataIngressoU,
+        "Giorni permanenza": ggPermanenzaU>0?ggPermanenzaU:"",
         "Inizio periodo": periodo.inizio,
         "Fine periodo": periodo.fine,
         "Giorni": periodo.giorni,
@@ -836,6 +864,8 @@ function fogli_uba(animali, lotti, suiniLotto, prezziRiforma, annoRif, costiGene
         "Categoria contabile": cat,
         "Qualifica": "",
         "Motivo uscita": u.motivo_uscita||"",
+        "IPG peso vivo": ggPermanenzaU>0&&guadagnoPesoU!=null ? Math.round(guadagnoPesoU/ggPermanenzaU*1000)/1000 : "",
+        "IPG carcassa":  ggPermanenzaU>0&&u.peso_carcassa       ? Math.round(u.peso_carcassa/ggPermanenzaU*1000)/1000 : "",
         "Costo iniziale": costoInizPerCapo,
         "Tipo costo iniziale": l.tipo_provenienza==="acquistato" ? "acquisto_lotto" : "pre_migrazione",
         "Costi mant. cumulati": 0,
