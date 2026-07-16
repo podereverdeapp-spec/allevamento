@@ -140,25 +140,12 @@ function calcolaKPI(animaleId, animali, parti) {
 }
 
 function calcolaScore(kpi, specie) {
-  if (!kpi) return 0;
-  const bench = {
-    bovino:{iip:[270,400],prolif:[1,2],pct:[85,100],peso:[30,60]},
-    suino: {iip:[140,200],prolif:[8,14],pct:[88,100],peso:[1,2]},
-    ovino: {iip:[180,270],prolif:[1,2.5],pct:[88,100],peso:[3,6]},
-  };
-  const b = bench[specie]||bench.bovino;
-  const norm=(val,min,max,inv=false)=>{
-    if(val===null)return 50;
-    const s=Math.min(100,Math.max(0,((val-min)/(max-min))*100));
-    return inv?100-s:s;
-  };
-  const score =
-    norm(kpi.iipMedio,b.iip[0],b.iip[1],true)*0.25 +
-    norm(kpi.prolificita,b.prolif[0],b.prolif[1])*0.30 +
-    norm(kpi.pctNatiVivi,b.pct[0],b.pct[1])*0.25 +
-    (kpi.pesoMedioNati?norm(kpi.pesoMedioNati,b.peso[0],b.peso[1])*0.10:0) +
-    norm(Math.min(kpi.nParti,6),0,6)*0.10;
-  return Math.round(score*10)/10;
+  if (!kpi || kpi.prolificita==null) return 0;
+  // Punteggio diretto: nati vivi medi per parto (= nati totali/parto × % vivi),
+  // scalato su una base 0-100 senza soglie fisse che azzerano i valori fuori standard.
+  // Riferimento: 10 nati vivi/parto = punteggio 100 (tetto puramente per la scala visiva,
+  // non taglia via valori superiori: una scrofa con 12 nati vivi/parto arriva a 120).
+  return Math.round(kpi.prolificita * 10 * 10) / 10; // prolificita×10, arrotondato a 1 decimale
 }
 
 // ─── CARD RIPRODUTTORE ────────────────────────────────────────────────────────
