@@ -1073,6 +1073,46 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
                   </div>
                 )}
               </Card>
+              {a.sesso==="F"&&partiMadre.length>0&&(()=>{
+                const mieiVivi=partiMadre.reduce((s,p)=>s+(p.nati_vivi||0),0);
+                const mieiMorti=partiMadre.reduce((s,p)=>s+(p.nati_morti||0),0);
+                const mieiTot=mieiVivi+mieiMorti;
+                const miaPct=mieiTot>0?Math.round(mieiVivi/mieiTot*1000)/10:null;
+
+                const partiAllevamento=eventiRiproduttivi.filter(e=>{
+                  if(e.tipo_evento!=="parto") return false;
+                  const an=animali.find(x=>x.id===e.animale_id);
+                  return an&&an.specie===a.specie;
+                });
+                const allevVivi=partiAllevamento.reduce((s,p)=>s+(p.nati_vivi||0),0);
+                const allevMorti=partiAllevamento.reduce((s,p)=>s+(p.nati_morti||0),0);
+                const allevTot=allevVivi+allevMorti;
+                const allevPct=allevTot>0?Math.round(allevVivi/allevTot*1000)/10:null;
+
+                const coloreMia = miaPct==null||allevPct==null ? "#000"
+                  : miaPct>allevPct ? C.blue
+                  : miaPct<allevPct ? C.red
+                  : "#000";
+
+                return(
+                  <Card>
+                    <Sezione label="% Nati vivi sul totale nati"/>
+                    <div style={{display:"flex",justifyContent:"space-between",
+                      padding:"6px 0",borderBottom:`1px solid ${C.border}`,fontSize:14}}>
+                      <span style={{color:C.muted,fontSize:13}}>Media allevamento ({specieLabel(a.specie)})</span>
+                      <span style={{fontWeight:700,color:"#000",fontSize:14}}>
+                        {allevPct!=null?allevPct+"%":"—"}
+                      </span>
+                    </div>
+                    <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",fontSize:14}}>
+                      <span style={{color:C.muted,fontSize:13}}>Questa scrofa</span>
+                      <span style={{fontWeight:700,color:coloreMia,fontSize:14}}>
+                        {miaPct!=null?miaPct+"%":"—"}
+                      </span>
+                    </div>
+                  </Card>
+                );
+              })()}
               <Card>
                 <Sezione label="Dati fisici e nascita"/>
                 {a.nascita&&<Row label="Data di nascita" val={a.nascita}/>}
