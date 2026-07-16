@@ -163,7 +163,12 @@ function useEventiSanitari() {
     if(!error&&data)setEventi(prev=>[data,...prev]);
     return{data,error};
   };
-  return{eventi,loading,aggiungi};
+  const elimina=async(id)=>{
+    const{error}=await supabase.from("eventi_sanitari").delete().eq("id",id);
+    if(!error)setEventi(prev=>prev.filter(e=>e.id!==id));
+    return{error};
+  };
+  return{eventi,loading,aggiungi,elimina};
 }
 
 function useAlimentazione() {
@@ -1853,7 +1858,7 @@ function AntenatatoMini({a,onClick}){
 }
 
 // ─── SANITARIO ────────────────────────────────────────────────────────────────
-function Sanitario({animali,eventi,loading,aggiungi}){
+function Sanitario({animali,eventi,loading,aggiungi,elimina}){
   const [form,setForm]=useState(null);
   const [saving,setSaving]=useState(false);
   const [cerca,setCerca]=useState("");
@@ -2543,6 +2548,15 @@ function Sanitario({animali,eventi,loading,aggiungi}){
                 {e.costo>0&&<div style={{fontWeight:700,color:C.accent}}>€{e.costo}</div>}
                 {e.scadenza&&<div style={{fontSize:12,background:C.yellow+"22",color:C.yellow,
                   borderRadius:8,padding:"2px 8px",marginTop:4}}>⏰ {e.scadenza}</div>}
+                <button onClick={async()=>{
+                    if(!window.confirm("Eliminare questo evento sanitario?"))return;
+                    const {error} = await elimina(e.id);
+                    if(error) alert(`⚠️ Errore nell'eliminazione:\n\n${error.message}`);
+                  }}
+                  style={{background:"none",border:"none",cursor:"pointer",fontSize:16,
+                    marginTop:6,opacity:0.6}}>
+                  🗑️
+                </button>
               </div>
             </div>
           </Card>
@@ -2781,7 +2795,7 @@ export default function AllevamentoApp(){
   useEffect(()=>{
     supabase.from("suini_lotto").select("vivo,stato").then(({data})=>setSuiniLotto(data||[]));
   },[]);
-  const{eventi:sanitari,loading:loadS,aggiungi:addS}=useEventiSanitari();
+  const{eventi:sanitari,loading:loadS,aggiungi:addS,elimina:delS}=useEventiSanitari();
   const{totalePerAnimale}=useCostiAnimale();
   const{voci:alimentazione,loading:loadAl,aggiungi:addAl}=useAlimentazione();
   const{eventi:riproduttivi,loading:loadR,carica:ricaricaEventiRip,aggiungi:addEvRip,aggiorna:updEvRip,elimina:delEvRip}=useEventiRiproduttivi();
@@ -2823,7 +2837,7 @@ export default function AllevamentoApp(){
           sanitari={sanitari}
           totalePerAnimale={totalePerAnimale}
         />}
-        {tab==="sanitario"    &&<Sanitario animali={animali} eventi={sanitari} loading={loadS} aggiungi={addS}/>}
+        {tab==="sanitario"    &&<Sanitario animali={animali} eventi={sanitari} loading={loadS} aggiungi={addS} elimina={delS}/>}
         {tab==="alimentazione"&&<Alimentazione voci={alimentazione} loading={loadAl} aggiungi={addAl} animali={animali}/>}
         {tab==="magazzino"    &&<Magazzino scorte={magazzino} loading={loadM} aggiungi={addM} aggiorna={updM}/>}
         {tab==="report"       &&<Report animali={animali} eventi_sanitari={sanitari} voci_alimentazione={alimentazione}/>}
