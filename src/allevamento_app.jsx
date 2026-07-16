@@ -512,7 +512,11 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
 
   const cancella=async(id)=>{
     if(!window.confirm("Eliminare questo animale?"))return;
-    await elimina(id);
+    const {error} = await elimina(id);
+    if(error){
+      alert(`⚠️ Impossibile eliminare l'animale:\n\n${error.message}\n\nProbabile causa: è ancora collegato a un lotto (come madre/padre) o a un evento riproduttivo/sanitario/costo. Rimuovi prima quei riferimenti, oppure usa "Modifica" per correggere i dati invece di eliminare.`);
+      return;
+    }
     setDettaglio(null);
   };
 
