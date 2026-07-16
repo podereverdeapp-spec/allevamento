@@ -89,8 +89,13 @@ function FormAssegnaBDN({unita, lotto, animali, onSave, onCancel}) {
 
   const salva = async () => {
     if(!bdn.trim()) return;
+    if(!unita.sesso){
+      alert("⚠️ Questa unità non ha ancora un sesso registrato.\n\nChiudi questo modulo, usa prima il pulsante ⚖️ per impostarlo, poi torna qui ad assegnare il BDN.");
+      return;
+    }
     setSaving(true);
     // 1. Crea scheda animale individuale con dati ereditati
+    const acquistato = lotto.tipo_provenienza==="acquistato";
     const {error: errInsert} = await supabase.from("animali").insert([{
       bdn: bdn.trim(),
       nome: nome||null,
@@ -99,10 +104,11 @@ function FormAssegnaBDN({unita, lotto, animali, onSave, onCancel}) {
       nascita: lotto.data_parto||null,
       razza: lotto.razza_madre||madre?.razza||null,
       razza_calcolata: lotto.razza_madre||madre?.razza||null,
-      madre_id: lotto.madre_id||null,
-      padre_id: lotto.padre_id||null,
+      madre_id: acquistato?null:(lotto.madre_id||null),
+      padre_id: acquistato?null:(lotto.padre_id||null),
       peso_nascita: unita.peso_nascita||null,
-      provenienza: "Nato in azienda",
+      provenienza: acquistato?"Acquistato":"Nato in azienda",
+      origine: acquistato?(lotto.fornitore||null):null,
       data_ingresso: lotto.data_parto||null,
       stato: "attivo", vivo: true,
       note: `Da lotto ${lotto.codice_lotto||lotto.codice} unità ${codice}`,
@@ -247,9 +253,10 @@ function FormUscitaUnita({unita, lotto, onSave, onCancel}) {
   );
 }
 
-// ─── FORM PESO UNITÀ (nascita o entrata) ──────────────────────────────────────
+// ─── FORM PESO E SESSO UNITÀ (nascita o entrata) ──────────────────────────────
 function FormPesoUnita({unita, lotto, onSave, onCancel}) {
   const [peso,setPeso] = useState(unita.peso_nascita ?? "");
+  const [sesso,setSesso] = useState(unita.sesso ?? "");
   const [saving,setSaving] = useState(false);
   const codice = unita.codice_completo||codiceUnita(lotto.codice_lotto||lotto.codice, unita.nr);
   const acquistato = lotto.tipo_provenienza==="acquistato";
@@ -258,10 +265,11 @@ function FormPesoUnita({unita, lotto, onSave, onCancel}) {
     setSaving(true);
     const {error} = await supabase.from("suini_lotto").update({
       peso_nascita: peso!==""?parseFloat(peso):null,
+      sesso: sesso||null,
     }).eq("id", unita.id);
     setSaving(false);
     if(error){
-      alert(`⚠️ Errore nel salvataggio del peso:\n\n${error.message}`);
+      alert(`⚠️ Errore nel salvataggio:\n\n${error.message}`);
       return;
     }
     onSave();
@@ -271,8 +279,11 @@ function FormPesoUnita({unita, lotto, onSave, onCancel}) {
     <div style={{background:"#FFF3E0",border:`2px solid ${C.yellow}`,
       borderRadius:14,padding:14,marginBottom:10}}>
       <div style={{fontWeight:700,color:C.yellow,marginBottom:10,fontSize:14}}>
-        ⚖️ Peso {acquistato?"in entrata":"alla nascita"} — {codice}
+        ⚖️ Peso e sesso — {codice}
       </div>
+      <Field label="Sesso" value={sesso} onChange={setSesso}
+        options={[{value:"M",label:"♂ Maschio"},
+                  {value:"F",label:"♀ Femmina"},{value:"Castrato",label:"✂ Castrato"}]}/>
       <Field label={`Peso ${acquistato?"in entrata":"alla nascita"} (kg)`} value={peso}
         onChange={setPeso} type="number" placeholder="Es. 1.4"/>
       <div style={{display:"flex",gap:8}}>
