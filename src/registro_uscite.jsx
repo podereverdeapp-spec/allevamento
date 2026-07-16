@@ -108,6 +108,7 @@ function FormUscita({animale, onSave, onCancel}) {
     stato: animale.stato!=="attivo"?animale.stato:"macellato",
     data_uscita: animale.data_uscita||today(),
     motivo_uscita: animale.motivo_uscita||"",
+    causa_morte: animale.causa_morte||"",
     peso_vivo_uscita: animale.peso_vivo_uscita||"",
     peso_carcassa: animale.peso_carcassa||"",
     note: animale.note||"",
@@ -128,6 +129,7 @@ function FormUscita({animale, onSave, onCancel}) {
       stato: form.stato||"uscito",
       data_uscita: form.data_uscita||null,
       motivo_uscita: form.motivo_uscita||null,
+      causa_morte: form.motivo_uscita==="Morto (malattia)"?(form.causa_morte||null):null,
       peso_vivo_uscita: form.peso_vivo_uscita?parseFloat(form.peso_vivo_uscita):null,
       peso_carcassa: form.peso_carcassa?parseFloat(form.peso_carcassa):null,
       resa_percent: resa,
@@ -136,7 +138,11 @@ function FormUscita({animale, onSave, onCancel}) {
     };
     const{error}=await supabase.from("animali").update(payload).eq("id",animale.id);
     setSaving(false);
-    if(!error) onSave();
+    if(error){
+      alert(`⚠️ Errore nel salvataggio dell'uscita:\n\n${error.message}`);
+      return;
+    }
+    onSave();
   };
 
   return(
@@ -158,6 +164,9 @@ function FormUscita({animale, onSave, onCancel}) {
       <Field label="Motivo uscita" value={form.motivo_uscita} onChange={v=>setForm(f=>({...f,motivo_uscita:v}))}
         options={["Macellato","Morto (cause naturali)","Morto (malattia)","Venduto vivo","Furto","Scappato","Trasferito","Altro"]}
         required/>
+      {form.motivo_uscita==="Morto (malattia)"&&
+        <Field label="Causa (malattia/diagnosi)" value={form.causa_morte}
+          onChange={v=>setForm(f=>({...f,causa_morte:v}))} placeholder="Es. Polmonite, PRRS, setticemia..."/>}
       <Field label="Nuovo stato" value={form.stato} onChange={v=>setForm(f=>({...f,stato:v}))}
         options={["macellato","deceduto","venduto","trasferito"]}/>
       <Field label="Data uscita" value={form.data_uscita} onChange={v=>setForm(f=>({...f,data_uscita:v}))} type="date"/>

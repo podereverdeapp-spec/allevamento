@@ -474,6 +474,9 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
       data_ingresso:form.data_ingresso||null,
       prezzo_acquisto:form.prezzo_acquisto?parseFloat(form.prezzo_acquisto):null,
       origine:form.origine||null,
+      fornitore:form.fornitore||null,
+      data_fattura:form.data_fattura||null,
+      numero_fattura:form.numero_fattura||null,
       padre_id:padre_id,
       madre_id:madre_id,
       transponder:form.transponder||null,
@@ -765,6 +768,13 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
         <Field label="Data ingresso in azienda" value={form.data_ingresso} onChange={v=>setForm(f=>({...f,data_ingresso:v}))} type="date"/>
         {form.provenienza!=="Nato in azienda"&&<>
           <Field label="Azienda / Allevamento di origine" value={form.origine} onChange={v=>setForm(f=>({...f,origine:v}))}/>
+          <Field label="Fornitore" value={form.fornitore} onChange={v=>setForm(f=>({...f,fornitore:v}))}/>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            <Field label="Data fattura" value={form.data_fattura}
+              onChange={v=>setForm(f=>({...f,data_fattura:v}))} type="date"/>
+            <Field label="Numero fattura" value={form.numero_fattura}
+              onChange={v=>setForm(f=>({...f,numero_fattura:v}))} placeholder="Es. FT-2026-0042"/>
+          </div>
           <Field label="Prezzo di acquisto (€)" value={form.prezzo_acquisto}
             onChange={v=>setForm(f=>({...f,prezzo_acquisto:v}))} type="number"
             placeholder="Es. 1500"/>

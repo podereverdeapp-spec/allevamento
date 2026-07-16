@@ -167,6 +167,7 @@ function FormUscitaUnita({unita, lotto, onSave, onCancel}) {
     motivo: unita.motivo_uscita || "Macellato",
     stato: giaUscita ? unita.stato : "macellato",
     data_uscita: unita.data_uscita || today(),
+    causa_morte: unita.causa_morte || "",
     peso_vivo_uscita: unita.peso_vivo_uscita ?? "",
     peso_carcassa: unita.peso_carcassa ?? "",
   });
@@ -198,6 +199,7 @@ function FormUscitaUnita({unita, lotto, onSave, onCancel}) {
       stato: form.stato,
       vivo: false,
       motivo_uscita: form.motivo,
+      causa_morte: form.motivo==="Morto (malattia)"?(form.causa_morte||null):null,
       data_uscita: form.data_uscita||null,
       peso_vivo_uscita: form.peso_vivo_uscita?parseFloat(form.peso_vivo_uscita):null,
       peso_carcassa: form.peso_carcassa?parseFloat(form.peso_carcassa):null,
@@ -223,6 +225,9 @@ function FormUscitaUnita({unita, lotto, onSave, onCancel}) {
           setForm(f=>({...f,motivo:v,stato:m?.stato||"uscito"}));
         }}
         options={MOTIVI.map(m=>m.label)}/>
+      {form.motivo==="Morto (malattia)"&&
+        <Field label="Causa (malattia/diagnosi)" value={form.causa_morte}
+          onChange={v=>setForm(f=>({...f,causa_morte:v}))} placeholder="Es. Polmonite, PRRS, setticemia..."/>}
       <Field label="Data uscita" value={form.data_uscita}
         onChange={v=>setForm(f=>({...f,data_uscita:v}))} type="date"/>
       {giorni>0&&<div style={{fontSize:12,color:C.blue,marginBottom:8}}>
