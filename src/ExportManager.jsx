@@ -544,8 +544,11 @@ function foglio_kpi(animali, eventiRiprod) {
       primo_parto:  mieiParti[0]?.data_evento||"",
       ultimo_parto: mieiParti[mieiParti.length-1]?.data_evento||"",
     };
-  }).filter(Boolean);
+  }).filter(Boolean)
+    .sort((a,b) => b.prolificita - a.prolificita) // classifica: più nati vivi per parto = scrofa migliore
+    .map((r,i) => ({ posizione: i+1, ...r }));
   return creaFoglio(dati, [
+    {key:"posizione",       label:"Posizione"},
     {key:"bdn",             label:"BDN"},
     {key:"nome",            label:"Nome"},
     {key:"specie",          label:"Specie"},
@@ -554,7 +557,7 @@ function foglio_kpi(animali, eventiRiprod) {
     {key:"nati_vivi",       label:"Tot. nati vivi"},
     {key:"nati_morti",      label:"Tot. nati morti"},
     {key:"pct_vivi",        label:"% nati vivi"},
-    {key:"prolificita",     label:"Prolificità media (vivi/parto)"},
+    {key:"prolificita",     label:"⭐ Prolificità media (vivi/parto)", bold:true},
     {key:"iip_medio_gg",    label:"IIP medio (giorni)"},
     {key:"iip_medio_mesi",  label:"IIP medio (mesi)"},
     {key:"primo_parto",     label:"Primo parto"},
