@@ -2788,10 +2788,31 @@ function Magazzino({scorte,loading,aggiungi,aggiorna}){
 }
 
 // ─── REPORT ──────────────────────────────────────────────────────────────────
-function Report({animali,eventi_sanitari,voci_alimentazione}){
+function Report({animali,eventi_sanitari,voci_alimentazione,eventiRiproduttivi}){
   const attivi=animali.filter(a=>a.stato==="attivo");
   const costoSan=eventi_sanitari.reduce((s,e)=>s+(e.costo||0),0);
   const costoAli=voci_alimentazione.reduce((s,e)=>s+(e.costo||0),0);
+
+  // Classifica scrofe (stessa formula del report Excel KPI Selezione Genetica:
+  // prolificità = nati vivi medi per parto = nati totali medi/parto × % nati vivi)
+  const scrofe = animali
+    .filter(a=>a.sesso==="F"&&a.specie==="suino")
+    .map(a=>{
+      const mieiParti=(eventiRiproduttivi||[])
+        .filter(e=>e.animale_id===a.id&&e.tipo_evento==="parto");
+      if(mieiParti.length===0) return null;
+      const totVivi=mieiParti.reduce((s,p)=>s+(p.nati_vivi||0),0);
+      const totMorti=mieiParti.reduce((s,p)=>s+(p.nati_morti||0),0);
+      const totNati=totVivi+totMorti;
+      return{
+        id:a.id, bdn:a.bdn, nome:a.nome,
+        n_parti:mieiParti.length,
+        nati_medi_parto: Math.round(totNati/mieiParti.length*10)/10,
+        pct_vivi: totNati>0?Math.round(totVivi/totNati*1000)/10:0,
+        prolificita: Math.round(totVivi/mieiParti.length*10)/10,
+      };
+    }).filter(Boolean).sort((a,b)=>b.prolificita-a.prolificita);
+
   return(
     <div style={{padding:"16px 16px 80px"}}>
       <span style={{fontSize:20,fontWeight:800,display:"block",marginBottom:16}}>Report</span>
@@ -2812,6 +2833,28 @@ function Report({animali,eventi_sanitari,voci_alimentazione}){
           <span style={{color:C.primary}}>{attivi.length} capi</span>
         </div>
       </Card>
+      {scrofe.length>0&&(
+        <Card>
+          <div style={{fontSize:14,fontWeight:700,color:C.muted,marginBottom:12}}>
+            🏆 CLASSIFICA SCROFE (per prolificità)
+          </div>
+          {scrofe.map((s,i)=>(
+            <div key={s.id} style={{display:"flex",alignItems:"center",gap:8,
+              padding:"8px 0",borderBottom:i<scrofe.length-1?`1px solid ${C.border}`:"none"}}>
+              <span style={{fontWeight:800,color:i===0?C.yellow:C.muted,minWidth:22}}>
+                {i===0?"🥇":i===1?"🥈":i===2?"🥉":i+1}
+              </span>
+              <div style={{flex:1}}>
+                <div style={{fontWeight:700,fontSize:14}}>{s.nome||s.bdn}</div>
+                <div style={{fontSize:11,color:C.muted}}>
+                  {s.n_parti} part{s.n_parti===1?"o":"i"} · {s.nati_medi_parto} nati/parto · {s.pct_vivi}% vivi
+                </div>
+              </div>
+              <div style={{fontWeight:800,fontSize:16,color:C.suini}}>{s.prolificita}</div>
+            </div>
+          ))}
+        </Card>
+      )}
       <Card>
         <div style={{fontSize:14,fontWeight:700,color:C.muted,marginBottom:12}}>COSTI REGISTRATI</div>
         <div style={{display:"flex",gap:10}}>
@@ -2880,7 +2923,7 @@ export default function AllevamentoApp(){
         {tab==="sanitario"    &&<Sanitario animali={animali} eventi={sanitari} loading={loadS} aggiungi={addS} elimina={delS}/>}
         {tab==="alimentazione"&&<Alimentazione voci={alimentazione} loading={loadAl} aggiungi={addAl} animali={animali}/>}
         {tab==="magazzino"    &&<Magazzino scorte={magazzino} loading={loadM} aggiungi={addM} aggiorna={updM}/>}
-        {tab==="report"       &&<Report animali={animali} eventi_sanitari={sanitari} voci_alimentazione={alimentazione}/>}
+        {tab==="report"       &&<Report animali={animali} eventi_sanitari={sanitari} voci_alimentazione={alimentazione} eventiRiproduttivi={riproduttivi}/>}
       </div>
       <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",
         maxWidth:480,background:"#FFF",borderTop:`1.5px solid ${C.border}`,
