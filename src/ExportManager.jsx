@@ -450,6 +450,69 @@ function foglio_unita_uscite(suiniLotto, lotti) {
   return foglio_lotti_unita(suiniLotto.filter(u=>u.vivo===false || u.stato!=="attivo"), lotti);
 }
 
+// Report costi di acquisto: animali individuali acquistati + unità di lotti acquistati
+// (per i lotti, il costo unitario è il prezzo del lotto diviso per le unità ancora
+// "economicamente conteggiabili": esclude morti per qualunque causa e smarriti/rubati,
+// include invece attivi, macellati, venduti e quelli passati a BDN individuale)
+function foglio_costi_acquisto(animali, lotti, suiniLotto) {
+  const dati = [];
+
+  // Animali individuali acquistati
+  animali.filter(a=>a.provenienza==="Acquistato").forEach(a=>{
+    dati.push({
+      codice: a.bdn||"",
+      tipo: "Individuale",
+      stato: a.stato||"",
+      data_ingresso: a.data_ingresso||"",
+      data_fattura: a.data_fattura||"",
+      numero_fattura: a.numero_fattura||"",
+      fornitore: a.fornitore||"",
+      costo_acquisto: a.prezzo_acquisto||"",
+      nota: "",
+    });
+  });
+
+  // Unità di lotti acquistati
+  const ESCLUSI_DIVISORE = ["morto","disperso"];
+  lotti.filter(l=>l.tipo_provenienza==="acquistato").forEach(l=>{
+    const codLotto = l.codice_lotto||l.codice||"";
+    const unita = suiniLotto.filter(u=>u.lotto_id===l.id);
+    const denominatore = unita.filter(u=>!ESCLUSI_DIVISORE.includes(u.stato)).length;
+    const costoUnitario = l.prezzo_acquisto&&denominatore>0
+      ? Math.round(l.prezzo_acquisto/denominatore*100)/100 : "";
+    unita.forEach(u=>{
+      const escluso = ESCLUSI_DIVISORE.includes(u.stato);
+      const codice = u.stato==="registrato_individuale"
+        ? (u.bdn||u.matricola||u.codice_completo)
+        : (u.codice_completo||`${codLotto}${String(u.nr).padStart(2,"0")}`);
+      dati.push({
+        codice,
+        tipo: `Lotto ${codLotto}`,
+        stato: u.stato||"",
+        data_ingresso: l.data_parto||"",
+        data_fattura: l.data_fattura||"",
+        numero_fattura: l.numero_fattura||"",
+        fornitore: l.fornitore||"",
+        costo_acquisto: escluso?"":costoUnitario,
+        nota: escluso?`Perdita — costo redistribuito sulle altre ${denominatore} unità del lotto`
+             : u.stato==="registrato_individuale"?`Passato a BDN individuale (da ${codLotto})`:"",
+      });
+    });
+  });
+
+  return creaFoglio(dati, [
+    {key:"codice",         label:"BDN / Codice unità", bold:true},
+    {key:"tipo",           label:"Tipo"},
+    {key:"stato",          label:"Stato"},
+    {key:"data_ingresso",  label:"Data ingresso"},
+    {key:"data_fattura",   label:"Data fattura"},
+    {key:"numero_fattura", label:"Numero fattura"},
+    {key:"fornitore",      label:"Fornitore"},
+    {key:"costo_acquisto", label:"Costo acquisto (€)", cur:true, sumTotale:true},
+    {key:"nota",           label:"Nota"},
+  ]);
+}
+
 function foglio_kpi(animali, eventiRiprod) {
   const daysBetween = (d1,d2) => Math.round((new Date(d2)-new Date(d1))/86400000);
   const fattrici = animali.filter(a=>a.sesso==="F");
@@ -1165,6 +1228,7 @@ function foglio_consang_capi(animali) {
 
 // ─── SEZIONI DISPONIBILI ──────────────────────────────────────────────────────
 const SEZIONI = [
+  { id:"costi_acquisto",           label:"Costi Acquisto (animali e lotti)", icon:"🧾", gruppo:"ACQUISTI" },
   { id:"anagrafica_bovini",       label:"Bovini attivi",             icon:"🐄", gruppo:"ANIMALI ATTIVI" },
   { id:"anagrafica_suini",        label:"Suini attivi",              icon:"🐷", gruppo:"ANIMALI ATTIVI" },
   { id:"anagrafica_ovini",        label:"Ovini attivi",              icon:"🐑", gruppo:"ANIMALI ATTIVI" },
@@ -1275,6 +1339,8 @@ export default function ExportManager() {
         : null;
       const costoNascitaPerLotto = ubaData?.costoNascitaPerLotto || {};
 
+      if(sel.has("costi_acquisto"))
+        XLSX.utils.book_append_sheet(wb, foglio_costi_acquisto(an, lotti||[], suiniLotto||[]), "Costi acquisto");
       if(sel.has("lotti_riepilogo"))
         XLSX.utils.book_append_sheet(wb, foglio_lotti_riepilogo(lotti||[], suiniLotto||[], an, costoNascitaPerLotto), "Lotti riepilogo");
       if(sel.has("lotti_attivi"))

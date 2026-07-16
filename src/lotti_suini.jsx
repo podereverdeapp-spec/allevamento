@@ -451,6 +451,8 @@ function SchedaLotto({lotto, suini, animali, onBack, onUpdate, onDelete}) {
       nati_vivi: form.nati_vivi!==""&&form.nati_vivi!=null?parseInt(form.nati_vivi):null,
       nati_morti: form.nati_morti!==""&&form.nati_morti!=null?parseInt(form.nati_morti):null,
       fornitore: form.fornitore||null,
+      data_fattura: form.data_fattura||null,
+      numero_fattura: form.numero_fattura||null,
       prezzo_acquisto: form.prezzo_acquisto?parseFloat(form.prezzo_acquisto):null,
       note: form.note||null,
     };
@@ -494,6 +496,12 @@ function SchedaLotto({lotto, suini, animali, onBack, onUpdate, onDelete}) {
         </div>
 
         <Field label="Fornitore" value={form.fornitore} onChange={v=>setForm(f=>({...f,fornitore:v}))}/>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <Field label="Data fattura" value={form.data_fattura}
+            onChange={v=>setForm(f=>({...f,data_fattura:v}))} type="date"/>
+          <Field label="Numero fattura" value={form.numero_fattura}
+            onChange={v=>setForm(f=>({...f,numero_fattura:v}))} placeholder="Es. FT-2026-0042"/>
+        </div>
         <Field label="Prezzo acquisto (€)" value={form.prezzo_acquisto}
           onChange={v=>setForm(f=>({...f,prezzo_acquisto:v}))} type="number"/>
         <Field label="Note" value={form.note} onChange={v=>setForm(f=>({...f,note:v}))}/>
@@ -711,6 +719,7 @@ function ListaLotti({lotti, suini, animali, onSeleziona, onAcquisto}) {
 function FormLottoAcquistato({onSave, onCancel}) {
   const [form,setForm] = useState({
     data_acquisto:today(),fornitore:"",n_capi:"",
+    data_fattura:"",numero_fattura:"",
     razza:"Cinta Senese",prezzo_acquisto:"",note:"",codice_manuale:"",
   });
   const [saving,setSaving] = useState(false);
@@ -724,24 +733,36 @@ function FormLottoAcquistato({onSave, onCancel}) {
   const salva = async () => {
     if(!form.data_acquisto||!nCapi) return;
     setSaving(true);
-    const{data:nuovoLotto}=await supabase.from("lotti_suini").insert([{
+    const{data:nuovoLotto, error:errLotto}=await supabase.from("lotti_suini").insert([{
       codice,codice_lotto:codice,
       anno:new Date(form.data_acquisto).getFullYear(),
       data_parto:form.data_acquisto,
       tipo_provenienza:"acquistato",
       fornitore:form.fornitore||null,
+      data_fattura:form.data_fattura||null,
+      numero_fattura:form.numero_fattura||null,
       prezzo_acquisto:form.prezzo_acquisto?parseFloat(form.prezzo_acquisto):null,
       nati_totali:nCapi,nati_vivi:nCapi,nati_morti:0,
       razza_madre:form.razza||null,note:form.note||null,specie:"suino",
     }]).select("id").single();
+    if(errLotto){
+      setSaving(false);
+      alert(`⚠️ Errore nella creazione del lotto:\n\n${errLotto.message}`);
+      return;
+    }
     if(nuovoLotto){
-      await supabase.from("suini_lotto").insert(
+      const{error:errUnita}=await supabase.from("suini_lotto").insert(
         Array.from({length:nCapi},(_,i)=>({
           lotto_id:nuovoLotto.id,nr:i+1,
           codice_completo:codiceUnita(codice,i+1),
           vivo:true,stato:"attivo",destinazione:"ingrasso",
         }))
       );
+      if(errUnita){
+        setSaving(false);
+        alert(`⚠️ Il lotto è stato creato, ma il salvataggio delle unità è fallito:\n\n${errUnita.message}`);
+        return;
+      }
     }
     setSaving(false);onSave();
   };
@@ -767,6 +788,12 @@ function FormLottoAcquistato({onSave, onCancel}) {
         onChange={v=>setForm(f=>({...f,data_acquisto:v}))} type="date" required/>
       <Field label="Fornitore / Azienda" value={form.fornitore}
         onChange={v=>setForm(f=>({...f,fornitore:v}))} placeholder="Es. Az. Agr. Rossi"/>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+        <Field label="Data fattura" value={form.data_fattura}
+          onChange={v=>setForm(f=>({...f,data_fattura:v}))} type="date"/>
+        <Field label="Numero fattura" value={form.numero_fattura}
+          onChange={v=>setForm(f=>({...f,numero_fattura:v}))} placeholder="Es. FT-2026-0042"/>
+      </div>
       <Field label="N° capi acquistati *" value={form.n_capi}
         onChange={v=>setForm(f=>({...f,n_capi:v}))} type="number" required/>
       <Field label="Razza" value={form.razza} onChange={v=>setForm(f=>({...f,razza:v}))}
