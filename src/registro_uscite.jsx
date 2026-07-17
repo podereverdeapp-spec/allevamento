@@ -494,6 +494,40 @@ export default function RegistroUscite() {
                       );
                     })()}
                     {a.note&&<div style={{fontSize:12,color:C.muted,marginTop:4,fontStyle:"italic"}}>{a.note}</div>}
+                    <div style={{display:"flex",gap:6,marginTop:10,paddingTop:10,borderTop:`1px solid ${C.border}`}}>
+                      <button onClick={()=>setFormUscita(a)}
+                        style={{flex:1,background:C.blue+"18",border:"none",borderRadius:8,
+                          padding:"7px 4px",cursor:"pointer",fontSize:11,fontWeight:700,color:C.blue}}>
+                        ✏️ Modifica
+                      </button>
+                      <button onClick={async()=>{
+                          if(!window.confirm(`Annullare l'uscita di ${a.nome||a.bdn} e riportarla ad "attivo"?\nI dati di uscita (data, motivo, pesi) verranno cancellati.`)) return;
+                          const{error}=await supabase.from("animali").update({
+                            stato:"attivo", vivo:true,
+                            motivo_uscita:null, causa_morte:null, data_uscita:null,
+                            peso_vivo_uscita:null, peso_carcassa:null, resa_percent:null,
+                          }).eq("id",a.id);
+                          if(error){ alert(`⚠️ Errore nell'annullamento:\n\n${error.message}`); return; }
+                          carica();
+                        }}
+                        style={{flex:1,background:C.green+"18",border:"none",borderRadius:8,
+                          padding:"7px 4px",cursor:"pointer",fontSize:11,fontWeight:700,color:C.green}}>
+                        ↩️ Annulla
+                      </button>
+                      <button onClick={async()=>{
+                          if(!window.confirm(`Eliminare DEFINITIVAMENTE la scheda di ${a.nome||a.bdn} (${a.bdn})?\nUsa questa opzione solo se l'animale è già stato reinserito altrove — questa operazione non è reversibile.`)) return;
+                          const{error}=await supabase.from("animali").delete().eq("id",a.id);
+                          if(error){
+                            alert(`⚠️ Impossibile eliminare:\n\n${error.message}\n\nProbabile causa: la scheda è ancora collegata a un lotto (come madre/padre) o a un evento riproduttivo/sanitario.`);
+                            return;
+                          }
+                          carica();
+                        }}
+                        style={{flex:1,background:"#00000015",border:"none",borderRadius:8,
+                          padding:"7px 4px",cursor:"pointer",fontSize:11,fontWeight:700,color:C.muted}}>
+                        🗑️ Elimina
+                      </button>
+                    </div>
                   </Card>
                 );
               })

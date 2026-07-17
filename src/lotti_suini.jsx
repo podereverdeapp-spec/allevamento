@@ -366,6 +366,22 @@ function CardUnita({u, lotto, animali, onUpdate}) {
               padding:"6px 8px",cursor:"pointer",fontSize:12,fontWeight:700,color:C.red}}>
             📤{!vivo&&" ✏️"}
           </button>
+          {!vivo&&u.stato!=="registrato_individuale"&&(
+            <button onClick={async()=>{
+                if(!window.confirm(`Annullare l'uscita di ${codice} e riportarla ad "attivo"?\nI dati di uscita (data, motivo, pesi) verranno cancellati.`)) return;
+                const {error} = await supabase.from("suini_lotto").update({
+                  stato:"attivo", vivo:true,
+                  motivo_uscita:null, causa_morte:null, data_uscita:null,
+                  peso_vivo_uscita:null, peso_carcassa:null, resa_percent:null,
+                }).eq("id", u.id);
+                if(error){ alert(`⚠️ Errore nell'annullamento:\n\n${error.message}`); return; }
+                onUpdate();
+              }}
+              style={{background:C.green+"20",border:"none",borderRadius:8,
+                padding:"6px 8px",cursor:"pointer",fontSize:12,fontWeight:700,color:C.green}}>
+              ↩️
+            </button>
+          )}
           <button onClick={async()=>{
               if(!window.confirm(`Eliminare definitivamente l'unità ${codice}?\nQuesta operazione NON è reversibile.`)) return;
               const {error} = await supabase.from("suini_lotto").delete().eq("id", u.id);
