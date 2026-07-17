@@ -141,11 +141,24 @@ function calcolaKPI(animaleId, animali, parti) {
 
 function calcolaScore(kpi, specie) {
   if (!kpi || kpi.prolificita==null) return 0;
-  // Punteggio diretto: nati vivi medi per parto (= nati totali/parto × % vivi),
-  // scalato su una base 0-100 senza soglie fisse che azzerano i valori fuori standard.
-  // Riferimento: 10 nati vivi/parto = punteggio 100 (tetto puramente per la scala visiva,
-  // non taglia via valori superiori: una scrofa con 12 nati vivi/parto arriva a 120).
-  return Math.round(kpi.prolificita * 10 * 10) / 10; // prolificita×10, arrotondato a 1 decimale
+
+  if (specie === "suino") {
+    // Punteggio diretto: nati vivi medi per parto (= nati totali/parto × % vivi),
+    // senza soglie fisse che azzerano i valori fuori standard industriale.
+    return Math.round(kpi.prolificita * 10 * 10) / 10;
+  }
+
+  // Bovini e ovini: l'intervallo interparto (IIP) conta più della dimensione della cucciolata
+  // (di norma 1 solo nato) — minore è l'IIP e maggiore la % di nati vivi, migliore la riproduttrice.
+  if (kpi.pctNatiVivi == null) return 0;
+  if (!kpi.iipMedio || kpi.iipMedio <= 0) {
+    // Serve almeno 2 parti per calcolare un intervallo: nel frattempo il punteggio
+    // riflette solo la % di nati vivi, così la riproduttrice resta comunque in classifica.
+    return Math.round(kpi.pctNatiVivi * 10) / 10;
+  }
+  // (365 / IIP) × % nati vivi = "nati vivi equivalenti all'anno" — premia insieme
+  // la rapidità dei parti e la loro riuscita, senza soglie che azzerano il punteggio.
+  return Math.round((365 / kpi.iipMedio) * kpi.pctNatiVivi * 10) / 10;
 }
 
 // ─── CARD RIPRODUTTORE ────────────────────────────────────────────────────────
