@@ -719,22 +719,27 @@ const UBA_FASCE_EXP = {
 const MOTIVI_PRODUTTIVI_EXP = ["macellazione","macellato","venduto","riformato","riforma","vendita"];
 
 // Perimetro annuale: solo se presenza effettiva nell'anno
-function periodoNellAnnoExp(nascita, dataUscita, stato, anno) {
+function periodoNellAnnoExp(nascita, dataIngresso, dataUscita, stato, anno) {
   if(!nascita) return null;
   const inizioAnno = new Date(anno, 0, 1);
   const fineAnno   = new Date(anno, 11, 31, 23, 59, 59);
   const oggi = new Date();
-  const dataInizio = new Date(nascita);
+  const dataNascita = new Date(nascita);
+  // Il periodo di presenza in azienda parte dall'ingresso (acquisto/trasferimento) se noto,
+  // altrimenti dalla nascita (animale nato in azienda: nascita = ingresso).
+  const dataPresenzaInizio = dataIngresso ? new Date(dataIngresso) : dataNascita;
   const dataFine = dataUscita ? new Date(dataUscita) : (oggi < fineAnno ? oggi : fineAnno);
   if(dataFine < inizioAnno) return null;
-  if(dataInizio > fineAnno) return null;
-  const inizio = dataInizio > inizioAnno ? dataInizio : inizioAnno;
+  if(dataPresenzaInizio > fineAnno) return null;
+  const inizio = dataPresenzaInizio > inizioAnno ? dataPresenzaInizio : inizioAnno;
   const fine   = dataFine < fineAnno ? dataFine : fineAnno;
   return {
     inizio: inizio.toISOString().split("T")[0],
     fine:   fine.toISOString().split("T")[0],
     giorni: Math.round((fine - inizio) / 86400000) + 1,
-    etaAllInizio: Math.round((inizio - dataInizio) / 86400000),
+    // Età sempre calcolata dalla vera data di nascita, indipendentemente da quando
+    // l'animale è arrivato in questa azienda — determina il coefficiente UBA corretto.
+    etaAllInizio: Math.round((inizio - dataNascita) / 86400000),
   };
 }
 
@@ -815,7 +820,7 @@ function fogli_uba(animali, lotti, suiniLotto, prezziRiforma, annoRif, costiGene
     if(!a.specie || !UBA_FASCE_EXP[a.specie]) continue;
     const nascita = a.nascita || a.data_ingresso;
     if(!nascita) continue;
-    const periodo = periodoNellAnnoExp(nascita, a.data_uscita, a.stato, anno);
+    const periodo = periodoNellAnnoExp(nascita, a.data_ingresso, a.data_uscita, a.stato, anno);
     if(!periodo) continue;
     const uba = calcolaUBAMedioExp(a.specie, periodo.giorni, periodo.etaAllInizio);
     if(!uba) continue;
@@ -893,7 +898,7 @@ function fogli_uba(animali, lotti, suiniLotto, prezziRiforma, annoRif, costiGene
         motivo_uscita: u.motivo_uscita,
         riproduttore: false,
       };
-      const periodo = periodoNellAnnoExp(finto.nascita, finto.data_uscita, finto.stato, anno);
+      const periodo = periodoNellAnnoExp(finto.nascita, finto.nascita, finto.data_uscita, finto.stato, anno);
       if(!periodo) continue;
       const uba = calcolaUBAMedioExp("suino", periodo.giorni, periodo.etaAllInizio);
       if(!uba) continue;
@@ -1272,6 +1277,7 @@ export default function ExportManager() {
   const [loading,setLoading] = useState(false);
   const [dataDa,setDataDa] = useState("");
   const [dataA,setDataA]   = useState(today());
+  const [annoUba,setAnnoUba] = useState(new Date().getFullYear());
 
   const toggle = id => setSel(prev => {
     const n = new Set(prev);
@@ -1340,7 +1346,7 @@ export default function ExportManager() {
                       sel.has("uba_bovini")||sel.has("uba_ovini")||sel.has("uba_suini");
       const needCostoLotti = sel.has("lotti_riepilogo")||sel.has("lotti_attivi")||sel.has("lotti_usciti");
       const ubaData = (needUba||needCostoLotti)
-        ? fogli_uba(an, lotti||[], suiniLotto||[], prezziRif||[], undefined, costiGen||[], costiAnim||[])
+        ? fogli_uba(an, lotti||[], suiniLotto||[], prezziRif||[], annoUba, costiGen||[], costiAnim||[])
         : null;
       const costoNascitaPerLotto = ubaData?.costoNascitaPerLotto || {};
 
@@ -1429,6 +1435,23 @@ export default function ExportManager() {
           </div>
           <div style={{fontSize:11,color:C.muted,marginTop:8}}>
             Si applica a: registro sanitario, alimentazione, parti, costi animali
+          </div>
+        </div>
+
+        {/* Anno di riferimento UBA */}
+        <div style={{background:C.card,borderRadius:16,padding:16,marginBottom:16,
+          border:`1px solid ${C.border}`}}>
+          <div style={{fontSize:13,fontWeight:700,color:C.muted,marginBottom:10}}>
+            📆 ANNO DI RIFERIMENTO (fogli UBA e Costi Acquisto)
+          </div>
+          <input type="number" value={annoUba} onChange={e=>setAnnoUba(parseInt(e.target.value)||new Date().getFullYear())}
+            min="2000" max={new Date().getFullYear()}
+            style={{width:"100%",boxSizing:"border-box",border:`1.5px solid ${C.border}`,
+              borderRadius:10,padding:"8px 10px",fontSize:14,background:"#FAFAF8",
+              color:C.text,outline:"none"}}/>
+          <div style={{fontSize:11,color:C.muted,marginTop:8}}>
+            Il report UBA considera tutti gli animali presenti in quell'anno (anche già usciti dopo),
+            limitando il conteggio dei giorni al solo periodo di reale presenza nell'anno scelto.
           </div>
         </div>
 
