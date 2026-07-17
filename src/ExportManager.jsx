@@ -663,6 +663,57 @@ function styleCella(v, opts={}) {
   return {v:v??"",s};
 }
 
+// Foglio UBA unico con più riquadri (uno per specie), impilati verticalmente
+function creaSheetUBACombinato(sezioni, colonne) {
+  const ws = {};
+  const merges = [];
+  const rowHeights = [];
+  const maxCol = colonne.length;
+  let r = 0;
+
+  sezioni.forEach(sez => {
+    if(!sez.righe || sez.righe.length<=1) return; // niente dati reali oltre alla riga TOTALE: salto la specie
+
+    // Riga titolo del riquadro, unita su tutte le colonne
+    ws[XLSX.utils.encode_cell({c:0,r})] = {v: sez.titolo, s:{
+      fill:{fgColor:{rgb:sez.colore}},
+      font:{color:{rgb:"FFFFFF"},bold:true,sz:13,name:"Century Gothic"},
+      alignment:{horizontal:"center",vertical:"center"},
+    }};
+    merges.push({s:{c:0,r}, e:{c:maxCol-1,r}});
+    rowHeights[r] = {hpx:30};
+    r++;
+
+    // Intestazioni colonna
+    colonne.forEach((col,ci)=>{
+      ws[XLSX.utils.encode_cell({c:ci,r})] = {v:col.label, s:S_HEADER};
+    });
+    rowHeights[r] = {hpx:32};
+    r++;
+
+    // Righe dati
+    sez.righe.forEach((riga,ri)=>{
+      const isTotale = riga._isTotaleRow===true
+        || (riga.BDN||"").toString().toUpperCase().startsWith("TOTALE");
+      const rowBg = !isTotale && ri%2===1 ? STYLE.zebra : undefined;
+      colonne.forEach((col,ci)=>{
+        const val = riga[col.key];
+        ws[XLSX.utils.encode_cell({c:ci,r})] = styleCella(val,
+          {isTotale, colBg:rowBg, num:col.num, center:col.center, bold:isTotale||col.bold});
+      });
+      r++;
+    });
+
+    r++; // riga vuota di separazione tra un riquadro e il successivo
+  });
+
+  ws["!ref"] = XLSX.utils.encode_range({s:{c:0,r:0}, e:{c:maxCol-1,r:Math.max(0,r-1)}});
+  ws["!merges"] = merges;
+  ws["!cols"] = colonne.map(c=>({wch:c.width||14}));
+  ws["!rows"] = rowHeights;
+  return ws;
+}
+
 // Sheet formattato con colori per specie e riga TOTALE evidenziata
 function creaSheetFormattato(righe, colonne) {
   const ws = {};
@@ -1264,6 +1315,7 @@ const SEZIONI = [
   { id:"uba_bovini",         label:"UBA — Bovini",              icon:"🐄", gruppo:"UBA" },
   { id:"uba_ovini",          label:"UBA — Ovini",               icon:"🐑", gruppo:"UBA" },
   { id:"uba_suini",          label:"UBA — Suini e Lotti",       icon:"🐷", gruppo:"UBA" },
+  { id:"uba_combinato",      label:"UBA — Foglio unico a riquadri per specie", icon:"📐", gruppo:"UBA" },
   { id:"scadenze_scaduti",   label:"Richiami SCADUTI",          icon:"⚠️", gruppo:"SCADENZE SANITARIE" },
   { id:"scadenze_imminenti", label:"Richiami in scadenza 30gg", icon:"⏰", gruppo:"SCADENZE SANITARIE" },
   { id:"scadenze_programmati",label:"Richiami programmati 30-90gg",icon:"📅",gruppo:"SCADENZE SANITARIE" },
@@ -1343,7 +1395,8 @@ export default function ExportManager() {
         XLSX.utils.book_append_sheet(wb, foglio_alimentazione(filtraData(alim||[],"data")), "Alimentazione");
       // Calcolo il motore UBA in anticipo se serve sia per i fogli UBA sia per il costo di nascita nei lotti
       const needUba = sel.has("uba_riepilogo")||sel.has("uba_dettaglio")||
-                      sel.has("uba_bovini")||sel.has("uba_ovini")||sel.has("uba_suini");
+                      sel.has("uba_bovini")||sel.has("uba_ovini")||sel.has("uba_suini")||
+                      sel.has("uba_combinato");
       const needCostoLotti = sel.has("lotti_riepilogo")||sel.has("lotti_attivi")||sel.has("lotti_usciti");
       const ubaData = (needUba||needCostoLotti)
         ? fogli_uba(an, lotti||[], suiniLotto||[], prezziRif||[], annoUba, costiGen||[], costiAnim||[])
@@ -1383,6 +1436,12 @@ export default function ExportManager() {
           XLSX.utils.book_append_sheet(wb,creaSheetFormattato(ubaData.ovini,COL_UBA),"UBA OVINI");
         if(sel.has("uba_suini"))
           XLSX.utils.book_append_sheet(wb,creaSheetFormattato(ubaData.suini,COL_UBA),"UBA SUINI e LOTTI");
+        if(sel.has("uba_combinato"))
+          XLSX.utils.book_append_sheet(wb, creaSheetUBACombinato([
+            {titolo:`🐄 BOVINI — Anno ${ubaData.anno}`,        colore:STYLE.primaryLight, righe:ubaData.bovini},
+            {titolo:`🐑 OVINI — Anno ${ubaData.anno}`,         colore:"6B8E4E",           righe:ubaData.ovini},
+            {titolo:`🐷 SUINI E LOTTI — Anno ${ubaData.anno}`, colore:"B5657A",           righe:ubaData.suini},
+          ], COL_UBA), `UBA ${ubaData.anno} - per specie`);
       }
       if(sel.has("scadenze_scaduti"))
         XLSX.utils.book_append_sheet(wb, foglio_scadenze(sanitari, an, "scaduti"), "Richiami scaduti");
