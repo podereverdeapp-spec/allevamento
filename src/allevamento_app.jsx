@@ -402,8 +402,24 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
   const [saving,setSaving]=useState(false);
   const [errore,setErrore]=useState("");
   const [tabDettaglio,setTabDettaglio]=useState("info");
+  const [costiAnimale,setCostiAnimale]=useState(null); // storico costo da Contabilità Industriale
+  const [caricandoCosti,setCaricandoCosti]=useState(false);
   const [formParto,setFormParto]=useState(null);
   const [savingParto,setSavingParto]=useState(false);
+
+  // Carica lo storico costo (calcolato dalla Contabilità Industriale, tabella condivisa
+  // sullo stesso Supabase) quando si apre la scheda di un animale — sola lettura, questa
+  // app non scrive mai in ci_costo_animale_annuale, solo la Contabilità Industriale lo fa.
+  useEffect(()=>{
+    if(!dettaglio){ setCostiAnimale(null); return; }
+    setCaricandoCosti(true);
+    supabase.from("ci_costo_animale_annuale").select("*").eq("animale_id",dettaglio.id).order("anno")
+      .then(({data,error})=>{
+        if(error){ console.error("Errore caricamento costi:",error.message); setCostiAnimale([]); }
+        else setCostiAnimale(data||[]);
+        setCaricandoCosti(false);
+      });
+  },[dettaglio?.id]);
 
   const empty={
     bdn:"",nome:"",specie:"bovino",razza:"",categoria:"",sesso:"F",
@@ -1031,7 +1047,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
 
         {/* Tab bar */}
         <div style={{display:"flex",background:C.card,borderBottom:`1px solid ${C.border}`}}>
-          {[["info","📋 Info"],["genealogia","🧬 Genealogia"],["eventi","📅 Eventi"]].map(([id,label])=>(
+          {[["info","📋 Info"],["genealogia","🧬 Genealogia"],["eventi","📅 Eventi"],["costi","💰 Costi"]].map(([id,label])=>(
             <button key={id} onClick={()=>setTabDettaglio(id)}
               style={{flex:1,padding:"12px 4px",background:"none",border:"none",cursor:"pointer",
                 fontSize:12,fontWeight:tabDettaglio===id?700:500,
@@ -1046,6 +1062,12 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
           {/* TAB INFO */}
           {tabDettaglio==="info"&&(
             <>
+              {a.provenienza==="Acquistato"&&!a.prezzo_acquisto&&(
+                <div style={{background:C.red,color:"#FFF",borderRadius:10,padding:"10px 14px",
+                  marginBottom:12,fontWeight:700,fontSize:13,display:"flex",alignItems:"center",gap:8}}>
+                  ⚠️ Inserire costo di acquisto (con gli estremi della fattura)
+                </div>
+              )}
               <Card>
                 <Sezione label="Identificazione"/>
                 {a.bdn&&<Row label={a.specie==="bovino"?"BDN":"Tatuaggio/Marchio"} val={a.bdn}/>}
@@ -1654,6 +1676,62 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
               )}
             </>
           )}
+
+          {/* TAB COSTI — dati calcolati dalla Contabilità Industriale, sola lettura */}
+          {tabDettaglio==="costi"&&(
+            <div>
+              <div style={{fontSize:12,color:C.muted,marginBottom:12}}>
+                Calcolato dalla Contabilità Industriale (podereverde-contabilita-industriale) — questa app lo mostra soltanto, non lo modifica qui.
+              </div>
+              {caricandoCosti?(
+                <div style={{textAlign:"center",padding:20,color:C.muted}}>Caricamento...</div>
+              ):!costiAnimale||costiAnimale.length===0?(
+                <Card>
+                  <div style={{padding:12,color:C.muted,fontSize:13}}>
+                    Nessun costo ancora calcolato per questo animale — va calcolato dalla Contabilità Industriale (Report Costi), poi salvato per l'anno di interesse.
+                  </div>
+                </Card>
+              ):(
+                <>
+                  <Card>
+                    <table style={{width:"100%",fontSize:12,borderCollapse:"collapse"}}>
+                      <thead>
+                        <tr style={{color:C.muted,textAlign:"left"}}>
+                          <th style={{padding:"6px 4px"}}>Anno</th>
+                          <th style={{padding:"6px 4px",textAlign:"right"}}>UBA-gg</th>
+                          <th style={{padding:"6px 4px"}}>Categoria</th>
+                          <th style={{padding:"6px 4px",textAlign:"right"}}>Mantenimento</th>
+                          <th style={{padding:"6px 4px",textAlign:"right"}}>Nascita ered.</th>
+                          <th style={{padding:"6px 4px",textAlign:"right"}}>Scaricato figli</th>
+                          <th style={{padding:"6px 4px",textAlign:"right"}}>Totale anno</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {costiAnimale.map(r=>(
+                          <tr key={r.id} style={{borderTop:`1px solid ${C.border}`}}>
+                            <td style={{padding:"6px 4px"}}>{r.anno}</td>
+                            <td style={{padding:"6px 4px",textAlign:"right"}}>{(r.uba_giorni||0).toFixed(1)}</td>
+                            <td style={{padding:"6px 4px"}}>{r.categoria_contabile}</td>
+                            <td style={{padding:"6px 4px",textAlign:"right"}}>{(r.costo_mantenimento||0).toFixed(2)}€</td>
+                            <td style={{padding:"6px 4px",textAlign:"right"}}>{(r.costo_nascita_ereditato||0).toFixed(2)}€</td>
+                            <td style={{padding:"6px 4px",textAlign:"right"}}>{(r.quota_scaricata_su_figli||0).toFixed(2)}€</td>
+                            <td style={{padding:"6px 4px",textAlign:"right",fontWeight:700}}>{(r.costo_totale_anno||0).toFixed(2)}€</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </Card>
+                  <div style={{background:C.primary+"15",borderRadius:10,padding:"12px 16px",marginTop:10,
+                    display:"flex",justifyContent:"space-between"}}>
+                    <span style={{fontWeight:700,color:C.primary}}>Totale cumulato (tutti gli anni)</span>
+                    <span style={{fontWeight:800,fontSize:16,color:C.primary}}>
+                      {costiAnimale.reduce((s,r)=>s+(r.costo_totale_anno||0),0).toFixed(2)}€
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -1838,6 +1916,8 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
                   {a.riproduttore&&<Badge
                     label={a.sesso==="M"?"♂ Riproduttore":"♀ Riproduttrice"}
                     color={a.sesso==="M"?C.blue:C.suini}/>}
+                  {a.provenienza==="Acquistato"&&!a.prezzo_acquisto&&
+                    <Badge label="⚠️ Manca costo acquisto" color={C.red}/>}
                 </div>
               </div>
             </div>
