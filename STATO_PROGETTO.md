@@ -42,6 +42,15 @@ Tabella `animali` — campi principali (dal `SELECT` in `ExportManager.jsx`): `i
 
 ## 5. Collegamento con la Contabilità Industriale (in corso)
 
+**Perché questa app è la fonte di verità sui dati grezzi**: qui gli operatori dentro l'allevamento registrano quello che succede realmente — nascite, ingressi, uscite, vaccinazioni, nati morti, ecc. La Contabilità Industriale (gestita dai contabili) non ha altro modo di sapere cosa succede in azienda se non attraverso quello che è già stato registrato qui. Quadro completo dei flussi:
+
+1. **Questa app → Contabilità Industriale** (lettura): dati grezzi per il calcolo UBA-gg (nascita, uscita, stato) — nessuna tabella con UBA-gg pre-calcolato, la Contabilità Industriale lo ricalcola da sola con la stessa formula di `ExportManager.jsx`
+2. **Contabilità Industriale → questa app** (scrittura, senso unico): `ci_costo_animale_annuale`, letta nella tab "💰 Costi"
+3. **Bidirezionale**: costo di acquisto (`prezzo_acquisto`), stesso campo condiviso
+4. **Questa app → Contabilità Industriale** (eccezione consapevole): traghettamento costi lotto→BDN dentro `FormAssegnaBDN`
+
+**Traghettamento costi lotto→BDN — COSTRUITO in `FormAssegnaBDN`** (`lotti_suini.jsx`): al momento della conferma di assegnazione BDN (dopo aver creato la scheda animale e aggiornato l'unità di lotto), un terzo passaggio cerca le righe già calcolate in `ci_costo_animale_annuale` (chiave `lotto_id`+`unita_nr`) e le ricollega al nuovo `animale_id` — fondendo con eventuali righe già esistenti per lo stesso anno invece di sovrascrivere. **Eccezione consapevole al principio "solo la Contabilità Industriale scrive in quella tabella"**: qui si spostano righe già calcolate altrove, non se ne calcolano di nuove — Filippo ha confermato che va bene così, dato che il pulsante BDN è il punto naturale per farlo (si conosce già la corrispondenza esatta lotto+unità→animale in quel preciso momento). Resta anche un pulsante di recupero manuale in Contabilità Industriale (Scheda Animale, "🔄 Traghetta costi lotto→BDN") per i passaggi avvenuti PRIMA di questa modifica.
+
 **Costo di acquisto mancante — alert rosso (v96)**: quando `provenienza==="Acquistato"` e `prezzo_acquisto` è vuoto, compare un badge "⚠️ Manca costo acquisto" nella card della lista Anagrafica, e un banner rosso prominente in cima alla tab Info della scheda dettaglio. Stesso alert (elenco) anche in Report Acquisto Animali della Contabilità Industriale — è lo stesso campo condiviso (`animali.prezzo_acquisto`), scrivibile da entrambi i programmi: una volta inserito da uno dei due, l'alert sparisce su entrambi.
 
 **Flusso a senso unico**: la Contabilità Industriale (progetto separato, stesso Supabase) calcola e scrive `ci_costo_animale_annuale`; questa app **legge soltanto**, non scrive mai in quella tabella.

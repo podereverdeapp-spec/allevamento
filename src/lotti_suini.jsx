@@ -96,7 +96,7 @@ function FormAssegnaBDN({unita, lotto, animali, onSave, onCancel}) {
     setSaving(true);
     // 1. Crea scheda animale individuale con dati ereditati
     const acquistato = lotto.tipo_provenienza==="acquistato";
-    const {error: errInsert} = await supabase.from("animali").insert([{
+    const {data: nuovoAnimale, error: errInsert} = await supabase.from("animali").insert([{
       bdn: bdn.trim(),
       nome: nome||null,
       specie: "suino",
@@ -112,7 +112,7 @@ function FormAssegnaBDN({unita, lotto, animali, onSave, onCancel}) {
       data_ingresso: lotto.data_parto||null,
       stato: "attivo", vivo: true,
       note: `Da lotto ${lotto.codice_lotto||lotto.codice} unità ${codice}`,
-    }]);
+    }]).select("id").single();
     if(errInsert){
       setSaving(false);
       alert(`⚠️ Errore nella creazione della scheda animale:\n\n${errInsert.message}`);
@@ -128,11 +128,41 @@ function FormAssegnaBDN({unita, lotto, animali, onSave, onCancel}) {
       motivo_uscita: "Registrato come animale individuale — BDN: "+bdn.trim(),
       data_uscita: today(),
     }).eq("id", unita.id);
-    setSaving(false);
     if(errUpdate){
+      setSaving(false);
       alert(`⚠️ La scheda animale è stata creata, ma l'aggiornamento del lotto ha dato errore:\n\n${errUpdate.message}`);
       return;
     }
+    // 3. Traghetta i costi già calcolati dalla Contabilità Industriale (ci_costo_animale_annuale)
+    // dalla chiave lotto_id+unita_nr alla nuova chiave animale_id — senza questo passaggio la
+    // storia costo del suinetto (mantenimento, nascita ereditata) andrebbe persa/azzerata.
+    // Nota: questa è l'unica eccezione al principio "solo la Contabilità Industriale scrive in
+    // questa tabella" — qui si spostano righe già calcolate, non se ne calcolano di nuove.
+    try {
+      const {data: righeLotto} = await supabase.from("ci_costo_animale_annuale").select("*")
+        .eq("lotto_id", lotto.id).eq("unita_nr", unita.nr);
+      for (const riga of (righeLotto||[])) {
+        const {data: rigaEsistente} = await supabase.from("ci_costo_animale_annuale").select("*")
+          .eq("animale_id", nuovoAnimale.id).eq("anno", riga.anno).maybeSingle();
+        if (rigaEsistente) {
+          await supabase.from("ci_costo_animale_annuale").update({
+            uba_giorni: Math.round(((parseFloat(rigaEsistente.uba_giorni)||0)+(parseFloat(riga.uba_giorni)||0))*10000)/10000,
+            costo_mantenimento: Math.round(((parseFloat(rigaEsistente.costo_mantenimento)||0)+(parseFloat(riga.costo_mantenimento)||0))*100)/100,
+            costo_nascita_ereditato: Math.round(((parseFloat(rigaEsistente.costo_nascita_ereditato)||0)+(parseFloat(riga.costo_nascita_ereditato)||0))*100)/100,
+            quota_scaricata_su_figli: Math.round(((parseFloat(rigaEsistente.quota_scaricata_su_figli)||0)+(parseFloat(riga.quota_scaricata_su_figli)||0))*100)/100,
+            costo_totale_anno: Math.round(((parseFloat(rigaEsistente.costo_totale_anno)||0)+(parseFloat(riga.costo_totale_anno)||0))*100)/100,
+          }).eq("id", rigaEsistente.id);
+          await supabase.from("ci_costo_animale_annuale").delete().eq("id", riga.id);
+        } else {
+          await supabase.from("ci_costo_animale_annuale").update({
+            animale_id: nuovoAnimale.id, lotto_id: null, unita_nr: null,
+          }).eq("id", riga.id);
+        }
+      }
+    } catch (errTraghetto) {
+      console.error("Traghettamento costi non riuscito (la scheda animale resta comunque creata):", errTraghetto);
+    }
+    setSaving(false);
     onSave();
   };
 
