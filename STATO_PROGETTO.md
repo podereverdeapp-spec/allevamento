@@ -42,6 +42,12 @@ Tabella `animali` — campi principali (dal `SELECT` in `ExportManager.jsx`): `i
 
 ## 5. Collegamento con la Contabilità Industriale (in corso)
 
+**Storico Pesate — COSTRUITO** (`pesate_storico`, nuova tabella condivisa — **eccezione consapevole**: qui, a differenza dei costi, è podereverdeapp.it a scrivere, non solo a leggere, dato che è qui che si pesano gli animali). Sostituisce concettualmente il vecchio campo singolo `peso_attuale` (che si sovrascriveva) con una riga per ogni pesata nel tempo — tipo di rilevazione (nascita/ingresso/vita/uscita_vivo/uscita_carcassa), con un flag `stimato` per distinguere un peso reale da uno standard di specie usato quando la nascita reale è sconosciuta (animali acquistati). Nuova tab "⚖️ Pesate" nella scheda animale (`allevamento_app.jsx`), con form di registrazione ed elenco storico eliminabile riga per riga.
+
+**Perché**: prepara i dati per un futuro report nella Contabilità Industriale che stimerà, per fascia d'età, il peso medio/IPG/costo per kg — usando una **regressione lineare** sui punti data/peso di tutti gli animali (decisione presa con Filippo: la regressione, a differenza di medie semplici o ponderate, sfrutta naturalmente sempre più punti man mano che si accumulano pesate nel tempo, senza dover cambiare formula). Tabella di supporto `pesi_standard_specie` (45kg bovino, 0,5kg suino, 2kg ovino) per quando il peso di nascita reale non è noto.
+
+**Ancora da fare**: lo stesso meccanismo di pesata per le unità di lotto suini (oggi la tab Pesate esiste solo per animali con BDN individuale); il report di analisi vero e proprio in Contabilità Industriale (regressione per fascia d'età, calcolo IPG/costo al kg/FCR) — bozze Excel dimostrative create (`Bozza_Costo_Mangime_Cumulato_Vitello.xlsx`, `Bozza_Performance_Fascia_Eta.xlsx`) ma non ancora integrate nel programma.
+
 **Perché questa app è la fonte di verità sui dati grezzi**: qui gli operatori dentro l'allevamento registrano quello che succede realmente — nascite, ingressi, uscite, vaccinazioni, nati morti, ecc. La Contabilità Industriale (gestita dai contabili) non ha altro modo di sapere cosa succede in azienda se non attraverso quello che è già stato registrato qui. Quadro completo dei flussi:
 
 1. **Questa app → Contabilità Industriale** (lettura): dati grezzi per il calcolo UBA-gg (nascita, uscita, stato) — nessuna tabella con UBA-gg pre-calcolato, la Contabilità Industriale lo ricalcola da sola con la stessa formula di `ExportManager.jsx`

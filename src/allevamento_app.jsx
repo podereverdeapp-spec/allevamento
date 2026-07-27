@@ -404,6 +404,10 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
   const [tabDettaglio,setTabDettaglio]=useState("info");
   const [costiAnimale,setCostiAnimale]=useState(null); // storico costo da Contabilità Industriale
   const [caricandoCosti,setCaricandoCosti]=useState(false);
+  const [pesateAnimale,setPesateAnimale]=useState(null);
+  const [caricandoPesate,setCaricandoPesate]=useState(false);
+  const [nuovaPesata,setNuovaPesata]=useState({data:today(),peso:"",tipo:"vita",note:""});
+  const [salvandoPesata,setSalvandoPesata]=useState(false);
   const [formParto,setFormParto]=useState(null);
   const [savingParto,setSavingParto]=useState(false);
 
@@ -420,6 +424,42 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
         setCaricandoCosti(false);
       });
   },[dettaglio?.id]);
+
+  // Storico pesate — QUESTA tabella la scrive anche podereverdeapp.it (a differenza dei
+  // costi): ogni volta che si pesa un animale, si aggiunge una riga invece di sovrascrivere
+  // un unico valore. Letta anche dalla Contabilità Industriale per le analisi di crescita.
+  useEffect(()=>{
+    if(!dettaglio){ setPesateAnimale(null); return; }
+    setCaricandoPesate(true);
+    supabase.from("pesate_storico").select("*").eq("animale_id",dettaglio.id).order("data_rilevazione")
+      .then(({data,error})=>{
+        if(error){ console.error("Errore caricamento pesate:",error.message); setPesateAnimale([]); }
+        else setPesateAnimale(data||[]);
+        setCaricandoPesate(false);
+      });
+  },[dettaglio?.id]);
+
+  async function salvaPesata(){
+    if(!nuovaPesata.peso||!nuovaPesata.data){ alert("Inserisci almeno data e peso."); return; }
+    setSalvandoPesata(true);
+    const {error}=await supabase.from("pesate_storico").insert([{
+      animale_id:dettaglio.id, data_rilevazione:nuovaPesata.data,
+      peso_kg:parseFloat(nuovaPesata.peso), tipo_rilevazione:nuovaPesata.tipo,
+      stimato:false, note:nuovaPesata.note||null,
+    }]);
+    setSalvandoPesata(false);
+    if(error){ alert(`⚠️ Errore nel salvataggio della pesata:\n\n${error.message}`); return; }
+    setNuovaPesata({data:today(),peso:"",tipo:"vita",note:""});
+    const {data}=await supabase.from("pesate_storico").select("*").eq("animale_id",dettaglio.id).order("data_rilevazione");
+    setPesateAnimale(data||[]);
+  }
+
+  async function eliminaPesata(id){
+    if(!window.confirm("Eliminare questa pesata? Non si può annullare.")) return;
+    const {error}=await supabase.from("pesate_storico").delete().eq("id",id);
+    if(error){ alert(`⚠️ Errore nell'eliminazione:\n\n${error.message}`); return; }
+    setPesateAnimale(prev=>prev.filter(p=>p.id!==id));
+  }
 
   const empty={
     bdn:"",nome:"",specie:"bovino",razza:"",categoria:"",sesso:"F",
@@ -1047,7 +1087,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
 
         {/* Tab bar */}
         <div style={{display:"flex",background:C.card,borderBottom:`1px solid ${C.border}`}}>
-          {[["info","📋 Info"],["genealogia","🧬 Genealogia"],["eventi","📅 Eventi"],["costi","💰 Costi"]].map(([id,label])=>(
+          {[["info","📋 Info"],["genealogia","🧬 Genealogia"],["eventi","📅 Eventi"],["costi","💰 Costi"],["pesate","⚖️ Pesate"]].map(([id,label])=>(
             <button key={id} onClick={()=>setTabDettaglio(id)}
               style={{flex:1,padding:"12px 4px",background:"none",border:"none",cursor:"pointer",
                 fontSize:12,fontWeight:tabDettaglio===id?700:500,
@@ -1729,6 +1769,50 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
                     </span>
                   </div>
                 </>
+              )}
+            </div>
+          )}
+
+          {/* TAB PESATE — storico pesate nel tempo, scritto direttamente da qui */}
+          {tabDettaglio==="pesate"&&(
+            <div>
+              <div style={{fontSize:12,color:C.muted,marginBottom:12}}>
+                Ogni pesata si aggiunge come nuova riga — non sovrascrive le precedenti. Usata anche dalla Contabilità Industriale per stimare la crescita per fascia d'età.
+              </div>
+
+              <Card>
+                <Sezione label="Registra nuova pesata"/>
+                <Field label="Data" value={nuovaPesata.data} onChange={v=>setNuovaPesata(p=>({...p,data:v}))} type="date"/>
+                <Field label="Peso (kg)" value={nuovaPesata.peso} onChange={v=>setNuovaPesata(p=>({...p,peso:v}))} type="number"/>
+                <Field label="Tipo rilevazione" value={nuovaPesata.tipo} onChange={v=>setNuovaPesata(p=>({...p,tipo:v}))}
+                  options={["nascita","ingresso","vita","uscita_vivo","uscita_carcassa"]}/>
+                <Field label="Note (facoltativo)" value={nuovaPesata.note} onChange={v=>setNuovaPesata(p=>({...p,note:v}))}/>
+                <button onClick={salvaPesata} disabled={salvandoPesata}
+                  style={{marginTop:8,background:C.primary,color:"#fff",border:"none",borderRadius:8,padding:"10px 16px",fontWeight:700,cursor:"pointer",width:"100%"}}>
+                  {salvandoPesata?"Salvataggio...":"+ Registra pesata"}
+                </button>
+              </Card>
+
+              {caricandoPesate?(
+                <div style={{textAlign:"center",padding:20,color:C.muted}}>Caricamento...</div>
+              ):!pesateAnimale||pesateAnimale.length===0?(
+                <Card><div style={{padding:12,color:C.muted,fontSize:13}}>Nessuna pesata ancora registrata per questo animale.</div></Card>
+              ):(
+                <Card>
+                  {pesateAnimale.map(p=>(
+                    <div key={p.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",
+                      padding:"8px 0",borderBottom:`1px solid ${C.border}`}}>
+                      <div>
+                        <strong>{p.peso_kg} kg</strong>
+                        <div style={{fontSize:11,color:C.muted}}>{p.data_rilevazione} · {p.tipo_rilevazione}{p.stimato&&" (stimato)"}{p.note&&` · ${p.note}`}</div>
+                      </div>
+                      <button onClick={()=>eliminaPesata(p.id)}
+                        style={{background:"none",border:`1px solid ${C.red}`,color:C.red,borderRadius:6,padding:"4px 8px",fontSize:11,cursor:"pointer"}}>
+                        🗑️
+                      </button>
+                    </div>
+                  ))}
+                </Card>
               )}
             </div>
           )}
