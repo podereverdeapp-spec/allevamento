@@ -42,6 +42,14 @@ Tabella `animali` — campi principali (dal `SELECT` in `ExportManager.jsx`): `i
 
 ## 5. Collegamento con la Contabilità Industriale (in corso)
 
+**Peso all'ingresso — nuovo campo `peso_ingresso` su `animali`**: aggiunto per registrare il peso rilevato all'ingresso in azienda — utile soprattutto per gli animali acquistati (di cui non si conosce il vero peso di nascita), ma è un secondo punto di crescita reale utile per qualunque animale. Campo nel form (`allevamento_app.jsx`, vicino a Peso nascita/Peso attuale) e mostrato nella scheda (tab Info).
+
+**Bug di dati reale trovato e corretto**: 8 bovini acquistati avevano il loro peso all'ingresso (275-500 kg) registrato per errore nel campo "peso di nascita" — impossibile per un vitello. Corretti manualmente (spostato il valore nel nuovo campo `peso_ingresso`, azzerato `peso_nascita` per quei record) dopo verifica su un export reale caricato da Filippo.
+
+**Giorni di vita — aggiunto solo all'esportazione Excel** (non a schermo, per scelta di Filippo): nuova colonna "Giorni di vita" (nascita→uscita) nell'export principale animali di `ExportManager.jsx`, subito dopo "Data uscita" — prima andava calcolato a mano in Excel ogni volta.
+
+**Perché serve tutto questo**: la Contabilità Industriale (Performance per Fascia d'Età) usa sia il peso di nascita sia — quando disponibile — il peso all'ingresso come punti reali per una regressione che stima crescita/IPG per fascia d'età; più punti reali per animale (non solo nascita+uscita) rendono la stima più solida, specialmente per gli acquistati.
+
 **Storico Pesate — COSTRUITO** (`pesate_storico`, nuova tabella condivisa — **eccezione consapevole**: qui, a differenza dei costi, è podereverdeapp.it a scrivere, non solo a leggere, dato che è qui che si pesano gli animali). Sostituisce concettualmente il vecchio campo singolo `peso_attuale` (che si sovrascriveva) con una riga per ogni pesata nel tempo — tipo di rilevazione (nascita/ingresso/vita/uscita_vivo/uscita_carcassa), con un flag `stimato` per distinguere un peso reale da uno standard di specie usato quando la nascita reale è sconosciuta (animali acquistati). Nuova tab "⚖️ Pesate" nella scheda animale (`allevamento_app.jsx`), con form di registrazione ed elenco storico eliminabile riga per riga.
 
 **Perché**: prepara i dati per un futuro report nella Contabilità Industriale che stimerà, per fascia d'età, il peso medio/IPG/costo per kg — usando una **regressione lineare** sui punti data/peso di tutti gli animali (decisione presa con Filippo: la regressione, a differenza di medie semplici o ponderate, sfrutta naturalmente sempre più punti man mano che si accumulano pesate nel tempo, senza dover cambiare formula). Tabella di supporto `pesi_standard_specie` (45kg bovino, 0,5kg suino, 2kg ovino) per quando il peso di nascita reale non è noto.

@@ -88,6 +88,7 @@ function foglio_anagrafica(animali) {
       qualifica: a.riproduttore
         ? (a.sesso==="M" ? "Riproduttore" : "Riproduttrice")
         : "",
+      giorni_vita: a.data_uscita&&a.nascita ? Math.round((new Date(a.data_uscita)-new Date(a.nascita))/86400000) : "",
       giorni_permanenza: gg>0 ? gg : "",
       ipg_peso_vivo: gg>0&&a.peso_vivo_uscita ? Math.round(a.peso_vivo_uscita/gg*1000)/1000 : "",
       ipg_carcassa:  gg>0&&a.peso_carcassa    ? Math.round(a.peso_carcassa/gg*1000)/1000 : "",
@@ -105,6 +106,7 @@ function foglio_anagrafica(animali) {
     {key:"nascita",                label:"Data nascita"},
     {key:"data_registrazione_bdn", label:"Data registrazione BDN"},
     {key:"peso_nascita",           label:"Peso nascita (kg)"},
+    {key:"peso_ingresso",          label:"Peso all'ingresso (kg)"},
     {key:"peso_attuale",           label:"Peso attuale (kg)"},
     {key:"provenienza",            label:"Provenienza"},
     {key:"origine",                label:"Azienda origine"},
@@ -117,6 +119,7 @@ function foglio_anagrafica(animali) {
     {key:"destinazione",           label:"Destinazione"},
     {key:"stato",                  label:"Stato"},
     {key:"data_uscita",            label:"Data uscita"},
+    {key:"giorni_vita",             label:"Giorni di vita"},
     {key:"motivo_uscita",          label:"Motivo uscita"},
     {key:"causa_morte",            label:"Causa (se morto per malattia)"},
     {key:"peso_vivo_uscita",       label:"Peso vivo uscita (kg)"},
@@ -1351,7 +1354,7 @@ export default function ExportManager() {
         {data:evRiprod},{data:costiAnim},{data:costiGen},{data:macchinari},
         {data:lotti},{data:suiniLotto}
       ] = await Promise.all([
-        supabase.from("animali").select("id,bdn,nome,specie,sesso,nascita,stato,data_uscita,motivo_uscita,causa_morte,data_ingresso,razza,razza_calcolata,categoria,peso_nascita,peso_attuale,provenienza,origine,fornitore,data_fattura,numero_fattura,prezzo_acquisto,lotto_box,destinazione,resa_percent,peso_carcassa,peso_vivo_uscita,note_sanitarie,note,riproduttore,data_registrazione_bdn,padre_id,madre_id,costo_iniziale,tipo_costo_iniziale,costi_mantenimento_cumulati,quota_scaricata_figli,valore_v_riforma,categoria_contabile").order("specie").order("nome"),
+        supabase.from("animali").select("id,bdn,nome,specie,sesso,nascita,stato,data_uscita,motivo_uscita,causa_morte,data_ingresso,razza,razza_calcolata,categoria,peso_nascita,peso_ingresso,peso_attuale,provenienza,origine,fornitore,data_fattura,numero_fattura,prezzo_acquisto,lotto_box,destinazione,resa_percent,peso_carcassa,peso_vivo_uscita,note_sanitarie,note,riproduttore,data_registrazione_bdn,padre_id,madre_id,costo_iniziale,tipo_costo_iniziale,costi_mantenimento_cumulati,quota_scaricata_figli,valore_v_riforma,categoria_contabile").order("specie").order("nome"),
         supabase.from("prezzi_riforma").select("*"),
         supabase.from("eventi_sanitari").select("*").order("data",{ascending:false}),
         supabase.from("alimentazione").select("*").order("data",{ascending:false}),

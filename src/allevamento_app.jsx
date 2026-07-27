@@ -463,7 +463,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
 
   const empty={
     bdn:"",nome:"",specie:"bovino",razza:"",categoria:"",sesso:"F",
-    nascita:"",peso_nascita:"",peso_attuale:"",
+    nascita:"",peso_nascita:"",peso_attuale:"",peso_ingresso:"",
     provenienza:"Nato in azienda",data_ingresso:today(),
     prezzo_acquisto:"",origine:"",padre_id:"",madre_id:"",
     padre_ext:"",madre_ext:"",data_registrazione_bdn:"",
@@ -530,6 +530,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
       nascita:form.nascita||null,
       data_registrazione_bdn:form.data_registrazione_bdn||null,
       peso_nascita:form.peso_nascita?parseFloat(form.peso_nascita):null,
+      peso_ingresso:form.peso_ingresso?parseFloat(form.peso_ingresso):null,
       peso_attuale:form.peso_attuale?parseFloat(form.peso_attuale):null,
       provenienza:form.provenienza||null,
       data_ingresso:form.data_ingresso||null,
@@ -826,6 +827,8 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
           <Field label="Peso nascita (kg)" value={form.peso_nascita} onChange={v=>setForm(f=>({...f,peso_nascita:v}))} type="number"/>
           <Field label="Peso attuale (kg)" value={form.peso_attuale} onChange={v=>setForm(f=>({...f,peso_attuale:v}))} type="number"/>
         </div>
+        <Field label="Peso all'ingresso (kg)" value={form.peso_ingresso} onChange={v=>setForm(f=>({...f,peso_ingresso:v}))} type="number"
+          placeholder="Utile soprattutto se acquistato e il peso di nascita non è noto"/>
 
         <Sezione label="Provenienza"/>
         <Field label="Provenienza" value={form.provenienza} onChange={v=>setForm(f=>({...f,provenienza:v}))}
@@ -1179,6 +1182,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
                 <Sezione label="Dati fisici e nascita"/>
                 {a.nascita&&<Row label="Data di nascita" val={a.nascita}/>}
                 {a.peso_nascita&&<Row label="Peso nascita" val={a.peso_nascita+" kg"}/>}
+                {a.peso_ingresso&&<Row label="Peso all'ingresso" val={a.peso_ingresso+" kg"}/>}
                 {a.peso_attuale&&<Row label="Peso attuale" val={a.peso_attuale+" kg"}/>}
                 {a.provenienza&&<Row label="Provenienza" val={a.provenienza}/>}
                 {a.data_ingresso&&<Row label="Data ingresso" val={a.data_ingresso}/>}
