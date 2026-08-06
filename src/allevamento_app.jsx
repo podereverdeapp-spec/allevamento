@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "./supabase";
 
 const C = {
@@ -65,8 +65,8 @@ const calcolaRazza = (padre_id, madre_id, animali) => {
 };
 
 // ─── UI BASE ──────────────────────────────────────────────────────────────────
-const Card=({children,style={}})=>(
-  <div style={{background:C.card,borderRadius:16,padding:16,marginBottom:12,
+const Card=({children,style={},refEsterno})=>(
+  <div ref={refEsterno} style={{background:C.card,borderRadius:16,padding:16,marginBottom:12,
     boxShadow:"0 2px 8px rgba(0,0,0,0.08)",border:`1px solid ${C.border}`,...style}}>
     {children}
   </div>
@@ -74,6 +74,12 @@ const Card=({children,style={}})=>(
 const Badge=({label,color})=>(
   <span style={{background:color+"22",color,border:`1px solid ${color}44`,
     borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:700}}>{label}</span>
+);
+const RigaCosto=({label,valore})=>(
+  <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0"}}>
+    <span style={{color:C.muted}}>{label}</span>
+    <span style={{fontWeight:700}}>{(valore||0).toFixed(2)}€</span>
+  </div>
 );
 const Btn=({label,icon,onClick,variant="primary",small=false,disabled=false})=>{
   const bg={primary:C.primary,danger:C.red,success:C.green,ghost:"transparent",outline:"transparent"}[variant]||C.primary;
@@ -404,11 +410,35 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
   const [tabDettaglio,setTabDettaglio]=useState("info");
   const [costiAnimale,setCostiAnimale]=useState(null); // storico costo da Contabilità Industriale
   const [caricandoCosti,setCaricandoCosti]=useState(false);
+  const [residuoRiproduttore,setResiduoRiproduttore]=useState(null); // ci_residuo_riproduttore, se è (stato) un riproduttore
+  const [scarichiRiproduttore,setScarichiRiproduttore]=useState(null); // ci_scarico_riproduttore_annuale — per figli avuti e totale scaricato
+  const [residuiTuttiRiproduttori,setResiduiTuttiRiproduttori]=useState(new Map()); // animale_id -> residuo_rimanente, per la lista
+
+  // Caricato una volta sola (non per-animale): serve per mostrare il costo NETTO nella
+  // lista senza dover fare una query per ogni riga — sola lettura, stessa tabella condivisa
+  // con la Contabilità Industriale.
+  useEffect(()=>{
+    supabase.from("ci_residuo_riproduttore").select("animale_id,residuo_rimanente")
+      .then(({data,error})=>{
+        if(error){ console.error("Errore caricamento residui riproduttori:",error.message); return; }
+        setResiduiTuttiRiproduttori(new Map((data||[]).map(r=>[r.animale_id,r.residuo_rimanente])));
+      });
+  },[]);
   const [pesateAnimale,setPesateAnimale]=useState(null);
   const [caricandoPesate,setCaricandoPesate]=useState(false);
   const [nuovaPesata,setNuovaPesata]=useState({data:today(),peso:"",tipo:"vita",note:""});
   const [salvandoPesata,setSalvandoPesata]=useState(false);
   const [formParto,setFormParto]=useState(null);
+  const rifFormParto=useRef(null);
+  // Quando si apre il modulo parto (creazione O modifica, cliccando ✏️ su un evento in
+  // fondo alla timeline), lo porto sempre in vista — altrimenti si apre in cima alla
+  // scheda "Eventi" e, se il parto cliccato era più in basso, sembra che non sia successo
+  // nulla (segnalato da Filippo: "ci clicco ma non funziona").
+  useEffect(()=>{
+    if(formParto&&rifFormParto.current){
+      rifFormParto.current.scrollIntoView({behavior:"smooth",block:"start"});
+    }
+  },[formParto]);
   const [savingParto,setSavingParto]=useState(false);
 
   // Carica lo storico costo (calcolato dalla Contabilità Industriale, tabella condivisa
@@ -424,6 +454,25 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
         setCaricandoCosti(false);
       });
   },[dettaglio?.id]);
+
+  // Residuo riproduttore + scarichi annuali (stessa tabella condivisa, sola lettura qui) —
+  // solo se l'animale è marcato riproduttore, per mostrare il costo NETTO (dopo lo scarico
+  // sui figli), il totale scaricato, e il numero di figli avuti.
+  useEffect(()=>{
+    if(!dettaglio||!dettaglio.riproduttore){ setResiduoRiproduttore(null); setScarichiRiproduttore(null); return; }
+    supabase.from("ci_residuo_riproduttore").select("*").eq("animale_id",dettaglio.id).maybeSingle()
+      .then(({data,error})=>{
+        if(error){ console.error("Errore caricamento residuo riproduttore:",error.message); setResiduoRiproduttore(null); return; }
+        setResiduoRiproduttore(data||null);
+        if(data){
+          supabase.from("ci_scarico_riproduttore_annuale").select("*").eq("residuo_riproduttore_id",data.id).order("anno")
+            .then(({data:sc,error:e2})=>{
+              if(e2){ console.error("Errore caricamento scarichi:",e2.message); setScarichiRiproduttore([]); }
+              else setScarichiRiproduttore(sc||[]);
+            });
+        } else setScarichiRiproduttore([]);
+      });
+  },[dettaglio?.id,dettaglio?.riproduttore]);
 
   // Storico pesate — QUESTA tabella la scrive anche podereverdeapp.it (a differenza dei
   // costi): ogni volta che si pesa un animale, si aggiunge una riga invece di sovrascrivere
@@ -792,7 +841,9 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
   if(form){
     const specie=form.specie||"bovino";
     const madri=animali.filter(a=>a.specie===specie&&a.sesso==="F"&&a.id!==form.id);
-    const padri=animali.filter(a=>a.specie===specie&&a.sesso==="M"&&a.id!==form.id);
+    const padriRiprod=animali.filter(a=>a.specie===specie&&a.sesso==="M"&&a.riproduttore&&a.id!==form.id);
+    const padriTutti=animali.filter(a=>a.specie===specie&&a.sesso==="M"&&a.id!==form.id);
+    const padri=padriRiprod.length>0?padriRiprod:padriTutti;
     return(
       <div style={{padding:"16px 16px 100px"}}>
         <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
@@ -881,9 +932,9 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
           </div>
         )}
         {/* PADRE */}
-        <Field label="Padre (in azienda)" value={form.padre_id}
+        <Field label={`Padre (in azienda)${padriRiprod.length>0?" — riproduttori registrati":padriTutti.length>0?" — nessun riproduttore, mostro tutti i maschi":""}`} value={form.padre_id}
           onChange={v=>setForm(f=>({...f,padre_id:v,padre_ext:""}))}
-          options={padri.map(a=>({value:a.id,label:`${a.nome||a.bdn} (${a.razza||"—"})`}))}/>
+          options={padri.map(a=>({value:a.id,label:`${a.nome||a.bdn} (${a.razza||"—"})${a.riproduttore?" ♂":""}`}))}/>
         {!form.padre_id&&(
           <div style={{marginTop:-8,marginBottom:12}}>
             <div style={{fontSize:11,color:C.muted,marginBottom:4}}>
@@ -1301,7 +1352,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
               {/* Solo per femmine: pulsante parto */}
               {(a.sesso==="F")&&(
                 formParto?(
-                  <Card>
+                  <Card refEsterno={rifFormParto}>
                     <div style={{fontWeight:700,marginBottom:4}}>
                       {formParto.id?"✏️ Modifica parto":"🐣 Registra parto"}
                     </div>
@@ -1767,11 +1818,37 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
                   </Card>
                   <div style={{background:C.primary+"15",borderRadius:10,padding:"12px 16px",marginTop:10,
                     display:"flex",justifyContent:"space-between"}}>
-                    <span style={{fontWeight:700,color:C.primary}}>Totale cumulato (tutti gli anni)</span>
+                    <span style={{fontWeight:700,color:C.primary}}>Totale cumulato (tutti gli anni, al lordo)</span>
                     <span style={{fontWeight:800,fontSize:16,color:C.primary}}>
                       {costiAnimale.reduce((s,r)=>s+(r.costo_totale_anno||0),0).toFixed(2)}€
                     </span>
                   </div>
+
+                  {dettaglio.riproduttore&&(
+                    <Card style={{marginTop:10}}>
+                      <Sezione label="Riproduttore — costo netto e figli"/>
+                      {!residuoRiproduttore?(
+                        <div style={{padding:12,color:C.muted,fontSize:13}}>
+                          Non ancora elaborato dalla Contabilità Industriale (Report Riproduttori → "Elabora").
+                        </div>
+                      ):(
+                        <div style={{fontSize:13}}>
+                          <RigaCosto label="Totale scaricato sui figli (tutti gli anni)"
+                            valore={(scarichiRiproduttore||[]).reduce((s,r)=>s+(r.totale_scaricato_anno||0),0)}/>
+                          <RigaCosto label="Residuo ancora da scaricare" valore={residuoRiproduttore.residuo_rimanente||0}/>
+                          <div style={{display:"flex",justifyContent:"space-between",padding:"8px 0",
+                            borderTop:`2px solid ${C.primary}`,marginTop:4,fontWeight:800}}>
+                            <span>Costo NETTO (già scaricato sui figli)</span>
+                            <span>{((costiAnimale.reduce((s,r)=>s+(r.costo_totale_anno||0),0))-(scarichiRiproduttore||[]).reduce((s,r)=>s+(r.totale_scaricato_anno||0),0)).toFixed(2)}€</span>
+                          </div>
+                          <div style={{display:"flex",justifyContent:"space-between",padding:"8px 0",marginTop:6}}>
+                            <span style={{color:C.muted}}>Numero di figli avuti</span>
+                            <span style={{fontWeight:700}}>{(scarichiRiproduttore||[]).reduce((s,r)=>s+(r.n_figli_anno||0),0)}</span>
+                          </div>
+                        </div>
+                      )}
+                    </Card>
+                  )}
                 </>
               )}
             </div>
@@ -2015,13 +2092,15 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
               {a.peso_attuale&&<div>⚖️ {a.peso_attuale}kg</div>}
             </div>
           </div>
-          {(a.origine||a.prezzo_acquisto||a.madre_id||totalePerAnimale(a.id)>0)&&(
+          {(a.origine||a.prezzo_acquisto||a.madre_id||totalePerAnimale(a.id)>0||(a.riproduttore&&residuiTuttiRiproduttori.has(a.id)))&&(
             <div style={{display:"flex",gap:12,fontSize:12,color:C.muted,
               padding:"6px 0",borderTop:`1px solid ${C.border}`,marginBottom:8,flexWrap:"wrap"}}>
               {a.origine&&<span>🏠 {a.origine}</span>}
               {a.prezzo_acquisto&&<span>💰 Acquisto: €{a.prezzo_acquisto}</span>}
               {(!a.prezzo_acquisto&&totalePerAnimale(a.id)>0)&&
                 <span>🌱 Costo nascita: €{totalePerAnimale(a.id).toFixed(0)}</span>}
+              {a.riproduttore&&residuiTuttiRiproduttori.has(a.id)&&
+                <span style={{fontWeight:700}}>🧮 Costo netto (riproduttore, dopo scarico sui figli): €{residuiTuttiRiproduttori.get(a.id).toFixed(0)}</span>}
               {a.data_registrazione_bdn&&
                 <span>🏷️ BDN: {a.data_registrazione_bdn}</span>}
               {a.madre_id&&<span>🧬 pedigree ✓</span>}
