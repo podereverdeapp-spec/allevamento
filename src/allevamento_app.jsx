@@ -1356,6 +1356,28 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
                     <div style={{fontWeight:700,marginBottom:4}}>
                       {formParto.id?"✏️ Modifica parto":"🐣 Registra parto"}
                     </div>
+                    {/* Figli collegati a QUESTO parto — solo in modifica, per non sbagliare
+                        parto quando la fattrice ne ha più di uno in timeline */}
+                    {formParto.id&&(()=>{
+                      const figliParto=animali.filter(x=>x.madre_id===a.id&&x.nascita===formParto.data_evento);
+                      return(
+                        <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:10,
+                          padding:"8px 12px",marginBottom:12}}>
+                          <div style={{fontSize:11,fontWeight:700,color:C.muted,marginBottom:4}}>
+                            FIGLIO/I DI QUESTO PARTO ({figliParto.length})
+                          </div>
+                          {figliParto.length===0?(
+                            <div style={{fontSize:13,color:C.muted,fontStyle:"italic"}}>
+                              Nessuna scheda animale trovata con questa data di nascita
+                            </div>
+                          ):figliParto.map(f=>(
+                            <div key={f.id} style={{fontSize:13,fontFamily:"monospace",fontWeight:700}}>
+                              {f.bdn||"(BDN mancante)"} {f.nome?`— ${f.nome}`:""}
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
                     {/* Toggle parto storico - solo in creazione */}
                     {!formParto.id&&(
                       <div onClick={()=>setFormParto(f=>({...f,storico:!f.storico}))}
