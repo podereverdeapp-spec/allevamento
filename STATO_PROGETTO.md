@@ -1,6 +1,23 @@
 # podereverdeapp.it (Allevamento) — Stato del Progetto
 _Documento di riferimento — creato per la prima volta insieme al backup della Contabilità Industriale, così un'eventuale nuova sessione possa ripartire senza soluzione di continuità. Da tenere aggiornato come il documento gemello della Contabilità Industriale._
 
+## 0. Chi fa cosa — i quattro pezzi (verificato il 07/09/2026)
+
+Da leggere per primo: confondere questi ruoli fa perdere ore a cercare guasti dove non sono.
+
+| Pezzo | Cosa fa davvero | Cosa NON fa |
+|---|---|---|
+| **Aruba** | Registrar e **DNS** del dominio: dice ai browser dove andare. Nameserver verificati: `dns.technorail.com`, `dns2.technorail.com`, `dns3.arubadns.net`, `dns4.arubadns.cz` | **Non ospita il sito.** È l'elenco telefonico, non la casa |
+| **GitHub** (`podereverdeapp-spec/allevamento`) | **Archivia** il codice con tutta la storia, e fa da **innesco**: a ogni push su `main`, Vercel ricompila | Non esegue niente. Da solo non serve pagine a nessuno |
+| **Vercel** | **Ospita e serve il sito.** Compila il codice preso da GitHub e consegna i file al browser | Non conserva dati: quelli stanno su Supabase |
+| **Supabase** (`pyjymnpnxatqwfhguaus`) | **Memoria** (tutte le tabelle), **autenticazione** (chi entra, con che ruolo) ed **Edge Function** (`invio-report-mensile`, `super-action`, chiamate da pg_cron) | Non serve l'interfaccia |
+
+Flusso di una modifica: `file scritti nella cartella → pusha.bat → GitHub → Vercel compila e pubblica → il browser ci arriva grazie al DNS di Aruba → i dati arrivano da Supabase`.
+
+Conseguenze pratiche: spegnendo Vercel l'app sparisce ma i dati restano; spegnendo Supabase l'app si apre e non sa più niente; spegnendo Aruba si perde l'indirizzo, non il contenuto.
+
+**Anomalia DNS nota, non un guasto**: il dominio senza `www` ha **due record A** — `76.76.21.21` (Vercel) e `62.149.128.40` (Aruba). Il `www` invece è un CNAME pulito verso `vercel-dns-017.com`, quindi solo Vercel. Non ha mai dato problemi in cento versioni, quindi il record Aruba è verosimilmente un redirect che rimanda al posto giusto. Per togliere l'ambiguità basterebbe cancellare quel record A nel pannello Aruba. Nel dubbio, `www.podereverdeapp.it` parla di sicuro con Vercel.
+
 ## 1. Architettura
 
 - **App**: React 19 (Create React App, `react-scripts` 5.0.1) — non Next.js/Vite

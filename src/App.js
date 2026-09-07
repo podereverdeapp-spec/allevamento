@@ -8,7 +8,7 @@ import SelezioneGenetica   from "./selezione_genetica";
 import CostiAllevamento    from "./costi_allevamento";
 import CostoOrigine        from "./costo_origine";
 import RegistroUscite      from "./registro_uscite";
-import CostiGenerali       from "./costi_generali";
+// import CostiGenerali    from "./costi_generali";   // v104 — tab Struttura nascosta, vedi TABS
 import CostiComplessivi    from "./costi_complessivi";
 import Coltivazione        from "./coltivazione";
 import Guida               from "./Guida";
@@ -20,16 +20,25 @@ import "./App.css";
 
 const C = { primary:"#5C3D1E", border:"#D4C4A8", muted:"#8B7355", bg:"#F5F0E8", red:"#C0392B" };
 
+// v104 — versione visibile nel menu utente. Serve a capire in un secondo se il
+// deploy Vercel e' arrivato davvero o se il browser sta servendo una copia
+// vecchia dalla cache: basta aprire il menu e leggere il numero.
+const VERSIONE = "v104";
+
 const TABS = [
   { id:"gestione",    label:"Gestione",   icon:"🐄" },
   { id:"pedigree",    label:"Pedigree",   icon:"🧬" },
   { id:"lotti",       label:"Lotti",      icon:"🐷" },
-  { id:"coltivazione",label:"Campi",      icon:"🌾" },
+  { id:"coltivazione",label:"Coltivazione",icon:"🌾" },
   { id:"selezione",   label:"Selezione",  icon:"🏆" },
   { id:"complessivi", label:"Costi",      icon:"📊" },
   { id:"origine",     label:"Origine",    icon:"🧾" },
   { id:"uscite",      label:"Uscite",     icon:"📤" },
-  { id:"generali",    label:"Struttura",  icon:"🏭" },
+  // v104 — tab "Struttura" (macchinari e costi generali) tolta dalla barra su
+  // richiesta di Filippo, per fare spazio a Coltivazione. Il modulo
+  // costi_generali.jsx e i dati NON sono stati toccati: per rimetterla basta
+  // riaggiungere questa riga, l'import e la riga di render piu' sotto.
+  // { id:"generali",    label:"Struttura",  icon:"🏭" },
   { id:"uba",         label:"UBA",        icon:"🐾" },
   { id:"export",      label:"Esporta",    icon:"📥" },
   { id:"email",       label:"Email",      icon:"📮" },
@@ -109,6 +118,7 @@ export default function App() {
             <div style={{fontWeight:700,color:C.primary}}>{profilo?.nome}</div>
             <div>{sessione.user.email}</div>
             <div style={{fontSize:11,marginTop:2}}>Ruolo: <b>{profilo?.ruolo}</b></div>
+            <div style={{fontSize:11,marginTop:2}}>Versione: <b>{VERSIONE}</b></div>
           </div>
           <button onClick={esportaTutto} style={{width:"100%",padding:"12px 16px",background:"none",border:"none",textAlign:"left",fontSize:14,cursor:"pointer",borderBottom:`1px solid ${C.border}`}}>
             📊 Esporta tutto in Excel
@@ -132,7 +142,7 @@ export default function App() {
         {tab==="complessivi" && <CostiComplessivi  supabase={supabase}/>}
         {tab==="origine"     && <CostoOrigine      supabase={supabase}/>}
         {tab==="uscite"      && <RegistroUscite    supabase={supabase}/>}
-        {tab==="generali"    && <CostiGenerali     supabase={supabase}/>}
+        {/* v104 — {tab==="generali" && <CostiGenerali supabase={supabase}/>} */}
         {tab==="uba"       && <UBAReport/>}
         {tab==="export"     && <ExportManager/>}
         {tab==="email"       && <Destinatari/>}
