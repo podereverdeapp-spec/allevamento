@@ -89,15 +89,22 @@ Questo è il motore che la Contabilità Industriale ha **copiato identico** (in 
 
 Usata per stimare il valore di realizzo degli animali. Campi noti: `specie`, `razza`, `prezzo_kg_vivo`, `resa_percentuale`, e **`prezzo_kg_carcassa`** (aggiunto su richiesta della Contabilità Industriale — prima esisteva solo `prezzo_kg_vivo`+`resa_percentuale`, insufficiente perché derivare il prezzo carcassa da quello vivo tramite la resa dava un valore matematicamente equivalente, non una stima indipendente).
 
-## 8. Problema noto, NON ancora corretto
+## 8. Riproduttore automatico per i maschi — CORRETTO (v102, 07/09/2026)
 
-**Riproduttore automatico per i maschi alla nascita** (`allevamento_app.jsx`, riga ~675, dentro la registrazione parto):
+**Il bug**: in `allevamento_app.jsx`, dentro la registrazione parto, ogni maschio nato veniva marcato automaticamente riproduttore solo in base al sesso:
 ```js
-riproduttore: nato.sesso==="M"?true:false,
+riproduttore: nato.sesso==="M"?true:false,   // ← era così
 ```
-Ogni maschio nato viene marcato **automaticamente** riproduttore alla nascita, solo in base al sesso. Secondo Filippo questo è sbagliato: un maschio deve restare `riproduttore:false` di default, e diventarlo solo tramite un'attivazione esplicita (pulsante, da individuare con certezza nel codice — potrebbe già esistere altrove nell'app). **Le femmine restano invece corrette**: diventano riproduttrici automaticamente al primo parto registrato, comportamento voluto, non toccare.
 
-Verificato nel codice il 24/07: il bug è ancora presente, non è mai stato corretto in nessuna sessione precedente — resta da fare.
+**La correzione (v102)** — tre modifiche, tutte in `allevamento_app.jsx`:
+
+1. **Nascita**: `riproduttore:false` per tutti i nati. Un maschio diventa riproduttore SOLO tramite l'attivazione esplicita del toggle "♂ Riproduttore" già presente nel form della scheda animale (il pulsante esisteva già: `form.riproduttore` con toggle visibile per M e F, verificato nel codice prima di intervenire — non è stato necessario costruirlo).
+2. **Data di qualifica**: il campo `animali.data_qualifica_riproduttore` (di tipo `date`, già esistente a DB) veniva **letto** dalla timeline della scheda animale ma non era **mai scritto** da nessuna parte — la voce "♂♀ Qualifica riproduttore" quindi non compariva mai. Ora viene scritto nel `salva()` dell'Anagrafica: alla prima attivazione del flag prende la data odierna, se il flag viene tolto torna `null`, e se una data c'è già non viene sovrascritta.
+3. **Madre al primo parto**: la marcatura automatica della madre (comportamento voluto, invariato) ora registra anche `data_qualifica_riproduttore` = data del parto.
+
+**Le femmine restano come prima**: diventano riproduttrici automaticamente al primo parto registrato — comportamento voluto, non toccare.
+
+**Dati storici da ripulire a mano**: alla data della correzione risultavano **9 maschi** marcati `riproduttore:true` senza alcun figlio registrato (`padre_id` mai usato) — probabili falsi positivi generati dal bug: 2 bovini attivi, 1 bovino macellato, 1 bovino storico, 2 ovini attivi, 3 suini attivi. Da verificare uno per uno in Anagrafica e, dove è il caso, disattivare il toggle. Attenzione: un giovane maschio destinato alla monta ma che non ha ancora avuto figli è legittimamente riproduttore — l'assenza di figli da sola non è prova del bug.
 
 ## 9. Note per chi riprende questo progetto da zero
 

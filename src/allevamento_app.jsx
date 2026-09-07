@@ -607,6 +607,11 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
       note:form.note||null,
       vivo:form.stato==="attivo",
       riproduttore:form.riproduttore||false,
+      // v102 — data di qualifica: scritta la prima volta che il flag viene attivato,
+      // azzerata se il flag viene tolto (alimenta la timeline "Qualifica riproduttore")
+      data_qualifica_riproduttore: form.riproduttore
+        ? (form.data_qualifica_riproduttore || today())
+        : null,
     };
     let err;
     if(form.id){
@@ -762,7 +767,10 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
             provenienza:"Nato in azienda",
             data_ingresso:formParto.data_evento,
             stato:"attivo",vivo:true,
-            riproduttore:nato.sesso==="M"?true:false,
+            // v102 — un maschio NON nasce riproduttore: lo diventa solo con
+            // l'attivazione esplicita del toggle "♂ Riproduttore" nella scheda.
+            // (Le femmine restano invece marcate automaticamente al primo parto.)
+            riproduttore:false,
             note:`Nato da parto del ${formParto.data_evento}`,
           });
         } else if(dettaglio.specie==="suino"){
@@ -822,8 +830,13 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
     }
     // Segna automaticamente la madre come riproduttrice
     if(dettaglio.id&&!dettaglio.riproduttore){
-      await aggiorna(dettaglio.id,{riproduttore:true});
-      setDettaglio(prev=>({...prev,riproduttore:true}));
+      // v102 — registro anche la data di qualifica (= data del parto)
+      await aggiorna(dettaglio.id,{
+        riproduttore:true,
+        data_qualifica_riproduttore:dettaglio.data_qualifica_riproduttore||formParto.data_evento,
+      });
+      setDettaglio(prev=>({...prev,riproduttore:true,
+        data_qualifica_riproduttore:prev.data_qualifica_riproduttore||formParto.data_evento}));
     }
     setSavingParto(false);
     setFormParto(null);
