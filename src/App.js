@@ -10,6 +10,7 @@ import CostoOrigine        from "./costo_origine";
 import RegistroUscite      from "./registro_uscite";
 import CostiGenerali       from "./costi_generali";
 import CostiComplessivi    from "./costi_complessivi";
+import Coltivazione        from "./coltivazione";
 import Guida               from "./Guida";
 import ExportManager       from "./ExportManager";
 import UBAReport            from "./UBAReport";
@@ -23,6 +24,7 @@ const TABS = [
   { id:"gestione",    label:"Gestione",   icon:"🐄" },
   { id:"pedigree",    label:"Pedigree",   icon:"🧬" },
   { id:"lotti",       label:"Lotti",      icon:"🐷" },
+  { id:"coltivazione",label:"Campi",      icon:"🌾" },
   { id:"selezione",   label:"Selezione",  icon:"🏆" },
   { id:"complessivi", label:"Costi",      icon:"📊" },
   { id:"origine",     label:"Origine",    icon:"🧾" },
@@ -125,6 +127,7 @@ export default function App() {
         {tab==="gestione"    && <AllevamentoApp    supabase={supabase}/>}
         {tab==="pedigree"    && <Pedigree          supabase={supabase}/>}
         {tab==="lotti"       && <LottiSuini        supabase={supabase}/>}
+        {tab==="coltivazione"&& <Coltivazione/>}
         {tab==="selezione"   && <SelezioneGenetica supabase={supabase}/>}
         {tab==="complessivi" && <CostiComplessivi  supabase={supabase}/>}
         {tab==="origine"     && <CostoOrigine      supabase={supabase}/>}

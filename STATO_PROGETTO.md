@@ -104,11 +104,45 @@ riproduttore: nato.sesso==="M"?true:false,   // ← era così
 
 **Le femmine restano come prima**: diventano riproduttrici automaticamente al primo parto registrato — comportamento voluto, non toccare.
 
-**Dati storici da ripulire a mano**: alla data della correzione risultavano **9 maschi** marcati `riproduttore:true` senza alcun figlio registrato (`padre_id` mai usato) — probabili falsi positivi generati dal bug: 2 bovini attivi, 1 bovino macellato, 1 bovino storico, 2 ovini attivi, 3 suini attivi. Da verificare uno per uno in Anagrafica e, dove è il caso, disattivare il toggle. Attenzione: un giovane maschio destinato alla monta ma che non ha ancora avuto figli è legittimamente riproduttore — l'assenza di figli da sola non è prova del bug.
+**Dati storici da verificare a mano**: alla data della correzione risultavano 9 maschi marcati `riproduttore:true` senza alcun figlio registrato. Di questi, 6 sono `Acquistato`/`Esterno` — il bug NON li tocca (sono nati fuori azienda, il flag è stato messo a mano, quindi è verosimilmente corretto). I soli **3 sospetti reali** sono i `Nato in azienda`, gli unici passati dal codice buggato:
+
+| id | BDN | specie | stato | nascita |
+|---|---|---|---|---|
+| 342 | IT058990390828 | bovino | macellato | 10/04/2020 |
+| 110 | IT058990412079 | bovino | attivo | 20/05/2023 |
+| 443 | MACULATO01 | suino | attivo | 15/10/2023 |
+
+Da verificare uno per uno in Anagrafica e, dove è il caso, disattivare il toggle. Attenzione: un giovane maschio destinato alla monta che non ha ancora avuto figli è legittimamente riproduttore — l'assenza di figli da sola non è prova del bug.
+
+## 8-bis. RLS orfane — CORRETTO (v103, 07/09/2026)
+
+Controllando il database prima di costruire la Coltivazione sono emerse **cinque tabelle con RLS attiva e ZERO policy**: `pesate_storico`, `pesi_standard_specie`, `prezzi_riforma`, `nati_parto`, `costi_animale_annuali`. RLS senza policy **nega tutto senza dare errore**: la tabella risulta semplicemente vuota, e l'app non se ne accorge.
+
+Conseguenze reali in produzione:
+
+- **La tab Pesate (v99) non ha mai funzionato**: non leggeva né scriveva nulla. `pesate_storico` ha infatti 0 righe. Tutto il lavoro fatto per preparare la regressione peso/età della Contabilità Industriale non stava raccogliendo dati.
+- **`prezzi_riforma` era invisibile** a `ExportManager.jsx` e `UBAReport.jsx`: la tabella ha 23 righe, ma l'app ne leggeva 0. Il "Costo netto residuo" calcolava quindi con `valore_v_riforma` mancante.
+
+Verificato eseguendo le query con `set local role authenticated`: prima della correzione `prezzi_riforma` restituiva 0 righe su 23, dopo ne restituisce 23.
+
+Applicate le policy della convenzione del progetto (lettura/inserimento/modifica autenticati, cancellazione solo admin), più lettura `anon` su `pesate_storico` e `pesi_standard_specie` per la Contabilità Industriale.
+
+**Lezione da tenere presente**: creare una tabella con `enable row level security` e dimenticare le policy produce un guasto silenzioso. Vale la pena, dopo ogni nuova tabella, verificare con `set local role authenticated; select count(*) ...`.
+
+## 8-ter. Sezione Coltivazione — COSTRUITA (v103, 07/09/2026)
+
+Nuovo modulo `src/coltivazione.jsx`, tab "🌾 Campi" (inserita dopo Lotti). 7 tabelle nuove: `campi`, `colture_campo`, `semine`, `lavorazioni_campo`, `concimazioni`, `diserbi`, `raccolte`. 16 campi caricati (84,43 ha) con foto aeree in `public/campi/`.
+
+**La specifica completa, con le motivazioni delle scelte di struttura, sta in `SPEC_COLTIVAZIONE.md`** — leggerla prima di metterci mano.
+
+In sintesi, tre punti dove la struttura si discosta dal foglio Excel di partenza: le lavorazioni sono esecuzioni ripetibili (la medica si sfalcia 3-4 volte l'anno); la raccolta registra un prodotto e non una coltura (la paglia esce dagli ettari del grano); le poliennali non richiedono la semina ogni campagna.
+
+Il ponte con Magazzino e Contabilità Industriale (foraggio autoprodotto → costo per capo) **non è stato costruito**: è la fase 2, vedi SPEC sezione 5.
 
 ## 9. Note per chi riprende questo progetto da zero
 
 - Ambiente di lavoro: la cartella sorgente (`allevamento`) potrebbe non essere presente in una sandbox nuova — chiedere a Filippo l'ultimo pacchetto `allevamento_vNN.tar.gz`, o verificare `/mnt/user-data/outputs/` prima di chiedere
-- Prima di ogni modifica: `cd allevamento && npm install && CI=true npm run build` per verificare che l'app compili, poi ripacchettare con `tar -czf allevamento_vNN.tar.gz --exclude=.git .`
+- Prima di ogni modifica: `cd allevamento && npm install && npm run build` per verificare che l'app compili, poi ripacchettare con `tar -czf allevamento_vNN.tar.gz --exclude=.git .`
+- **Attenzione**: `CI=true npm run build` **fallisce**, e non per colpa di chi ha appena modificato. `CI=true` trasforma i warning in errori, e ci sono decine di `no-unused-vars` preesistenti in `allevamento_app.jsx`, `lotti_suini.jsx`, `pedigree.jsx`, `selezione_genetica.jsx`, `UBAReport.jsx` e `App.js`. Usare `npm run build` semplice e controllare che i warning nuovi siano zero — quelli vecchi restano finché non si fa una pulizia dedicata.
 - Le versioni sono numerate progressivamente (v66...v94 al momento di scrivere) — usare il numero successivo per ogni nuovo pacchetto, mai sovrascrivere
 - Repo GitHub e deploy Vercel separati da quelli della Contabilità Industriale, ma stesso account/proprietario (Filippo) per entrambi i progetti — l'accesso condiviso è a livello di **database** (stesso Supabase), non di codice sorgente: ogni sessione di chat vede solo i file che vengono caricati o che restano nell'ambiente di lavoro di quella sessione specifica.
