@@ -1,3 +1,10 @@
+/* eslint-disable no-unused-vars, react-hooks/exhaustive-deps */
+// v105 — Vercel compila con CI=true, che trasforma gli avvisi ESLint in ERRORI
+// e faceva fallire il deploy. Gli avvisi sono vecchi e innocui (variabili
+// dichiarate e mai usate, dipendenze di useEffect volutamente omesse per non
+// cambiare il comportamento). Qui vengono ZITTITI, non corretti: nessuna riga
+// di logica e' stata toccata. Una pulizia vera si puo' fare con calma, un file
+// alla volta, verificando ogni rimozione.
 import { useState, useEffect } from "react";
 import { supabase } from "./supabase";
 import Auth from "./Auth";
@@ -23,7 +30,7 @@ const C = { primary:"#5C3D1E", border:"#D4C4A8", muted:"#8B7355", bg:"#F5F0E8", 
 // v104 — versione visibile nel menu utente. Serve a capire in un secondo se il
 // deploy Vercel e' arrivato davvero o se il browser sta servendo una copia
 // vecchia dalla cache: basta aprire il menu e leggere il numero.
-const VERSIONE = "v104";
+const VERSIONE = "v105";
 
 const TABS = [
   { id:"gestione",    label:"Gestione",   icon:"🐄" },

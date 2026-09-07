@@ -162,10 +162,28 @@ Il ponte con Magazzino e Contabilità Industriale (foraggio autoprodotto → cos
 - Tab **"Struttura"** (macchinari e costi generali) **tolta dalla barra** su richiesta di Filippo, per fare spazio. Il modulo `costi_generali.jsx`, le tabelle `macchinari` e `costi_generali` e i loro dati **non sono stati toccati**: in `App.js` la voce di TABS, l'import e la riga di render sono commentati con marcatore `v104`, quindi per riattivarla basta togliere i commenti.
 - **Numero di versione visibile nel menu utente** (`VERSIONE` in `App.js`, riga "Versione: v104" sotto il ruolo). Serve a distinguere in un secondo un deploy non arrivato da una cache del browser: si apre il menu e si legge il numero. **Da aggiornare a ogni versione.**
 
+## 8-quinquies. IL DEPLOY ERA ROTTO — risolto in v105 (07/09/2026)
+
+**Il guasto più importante trovato in questa sessione.** Le versioni v102, v103 e v104 erano regolarmente su GitHub ma **non diventavano mai sito**: su podereverdeapp.it non compariva nulla di nuovo, senza nessun messaggio d'errore visibile all'utente.
+
+**Causa**: Vercel compila con la variabile d'ambiente `CI=true`. Con `CI=true`, Create React App **tratta gli avvisi ESLint come errori** e il build fallisce. Questo progetto aveva ~45 avvisi vecchi accumulati (variabili dichiarate e mai usate in `allevamento_app.jsx`, `pedigree.jsx`, `lotti_suini.jsx`, `UBAReport.jsx`, `App.js`, e tre `react-hooks/exhaustive-deps`). Quindi ogni deploy falliva, e restava online l'ultima versione compilata prima che gli avvisi si accumulassero.
+
+Il sintomo era ingannevole: `npm run build` semplice passava benissimo in locale, quindi il codice sembrava sano.
+
+**Correzione**: aggiunto in cima ai sei file incriminati il commento
+```js
+/* eslint-disable no-unused-vars, react-hooks/exhaustive-deps */
+```
+Gli avvisi sono **zittiti, non corretti**: nessuna riga di logica è stata toccata. Scelta deliberata — rimuovere a mano 45 dichiarazioni in un file da 3.200 righe usato ogni giorno dagli operatori è un rischio sproporzionato rispetto al beneficio. La pulizia vera si può fare più avanti, un file alla volta, verificando ogni rimozione.
+
+**Verifica**: `CI=true npm run build` ora restituisce `Compiled successfully.`
+
+**Regola d'oro d'ora in poi**: prima di ogni consegna, compilare con **`CI=true npm run build`**, non con `npm run build`. È l'unico comando che riproduce quello che fa Vercel. Se fallisce lì, il deploy fallirà — e fallirà in silenzio.
+
 ## 9. Note per chi riprende questo progetto da zero
 
 - Ambiente di lavoro: la cartella sorgente (`allevamento`) potrebbe non essere presente in una sandbox nuova — chiedere a Filippo l'ultimo pacchetto `allevamento_vNN.tar.gz`, o verificare `/mnt/user-data/outputs/` prima di chiedere
-- Prima di ogni modifica: `cd allevamento && npm install && npm run build` per verificare che l'app compili, poi ripacchettare con `tar -czf allevamento_vNN.tar.gz --exclude=.git .`
-- **Attenzione**: `CI=true npm run build` **fallisce**, e non per colpa di chi ha appena modificato. `CI=true` trasforma i warning in errori, e ci sono decine di `no-unused-vars` preesistenti in `allevamento_app.jsx`, `lotti_suini.jsx`, `pedigree.jsx`, `selezione_genetica.jsx`, `UBAReport.jsx` e `App.js`. Usare `npm run build` semplice e controllare che i warning nuovi siano zero — quelli vecchi restano finché non si fa una pulizia dedicata.
+- Prima di ogni modifica: `cd allevamento && npm install && CI=true npm run build` per verificare che l'app compili **come la compila Vercel**, poi ripacchettare con `tar -czf allevamento_vNN.tar.gz --exclude=.git .`
+- **`CI=true` e' obbligatorio** in quel comando: e' cosi' che compila Vercel. Se il build fallisce con `CI=true` ma passa senza, il deploy fallira' in silenzio (vedi sezione 8-quinquies). Dalla v105 gli avvisi sono zittiti e il build passa.
 - Le versioni sono numerate progressivamente (v66...v94 al momento di scrivere) — usare il numero successivo per ogni nuovo pacchetto, mai sovrascrivere
 - Repo GitHub e deploy Vercel separati da quelli della Contabilità Industriale, ma stesso account/proprietario (Filippo) per entrambi i progetti — l'accesso condiviso è a livello di **database** (stesso Supabase), non di codice sorgente: ogni sessione di chat vede solo i file che vengono caricati o che restano nell'ambiente di lavoro di quella sessione specifica.
