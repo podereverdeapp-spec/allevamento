@@ -139,6 +139,12 @@ In sintesi, tre punti dove la struttura si discosta dal foglio Excel di partenza
 
 Il ponte con Magazzino e Contabilità Industriale (foraggio autoprodotto → costo per capo) **non è stato costruito**: è la fase 2, vedi SPEC sezione 5.
 
+## 8-quater. v104 (07/09/2026)
+
+- Tab rinominata da "Campi" a **"Coltivazione"**.
+- Tab **"Struttura"** (macchinari e costi generali) **tolta dalla barra** su richiesta di Filippo, per fare spazio. Il modulo `costi_generali.jsx`, le tabelle `macchinari` e `costi_generali` e i loro dati **non sono stati toccati**: in `App.js` la voce di TABS, l'import e la riga di render sono commentati con marcatore `v104`, quindi per riattivarla basta togliere i commenti.
+- **Numero di versione visibile nel menu utente** (`VERSIONE` in `App.js`, riga "Versione: v104" sotto il ruolo). Serve a distinguere in un secondo un deploy non arrivato da una cache del browser: si apre il menu e si legge il numero. **Da aggiornare a ogni versione.**
+
 ## 9. Note per chi riprende questo progetto da zero
 
 - Ambiente di lavoro: la cartella sorgente (`allevamento`) potrebbe non essere presente in una sandbox nuova — chiedere a Filippo l'ultimo pacchetto `allevamento_vNN.tar.gz`, o verificare `/mnt/user-data/outputs/` prima di chiedere
