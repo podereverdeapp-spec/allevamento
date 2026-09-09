@@ -13,10 +13,10 @@ import Pedigree            from "./pedigree";
 import LottiSuini          from "./lotti_suini";
 import SelezioneGenetica   from "./selezione_genetica";
 import CostiAllevamento    from "./costi_allevamento";
-import CostoOrigine        from "./costo_origine";
+// import CostoOrigine     from "./costo_origine";       // v107 — tab Origine nascosta
 import RegistroUscite      from "./registro_uscite";
 // import CostiGenerali    from "./costi_generali";   // v104 — tab Struttura nascosta, vedi TABS
-import CostiComplessivi    from "./costi_complessivi";
+// import CostiComplessivi from "./costi_complessivi";  // v107 — tab Costi nascosta
 import Coltivazione        from "./coltivazione";
 import Guida               from "./Guida";
 import ExportManager       from "./ExportManager";
@@ -30,7 +30,7 @@ const C = { primary:"#5C3D1E", border:"#D4C4A8", muted:"#8B7355", bg:"#F5F0E8", 
 // v104 — versione visibile nel menu utente. Serve a capire in un secondo se il
 // deploy Vercel e' arrivato davvero o se il browser sta servendo una copia
 // vecchia dalla cache: basta aprire il menu e leggere il numero.
-const VERSIONE = "v105";
+const VERSIONE = "v108";
 
 const TABS = [
   { id:"gestione",    label:"Gestione",   icon:"🐄" },
@@ -38,8 +38,11 @@ const TABS = [
   { id:"lotti",       label:"Lotti",      icon:"🐷" },
   { id:"coltivazione",label:"Coltivazione",icon:"🌾" },
   { id:"selezione",   label:"Selezione",  icon:"🏆" },
-  { id:"complessivi", label:"Costi",      icon:"📊" },
-  { id:"origine",     label:"Origine",    icon:"🧾" },
+  // v107 — tab "Costi" (costi_complessivi.jsx) e "Origine" (costo_origine.jsx)
+  // tolte dalla barra su richiesta di Filippo. Moduli e dati NON toccati:
+  // per rimetterle bastano queste due righe, i due import e le due righe di render.
+  // { id:"complessivi", label:"Costi",      icon:"📊" },
+  // { id:"origine",     label:"Origine",    icon:"🧾" },
   { id:"uscite",      label:"Uscite",     icon:"📤" },
   // v104 — tab "Struttura" (macchinari e costi generali) tolta dalla barra su
   // richiesta di Filippo, per fare spazio a Coltivazione. Il modulo
@@ -146,8 +149,8 @@ export default function App() {
         {tab==="lotti"       && <LottiSuini        supabase={supabase}/>}
         {tab==="coltivazione"&& <Coltivazione/>}
         {tab==="selezione"   && <SelezioneGenetica supabase={supabase}/>}
-        {tab==="complessivi" && <CostiComplessivi  supabase={supabase}/>}
-        {tab==="origine"     && <CostoOrigine      supabase={supabase}/>}
+        {/* v107 — {tab==="complessivi" && <CostiComplessivi supabase={supabase}/>} */}
+        {/* v107 — {tab==="origine" && <CostoOrigine supabase={supabase}/>} */}
         {tab==="uscite"      && <RegistroUscite    supabase={supabase}/>}
         {/* v104 — {tab==="generali" && <CostiGenerali supabase={supabase}/>} */}
         {tab==="uba"       && <UBAReport/>}

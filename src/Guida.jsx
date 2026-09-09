@@ -33,16 +33,15 @@ const SEZIONI = [
         ["🐄 Gestione","Anagrafica animali, sanitario, alimentazione, magazzino, report, riproduttori"],
         ["🧬 Pedigree","Albero genealogico, consanguineità, prevenzione accoppiamenti a rischio"],
         ["🐷 Lotti","Lotti suini (nati e acquistati) con tatuaggio automatico"],
+        ["🌾 Coltivazione","I 16 campi aziendali: colture, semine, lavorazioni, raccolta e rese"],
         ["🏆 Selezione","Ranking genetico: IIP, produttività, età primo parto, resa media figli"],
-        ["🐾 UBA","Calcolo UBA medio per fascia di età con ripartizione presenza effettiva"],
-        ["📮 Email","Destinatari e invio automatico mensile di report e backup"],
-        ["📊 Costi","Costi aggregati da tutte le fonti"],
-        ["🧾 Origine","Costo di origine per singolo animale"],
         ["📤 Uscite","Macellazioni, vendite, morti — con resa % e IPG"],
-        ["🏭 Struttura","Macchinari, ammortamenti, costi fissi"],
+        ["🐾 UBA","Calcolo UBA medio per fascia di età con ripartizione presenza effettiva"],
         ["📥 Esporta","Export Excel granulare — anagrafica, uscite, UBA, consanguineità"],
+        ["📮 Email","Destinatari e invio automatico mensile di report e backup"],
         ["📖 Guida","Questo manuale"],
       ]},
+      {tipo:"nota",testo:"Le vecchie tab 📊 Costi, 🧾 Origine e 🏭 Struttura non sono più nella barra: i costi per animale si consultano ora direttamente nella scheda dell'animale (tab 💰 Costi), e il grosso dell'analisi economica è passato al programma di Contabilità Industriale. I dati non sono stati cancellati."},
     ]
   },
   {
@@ -55,11 +54,13 @@ const SEZIONI = [
         "Usa i filtri specie (bovino / suino / ovino) e 'Solo attivi'",
       ]},
       {tipo:"h3",testo:"Aprire la scheda"},
-      {tipo:"p",testo:"Tocca il pulsante colorato '📋 Apri scheda completa' su ogni card. La scheda ha 3 tab:"},
+      {tipo:"p",testo:"Tocca il pulsante colorato '📋 Apri scheda completa' su ogni card. La scheda ha 5 tab:"},
       {tipo:"tabella",righe:[
-        ["📋 Info","BDN, razza, sesso, nascita, peso, provenienza, azienda origine, prezzo acquisto, costo nascita, stato, vaccinazioni ricevute"],
+        ["📋 Info","BDN, razza, sesso, nascita, pesi, provenienza, azienda origine, prezzo acquisto, costo nascita, stato, vaccinazioni ricevute"],
         ["🧬 Genealogia","Padre, madre, discendenti diretti — cliccabili"],
-        ["📅 Eventi","Storico parti con pulsanti ✏️ modifica e 🗑️ elimina"],
+        ["📅 Eventi","Timeline di tutto: nascita, ingresso, parti, eventi sanitari, uscita"],
+        ["💰 Costi","Costi anno per anno calcolati dalla Contabilità Industriale — sola lettura"],
+        ["⚖️ Pesate","Storico di tutte le pesate dell'animale nel tempo"],
       ]},
       {tipo:"h3",testo:"Modificare i dati"},
       {tipo:"p",testo:"Dalla scheda tocca ✏️ in alto a destra → modifica quello che vuoi → Salva."},
@@ -89,6 +90,13 @@ const SEZIONI = [
       {tipo:"h3",testo:"Consultare il registro riproduttori"},
       {tipo:"p",testo:"In cima alla lista Animali tocca '♂ Riproduttori'. Vedi tutti i maschi registrati divisi per specie con nome, razza, età e numero di figli già registrati. Tocca una card per aprire la scheda."},
       {tipo:"nota",testo:"Nel form parto, il campo 'Padre' mostra SOLO i maschi registrati come riproduttori della stessa specie. Se non ne hai ancora, mostra tutti i maschi come alternativa."},
+      {tipo:"h3",testo:"⚠️ Cambiato: i maschi NON nascono più riproduttori"},
+      {tipo:"p",testo:"Fino all'estate 2026 ogni maschio veniva marcato riproduttore automaticamente alla nascita, solo perché maschio. Era sbagliato e gonfiava il registro. Da settembre 2026 un maschio nasce NON riproduttore: lo diventa solo quando qualcuno attiva a mano il toggle '♂ Riproduttore' nella sua scheda."},
+      {tipo:"bullets",voci:[
+        "Le femmine restano invece automatiche: diventano riproduttrici al primo parto registrato",
+        "Dalla data in cui attivi il toggle, l'app registra anche la data di qualifica, che compare nella timeline del tab 📅 Eventi",
+        "Se un vecchio maschio risulta riproduttore per sbaglio, apri la scheda, Modifica, e spegni il toggle",
+      ]},
     ]
   },
   {
@@ -209,6 +217,85 @@ const SEZIONI = [
     ]
   },
   {
+    id:"pesate", icon:"⚖️", titolo:"Pesate — lo storico dei pesi",
+    contenuto:[
+      {tipo:"p",testo:"Prima c'era un solo campo 'peso attuale' che si sovrascriveva a ogni aggiornamento: della pesata precedente non restava traccia. Ora ogni pesata è una riga a sé, e la storia dell'animale resta tutta."},
+      {tipo:"h3",testo:"Registrare una pesata"},
+      {tipo:"steps",passi:[
+        "Apri la scheda dell'animale → tab ⚖️ Pesate",
+        "Tocca '+ Registra pesata'",
+        "Inserisci data e peso in kg",
+        "Scegli il tipo di rilevazione (vedi tabella sotto)",
+        "Salva — la riga compare nell'elenco, eliminabile con 🗑️ se hai sbagliato",
+      ]},
+      {tipo:"h3",testo:"I tipi di rilevazione"},
+      {tipo:"tabella",righe:[
+        ["Nascita","Peso alla nascita"],
+        ["Ingresso","Peso rilevato quando l'animale entra in azienda — importante per gli acquistati, di cui non conosciamo il peso di nascita vero"],
+        ["In vita","Una pesata qualsiasi durante l'allevamento"],
+        ["Uscita vivo","Peso vivo al momento dell'uscita"],
+        ["Uscita carcassa","Peso della carcassa dal referto del macello"],
+      ]},
+      {tipo:"h3",testo:"La spunta 'stimato'"},
+      {tipo:"p",testo:"Serve a distinguere un peso REALE da uno messo per convenzione. Quando un animale è stato acquistato e il peso di nascita non si conosce, si usa lo standard di specie (45 kg bovino, 0,5 kg suino, 2 kg ovino) e si spunta 'stimato'. Così chi legge i dati sa che quel numero non è stato misurato."},
+      {tipo:"nota",testo:"Perché ha senso pesare spesso: la Contabilità Industriale userà tutti questi punti data/peso per stimare l'accrescimento e il costo al kg per fascia di età. Più pesate reali ci sono, più quella stima è affidabile — e i pesi si accumulano solo se qualcuno li registra."},
+    ]
+  },
+  {
+    id:"coltivazione", icon:"🌾", titolo:"Coltivazione — campi, colture, raccolta",
+    contenuto:[
+      {tipo:"p",testo:"La sezione 🌾 Coltivazione raccoglie i 16 campi aziendali (84,43 ettari) con la loro foto aerea, l'identificazione catastale, e tutto quello che ci si fa sopra campagna per campagna."},
+      {tipo:"h3",testo:"La campagna agraria — si sceglie in cima"},
+      {tipo:"p",testo:"Il selettore in alto comanda l'intera sezione: cambiando campagna cambia tutto quello che vedi sotto. La campagna va dal 1° settembre al 31 agosto, così il grano seminato a novembre e trebbiato a giugno resta tutto dentro la stessa (2025/2026, per esempio). Le campagne passate restano consultabili."},
+      {tipo:"h3",testo:"Lista campi"},
+      {tipo:"bullets",voci:[
+        "Ogni campo mostra foto, ettari, tipo (seminativo / pascolo / arboreo / altro) e le colture della campagna scelta",
+        "In cima il totale: numero campi, ettari totali, ettari seminativi",
+        "Tocca un campo per aprirne la scheda",
+      ]},
+      {tipo:"h3",testo:"Scheda campo — mettere una coltura"},
+      {tipo:"steps",passi:[
+        "Apri il campo → in fondo tocca '+ Aggiungi coltura'",
+        "Scegli fra Avena, Erba Medica, Erbaio Misto, Grano, Orzo, Pisello Proteico, Produzione Seme, Sulla — oppure 'Altro' e scrivi il nome",
+        "Per medica e sulla, che sono poliennali, indica in quale campagna sono state seminate",
+        "Salva — compare il blocco della coltura con tre linguette: Semina, Lavorazioni, Raccolta",
+      ]},
+      {tipo:"nota",testo:"Sullo stesso campo puoi mettere PIÙ colture nella stessa campagna: è il caso delle successioni, per esempio orzo mietuto a giugno e poi un erbaio estivo. Basta premere di nuovo '+ Aggiungi coltura'."},
+      {tipo:"h3",testo:"🌱 Semina"},
+      {tipo:"bullets",voci:[
+        "Inserisci la quantità di seme in quintali — l'app calcola da sola i kg, i quintali/ha e i kg/ha sugli ettari di quel campo",
+        "Per GRANO e ORZO puoi usare le 'dosi' al posto dei quintali: in quel caso calcola dosi/ha, e le dosi non vengono convertite in kg",
+        "Per ERBAIO MISTO e PRODUZIONE SEME registra una riga per ciascuna essenza — trifoglio, avena, loietto — premendo '+ Aggiungi seme'. Puoi metterle tutte e tre, o anche una sola se hai usato solo quella",
+        "Per le poliennali già seminate in una campagna precedente la semina non viene chiesta: si registrano solo lavorazioni e raccolta",
+      ]},
+      {tipo:"h3",testo:"🚜 Lavorazioni"},
+      {tipo:"p",testo:"L'elenco delle 15 lavorazioni è sempre lì: aratura, estirpatura, erpicatura, morganatura, rippatura, spietratura, concimazione, semina, disserbo, sfalcio, ranghinatura, pressatura balle, raccolta balle, trebbiatura, irrigazione."},
+      {tipo:"steps",passi:[
+        "Tocca la riga della lavorazione che hai eseguito — si apre",
+        "Tocca 'Registra esecuzione'",
+        "Metti la data (calendario) e le giornate lavoro impiegate — anche mezze giornate, si scrive 0,5",
+        "Salva: la spunta della riga diventa verde",
+      ]},
+      {tipo:"nota",testo:"IMPORTANTE — la stessa lavorazione si può registrare più volte. L'erba medica si sfalcia 3-4 volte l'anno e l'irrigazione si ripete per tutta l'estate: ogni volta apri la riga e aggiungi una nuova esecuzione, con la sua data e le sue giornate. Accanto al nome comparirà ×3, e la colonna giornate mostra il totale sommato."},
+      {tipo:"h3",testo:"Concimazione e disserbo"},
+      {tipo:"bullets",voci:[
+        "Spuntando CONCIMAZIONE il form chiede quali concimi — binario, ternario, stallatico, letame o altro — e i quintali di ciascuno. Non sono alternativi: puoi sceglierne più di uno nella stessa passata",
+        "Spuntando DISSERBO il form chiede il nome del prodotto (testo libero), la quantità e se è in litri o kg",
+        "In entrambi i casi la quantità ad ettaro viene calcolata da sola sugli ettari del campo",
+      ]},
+      {tipo:"h3",testo:"🌾 Raccolta"},
+      {tipo:"steps",passi:[
+        "Linguetta Raccolta → '+ Registra raccolta'",
+        "Scegli il PRODOTTO raccolto (non la coltura): avena, erba medica, erbaio misto, grano, orzo, paglia, pisello proteico, sulla, seme misto, seme di medica, seme di sulla, o Altro",
+        "L'unità si imposta da sola — quintali per i cereali, balloni per i foraggi — ma puoi cambiarla",
+        "Inserisci la quantità e la data: la resa ad ettaro si calcola da sola",
+      ]},
+      {tipo:"nota",testo:"La PAGLIA, il SEME DI MEDICA e il SEME DI SULLA sono sottoprodotti: escono dagli stessi ettari della coltura principale. Il programma li segna come tali e nel riepilogo mostra la loro quantità e la loro resa, senza però contare due volte ettari e giornate di lavoro. Se li trattasse da colture a sé, la superficie aziendale risulterebbe più grande di quella che possediamo."},
+      {tipo:"h3",testo:"📊 Riepilogo"},
+      {tipo:"p",testo:"La seconda linguetta in alto raccoglie tutti i campi della campagna scelta, raggruppati per coltura. Per ognuna: ettari dedicati, giornate lavorative, e per ciascun prodotto la quantità raccolta, la resa ad ettaro e la resa a giornata lavorativa. Si compila da solo man mano che si inseriscono i dati nei campi — non c'è niente da compilare a mano."},
+    ]
+  },
+  {
     id:"uscite", icon:"📤", titolo:"Registro uscite",
     contenuto:[
       {tipo:"h3",testo:"Come registrare un'uscita"},
@@ -268,21 +355,24 @@ const SEZIONI = [
     ]
   },
   {
-    id:"costi", icon:"💰", titolo:"Gestione costi",
+    id:"costi", icon:"💰", titolo:"Costi — dove si guardano adesso",
     contenuto:[
-      {tipo:"tabella",righe:[
-        ["📊 Costi","Aggregazione automatica da tutte le fonti: costi generali + per animale + alimentazione + sanitario"],
-        ["🧾 Costo Origine","Per ogni animale: prezzo acquisto + costi individuali = totale con €/kg"],
-        ["🏭 Struttura","Macchinari con ammortamento automatico + costi fissi periodici"],
+      {tipo:"p",testo:"L'analisi economica è passata al programma di Contabilità Industriale, che lavora sullo stesso database di questa app ed è usato dai contabili. Qui dentro restano le due cose che servono a chi sta in allevamento."},
+      {tipo:"h3",testo:"💰 Costi nella scheda dell'animale"},
+      {tipo:"p",testo:"Apri un animale → tab 💰 Costi. Vedi anno per anno: UBA-giorni, categoria contabile, costo di mantenimento, costo di nascita ereditato, quota già scaricata sui figli e totale dell'anno, con il cumulato in fondo."},
+      {tipo:"nota",testo:"Questi numeri li CALCOLA la Contabilità Industriale, qui si leggono soltanto. Se un valore è sbagliato non si corregge da qui: si corregge là."},
+      {tipo:"h3",testo:"⚠️ Manca costo acquisto"},
+      {tipo:"p",testo:"Se un animale ha provenienza 'Acquistato' ma il prezzo di acquisto è vuoto, compare un badge rosso sulla sua card in Anagrafica e un avviso in cima alla scheda. Serve perché un capo comprato senza prezzo falsa tutti i conti a valle."},
+      {tipo:"bullets",voci:[
+        "Per sistemarlo: apri la scheda → ✏️ Modifica → compila Prezzo acquisto → Salva",
+        "Il campo è condiviso con la Contabilità Industriale: appena lo compili da una parte, l'avviso sparisce da entrambe",
       ]},
-      {tipo:"h3",testo:"Ammortamenti automatici"},
-      {tipo:"p",testo:"In 🏭 Struttura → Macchinari: inserisci nome, costo storico, anno acquisto, anni di ammortamento. L'app calcola quota annua, totale ammortizzato e valore residuo con barra di avanzamento."},
-      {tipo:"h3",testo:"Costo nascita per animali nati in azienda"},
-      {tipo:"p",testo:"In 🧾 Costo Origine apri la scheda di un animale nato → 'Aggiungi costo' → voce 'valore allevamento'. Compare nella card e nel calcolo €/kg."},
+      {tipo:"h3",testo:"Le vecchie tab Costi, Origine e Struttura"},
+      {tipo:"p",testo:"Sono state tolte dalla barra perché quel lavoro si fa ora nella Contabilità Industriale. I dati non sono stati cancellati: macchinari, ammortamenti e costi generali sono tutti ancora nel database, e le tab si possono rimettere in qualsiasi momento."},
     ]
   },
   {
-    id:"nuove_funzionalita", icon:"✨", titolo:"Novità v29 → v64 (aggiornamento 2026)",
+    id:"nuove_funzionalita", icon:"📚", titolo:"Storico aggiornamenti v29 → v64",
     contenuto:[
       {tipo:"h3",testo:"⚖️ Modifica peso carcassa su animali già usciti"},
       {tipo:"p",testo:"Spesso passa del tempo tra il momento in cui un animale esce dall'allevamento (e un operatore registra data uscita e peso vivo) e il momento in cui arriva il referto del macello con il peso della carcassa (registrato magari da un altro operatore, giorni dopo)."},
@@ -364,6 +454,31 @@ const SEZIONI = [
       {tipo:"p",testo:"Aggiunta alle razze bovine disponibili sia nel form animale sia nel form padre esterno."},
       {tipo:"h3",testo:"👥 Parti gemellari bovini e ovini"},
       {tipo:"p",testo:"Registrando un parto con più nati vivi, l'app apre un blocco per ogni gemello con matricola, sesso e peso individuali."},
+    ]
+  },
+  {
+    id:"novita_2026", icon:"✨", titolo:"Novità v65 → v107 (settembre 2026)",
+    contenuto:[
+      {tipo:"h3",testo:"🌾 Sezione Coltivazione — completamente nuova"},
+      {tipo:"p",testo:"I 16 campi aziendali con foto aeree, catasto, colture per campagna, semine, le 15 lavorazioni ripetibili, raccolta per prodotto e riepilogo rese. Ha una sua sezione dedicata in questa guida."},
+      {tipo:"h3",testo:"⚖️ Storico Pesate"},
+      {tipo:"p",testo:"Nuovo tab nella scheda animale: ogni pesata è una riga, con tipo di rilevazione e distinzione fra peso reale e stimato. Sostituisce il vecchio campo unico che si sovrascriveva. Vedi la sezione Pesate."},
+      {tipo:"h3",testo:"♂ I maschi non nascono più riproduttori"},
+      {tipo:"p",testo:"Correzione importante: prima ogni maschio veniva marcato riproduttore automaticamente alla nascita. Ora lo diventa solo con l'attivazione esplicita del toggle, e viene registrata la data di qualifica. Le femmine restano automatiche al primo parto."},
+      {tipo:"h3",testo:"💰 Costi nella scheda animale"},
+      {tipo:"p",testo:"Nuovo tab 💰 Costi: mostra anno per anno i costi calcolati dalla Contabilità Industriale, con UBA-giorni, mantenimento, quota scaricata sui figli e cumulato. Sola lettura."},
+      {tipo:"h3",testo:"⚠️ Avviso costo di acquisto mancante"},
+      {tipo:"p",testo:"Badge rosso in Anagrafica e avviso nella scheda quando un animale acquistato non ha il prezzo. Lo stesso avviso compare nella Contabilità Industriale, ed è lo stesso campo: si compila da una parte e sparisce da entrambe."},
+      {tipo:"h3",testo:"📏 Peso all'ingresso"},
+      {tipo:"p",testo:"Nuovo campo accanto a peso nascita e peso attuale, per registrare quanto pesava l'animale quando è entrato in azienda. Serve soprattutto per gli acquistati, di cui il peso di nascita vero non si conosce."},
+      {tipo:"h3",testo:"🐷 I costi seguono il suinetto quando prende il BDN"},
+      {tipo:"p",testo:"Quando assegni un BDN a un'unità di lotto, i costi che quella unità aveva già maturato mentre stava nel lotto vengono ricollegati alla nuova scheda animale, invece di ripartire da zero."},
+      {tipo:"h3",testo:"📅 Giorni di vita nell'export"},
+      {tipo:"p",testo:"Nuova colonna nell'export Excel degli animali, subito dopo Data uscita: i giorni fra nascita e uscita, che prima andavano calcolati a mano ogni volta."},
+      {tipo:"h3",testo:"🗺️ Barra dei moduli riordinata"},
+      {tipo:"p",testo:"Tolte dalla barra 📊 Costi, 🧾 Origine e 🏭 Struttura, il cui lavoro è passato alla Contabilità Industriale. Aggiunta 🌾 Coltivazione. Nessun dato è stato cancellato."},
+      {tipo:"h3",testo:"🔢 Numero di versione nel menu"},
+      {tipo:"p",testo:"Toccando il proprio nome in alto a destra, sotto il ruolo compare ora la versione dell'app. Serve a capire in un attimo se un aggiornamento è arrivato davvero o se il browser sta mostrando una copia vecchia: in quel caso basta ricaricare con Ctrl+F5."},
     ]
   },
   {
