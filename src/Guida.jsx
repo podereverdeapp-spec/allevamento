@@ -478,6 +478,16 @@ const SEZIONI = [
       {tipo:"p",testo:"Nuova colonna nell'export Excel degli animali, subito dopo Data uscita: i giorni fra nascita e uscita, che prima andavano calcolati a mano ogni volta."},
       {tipo:"h3",testo:"🗺️ Barra dei moduli riordinata"},
       {tipo:"p",testo:"Tolte dalla barra 📊 Costi, 🧾 Origine e 🏭 Struttura, il cui lavoro è passato alla Contabilità Industriale. Aggiunta 🌾 Coltivazione. Nessun dato è stato cancellato."},
+      {tipo:"h3",testo:"🚫 Accoppiamenti a rischio ordinati per priorità genetica"},
+      {tipo:"p",testo:"Nel Report Consanguineità, dentro ogni specie, le coppie a rischio sono ora raggruppate per gravità genetica. Il meticcio non è una razza ma il risultato di un incrocio, quindi la consanguineità fra due soggetti della stessa razza pura pesa molto più che fra due meticci."},
+      {tipo:"tabella",righe:[
+        ["1. Stessa razza","I due animali sono della stessa razza pura — il caso più grave, si concentra la parentela dentro una linea di sangue di valore"],
+        ["2. Razze pure diverse","Due razze pure differenti — comunque due soggetti di pregio"],
+        ["3. Razza × meticcio","Un animale di razza pura con un meticcio"],
+        ["4. Meticcio × meticcio","Entrambi incroci — rilevanza genetica minore"],
+        ["5. Razza non indicata","Manca la razza su almeno uno dei due: va completata nella scheda"],
+      ]},
+      {tipo:"nota",testo:"Lo stesso ordine si ritrova nel file Excel, sia in quello del pulsante 📊 Excel dentro il Report Consanguineità sia nel foglio 'Accoppiamenti a rischio' del modulo 📥 Esporta: le righe sono ordinate per specie e priorità, con due colonne in più (Priorità e Categoria) per poter filtrare."},
       {tipo:"h3",testo:"🔢 Numero di versione nel menu"},
       {tipo:"p",testo:"Toccando il proprio nome in alto a destra, sotto il ruolo compare ora la versione dell'app. Serve a capire in un attimo se un aggiornamento è arrivato davvero o se il browser sta mostrando una copia vecchia: in quel caso basta ricaricare con Ctrl+F5."},
     ]

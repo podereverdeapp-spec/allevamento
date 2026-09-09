@@ -1170,6 +1170,32 @@ function foglio_scadenze(eventi, animali, tipo) {
 }
 
 // ─── CONSANGUINEITÀ ─────────────────────────────────────────────────────────
+// v110 — Priorità genetica delle coppie a rischio. "Meticcio" non è una razza
+// ma il risultato di un incrocio: la consanguineità fra due soggetti della
+// stessa razza pura pesa più di quella fra due meticci.
+// Questa logica è identica a quella di pedigree.jsx: se cambia qui, va
+// aggiornata anche là (e viceversa).
+const razzaDi = (a) => {
+  const r = ((a && (a.razza_calcolata || a.razza)) || "").trim();
+  return r || null;
+};
+const isMeticcio = (r) => !!r && /^meticc/i.test(r.trim());
+const PRIORITA_RISCHIO = [
+  {liv:1, label:"Stessa razza"},
+  {liv:2, label:"Razze pure diverse"},
+  {liv:3, label:"Razza × meticcio"},
+  {liv:4, label:"Meticcio × meticcio"},
+  {liv:5, label:"Razza non indicata"},
+];
+function prioritaCoppia(m, f) {
+  const rm = razzaDi(m), rf = razzaDi(f);
+  if(!rm || !rf) return 5;
+  const mm = isMeticcio(rm), mf = isMeticcio(rf);
+  if(mm && mf) return 4;
+  if(mm || mf) return 3;
+  return rm.toLowerCase() === rf.toLowerCase() ? 1 : 2;
+}
+
 function analizzaAccoppiamentiRischio(animali) {
   const attivi = animali.filter(a=>a.stato==="attivo"&&a.vivo!==false);
   const maschi   = attivi.filter(a=>a.sesso==="M");
@@ -1189,9 +1215,15 @@ function analizzaAccoppiamentiRischio(animali) {
         else if(stessoPadre) tipo="Fratellastri (stesso padre)";
         else if(stessaMadre) tipo="Fratellastri (stessa madre)";
       }
-      if(tipo) rischi.push({m,f,tipo});
+      if(tipo) rischi.push({m,f,tipo,priorita:prioritaCoppia(m,f)});
     }
   }
+  // v110 — ordine di consultazione: specie, poi priorità (stessa razza in cima)
+  rischi.sort((a,b)=>
+    a.m.specie.localeCompare(b.m.specie) ||
+    a.priorita - b.priorita ||
+    (a.m.bdn||"").localeCompare(b.m.bdn||"")
+  );
   return rischi;
 }
 
@@ -1219,27 +1251,34 @@ function analizzaCapiInconsanguinei(animali) {
 
 function foglio_consang_rischi(animali) {
   const rischi = analizzaAccoppiamentiRischio(animali);
-  const righe = rischi.map(r=>({
-    "Specie": r.m.specie,
-    "Tipo rischio": r.tipo,
-    "Maschio BDN": r.m.bdn||"",
-    "Maschio Nome": r.m.nome||"",
-    "Maschio Razza": r.m.razza_calcolata||r.m.razza||"",
-    "Femmina BDN": r.f.bdn||"",
-    "Femmina Nome": r.f.nome||"",
-    "Femmina Razza": r.f.razza_calcolata||r.f.razza||"",
-    "Info": "",
-  }));
+  const righe = rischi.map(r=>{
+    const pr = PRIORITA_RISCHIO.find(x=>x.liv===r.priorita) || PRIORITA_RISCHIO[4];
+    return {
+      "Specie": r.m.specie,
+      "Priorita": pr.liv,
+      "Categoria": pr.label,
+      "Tipo rischio": r.tipo,
+      "Maschio BDN": r.m.bdn||"",
+      "Maschio Nome": r.m.nome||"",
+      "Maschio Razza": razzaDi(r.m)||"non indicata",
+      "Femmina BDN": r.f.bdn||"",
+      "Femmina Nome": r.f.nome||"",
+      "Femmina Razza": razzaDi(r.f)||"non indicata",
+      "Info": "",
+    };
+  });
   if(righe.length===0) {
     righe.push({
-      "Specie":"","Tipo rischio":"","Maschio BDN":"","Maschio Nome":"",
+      "Specie":"","Priorita":"","Categoria":"","Tipo rischio":"","Maschio BDN":"","Maschio Nome":"",
       "Maschio Razza":"","Femmina BDN":"","Femmina Nome":"","Femmina Razza":"",
       "Info":"✓ Nessun accoppiamento a rischio rilevato — situazione ottimale",
     });
   }
   return creaFoglio(righe, [
     {key:"Specie",         label:"Specie",              width:10, center:true},
-    {key:"Tipo rischio",   label:"Tipo rischio",        width:24, bold:true},
+    {key:"Priorita",       label:"Priorità",            width:9,  center:true, bold:true},
+    {key:"Categoria",      label:"Categoria",           width:22, bold:true},
+    {key:"Tipo rischio",   label:"Tipo rischio",        width:24},
     {key:"Maschio BDN",    label:"Maschio BDN",         width:20},
     {key:"Maschio Nome",   label:"Maschio Nome",        width:18},
     {key:"Maschio Razza",  label:"Maschio Razza",       width:18},

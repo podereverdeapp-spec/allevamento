@@ -596,6 +596,40 @@ function ListaAnimali({animali, parti, onSeleziona, onReport}) {
 }
 
 // ─── REPORT CONSANGUINEITÀ ──────────────────────────────────────────────────
+
+// v110 — Classificazione delle coppie a rischio per PRIORITÀ genetica.
+// "Meticcio" NON è una razza: è il risultato di un incrocio fra razze diverse.
+// Quindi la consanguineità pesa in modo diverso a seconda di chi coinvolge:
+// due soggetti della stessa razza pura sono il caso più grave (si concentra la
+// parentela dentro una linea di sangue che vale), mentre fra due meticci il
+// danno genetico è meno rilevante.
+export const razzaDi = (a) => {
+  const r = (((a && (a.razza_calcolata || a.razza)) || "")).trim();
+  return r || null;
+};
+export const isMeticcio = (r) => !!r && /^meticc/i.test(r.trim());
+const normalizzaRazza = (r) => (r||"").trim().toLowerCase();
+
+// Ordine di consultazione richiesto: stessa razza → (razze pure diverse) →
+// razza × meticcio → meticcio × meticcio. Le coppie senza razza compilata
+// finiscono in fondo, così restano visibili invece di sparire.
+export const PRIORITA = [
+  {liv:1, label:"Stessa razza",        desc:"Entrambi della stessa razza pura — il caso più grave",           colore:"#C0392B"},
+  {liv:2, label:"Razze pure diverse",  desc:"Due razze pure differenti — comunque due soggetti di pregio",     colore:"#D4A017"},
+  {liv:3, label:"Razza × meticcio",    desc:"Un soggetto di razza pura con un meticcio",                       colore:"#A0522D"},
+  {liv:4, label:"Meticcio × meticcio", desc:"Entrambi incroci — rilevanza genetica minore",                    colore:"#8B7355"},
+  {liv:5, label:"Razza non indicata",  desc:"Manca la razza su almeno uno dei due: da completare in scheda",   colore:"#999999"},
+];
+
+export function prioritaCoppia(m, f) {
+  const rm = razzaDi(m), rf = razzaDi(f);
+  if(!rm || !rf) return 5;
+  const mm = isMeticcio(rm), mf = isMeticcio(rf);
+  if(mm && mf) return 4;
+  if(mm || mf) return 3;
+  return normalizzaRazza(rm) === normalizzaRazza(rf) ? 1 : 2;
+}
+
 // A) Accoppiamenti a rischio: maschi × femmine attivi che sono consanguinei
 function analizzaAccoppiamentiRischio(animali) {
   const attivi = animali.filter(a=>a.stato==="attivo"&&a.vivo!==false);
@@ -621,6 +655,13 @@ function analizzaAccoppiamentiRischio(animali) {
       }
     }
   }
+  // v110 — assegno la priorità e ordino: prima specie, poi livello di priorità
+  rischi.forEach(r=>{ r.priorita = prioritaCoppia(r.m, r.f); });
+  rischi.sort((a,b)=>
+    a.m.specie.localeCompare(b.m.specie) ||
+    a.priorita - b.priorita ||
+    (a.m.bdn||"").localeCompare(b.m.bdn||"")
+  );
   return rischi;
 }
 
@@ -655,19 +696,25 @@ function analizzaCapiInconsanguinei(animali) {
 function esportaConsanguineita(rischi, capi) {
   const wb = XLSX.utils.book_new();
 
-  // Foglio 1: Accoppiamenti a rischio
-  const foglioA = rischi.map(r=>({
-    "Tipo rischio": r.tipo,
-    "Maschio (BDN)": r.m.bdn||"",
-    "Maschio (Nome)": r.m.nome||"",
-    "Maschio (Razza)": r.m.razza_calcolata||r.m.razza||"",
-    "Femmina (BDN)": r.f.bdn||"",
-    "Femmina (Nome)": r.f.nome||"",
-    "Femmina (Razza)": r.f.razza_calcolata||r.f.razza||"",
-    "Specie": r.m.specie,
-  }));
+  // Foglio 1: Accoppiamenti a rischio — v110: ordinati per specie e priorità
+  // (rischi arriva già ordinato da analizzaAccoppiamentiRischio)
+  const foglioA = rischi.map(r=>{
+    const pr = PRIORITA.find(x=>x.liv===r.priorita) || PRIORITA[PRIORITA.length-1];
+    return {
+      "Specie": r.m.specie,
+      "Priorità": pr.liv,
+      "Categoria": pr.label,
+      "Tipo rischio": r.tipo,
+      "Maschio (BDN)": r.m.bdn||"",
+      "Maschio (Nome)": r.m.nome||"",
+      "Maschio (Razza)": razzaDi(r.m)||"non indicata",
+      "Femmina (BDN)": r.f.bdn||"",
+      "Femmina (Nome)": r.f.nome||"",
+      "Femmina (Razza)": razzaDi(r.f)||"non indicata",
+    };
+  });
   const wsA = XLSX.utils.json_to_sheet(foglioA.length>0?foglioA:[{"Info":"Nessun accoppiamento a rischio rilevato"}]);
-  wsA["!cols"] = [{wch:20},{wch:20},{wch:16},{wch:16},{wch:20},{wch:16},{wch:16},{wch:10}];
+  wsA["!cols"] = [{wch:10},{wch:9},{wch:22},{wch:24},{wch:20},{wch:16},{wch:18},{wch:20},{wch:16},{wch:18}];
   XLSX.utils.book_append_sheet(wb, wsA, "Accoppiamenti a rischio");
 
   // Foglio 2: Capi con consanguineità
@@ -763,12 +810,27 @@ function ReportConsanguineita({animali, onBack, onSeleziona}) {
               </div>
             ):(
               Object.entries(rischiPerSpecie).map(([sp,arr])=>(
-                <div key={sp} style={{marginBottom:14}}>
+                <div key={sp} style={{marginBottom:18}}>
                   <div style={{fontSize:11,fontWeight:700,color:specieColor(sp),
                     marginBottom:6,textTransform:"uppercase",letterSpacing:1}}>
                     {specieIcon(sp)} {sp} · {arr.length} coppie a rischio
                   </div>
-                  {arr.map((r,i)=>(
+                  {/* v110 — dentro ogni specie le coppie sono raggruppate per priorità:
+                      prima la stessa razza pura, in fondo i meticci fra loro. */}
+                  {PRIORITA.map(pr=>{
+                    const gruppo = arr.filter(r=>r.priorita===pr.liv);
+                    if(gruppo.length===0) return null;
+                    return (
+                  <div key={pr.liv} style={{marginBottom:10}}>
+                    <div style={{background:pr.colore+"14",border:`1px solid ${pr.colore}44`,
+                      borderLeft:`4px solid ${pr.colore}`,borderRadius:10,
+                      padding:"7px 10px",marginBottom:6}}>
+                      <div style={{fontSize:12,fontWeight:800,color:pr.colore}}>
+                        {pr.liv}. {pr.label} · {gruppo.length}
+                      </div>
+                      <div style={{fontSize:10,color:C.muted,marginTop:1}}>{pr.desc}</div>
+                    </div>
+                  {gruppo.map((r,i)=>(
                     <div key={i} style={{background:C.card,borderRadius:12,padding:"10px 12px",
                       marginBottom:6,border:`1px solid ${C.border}`,
                       borderLeft:`4px solid ${C.red}`}}>
@@ -805,6 +867,9 @@ function ReportConsanguineita({animali, onBack, onSeleziona}) {
                       </div>
                     </div>
                   ))}
+                  </div>
+                    );
+                  })}
                 </div>
               ))
             )}
