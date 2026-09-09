@@ -779,12 +779,27 @@ function ReportConsanguineita({animali, onBack, onSeleziona}) {
                           </div>
                           <div onClick={()=>onSeleziona(r.m)}
                             style={{fontSize:12,color:C.maschio,fontWeight:600,cursor:"pointer",
-                              marginBottom:2}}>
-                            ♂ {r.m.nome||r.m.bdn} <span style={{color:C.muted,fontWeight:400}}>· {r.m.bdn}</span>
+                              marginBottom:4,display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                            <span>♂ {r.m.nome||r.m.bdn}</span>
+                            <span style={{color:C.muted,fontWeight:400}}>· {r.m.bdn}</span>
+                            {/* v109 — razza in evidenza accanto alla matricola: serve a
+                                capire al volo se la coppia a rischio e' anche di razza pregiata */}
+                            <span style={{background:C.maschio+"18",color:C.maschio,
+                              border:`1px solid ${C.maschio}44`,borderRadius:20,
+                              padding:"1px 8px",fontSize:10,fontWeight:700,whiteSpace:"nowrap"}}>
+                              🧬 {r.m.razza_calcolata||r.m.razza||"razza non indicata"}
+                            </span>
                           </div>
                           <div onClick={()=>onSeleziona(r.f)}
-                            style={{fontSize:12,color:C.femmina,fontWeight:600,cursor:"pointer"}}>
-                            ♀ {r.f.nome||r.f.bdn} <span style={{color:C.muted,fontWeight:400}}>· {r.f.bdn}</span>
+                            style={{fontSize:12,color:C.femmina,fontWeight:600,cursor:"pointer",
+                              display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                            <span>♀ {r.f.nome||r.f.bdn}</span>
+                            <span style={{color:C.muted,fontWeight:400}}>· {r.f.bdn}</span>
+                            <span style={{background:C.femmina+"18",color:C.femmina,
+                              border:`1px solid ${C.femmina}44`,borderRadius:20,
+                              padding:"1px 8px",fontSize:10,fontWeight:700,whiteSpace:"nowrap"}}>
+                              🧬 {r.f.razza_calcolata||r.f.razza||"razza non indicata"}
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -830,8 +845,10 @@ function ReportConsanguineita({animali, onBack, onSeleziona}) {
                   <div style={{fontSize:11,color:C.muted,paddingTop:6,
                     borderTop:`1px solid ${C.border}`}}>
                     ♂ Padre: <b>{x.padre.nome||x.padre.bdn}</b> ({x.padre.bdn})
+                    {" · 🧬 "}{x.padre.razza_calcolata||x.padre.razza||"—"}
                     <br/>
                     ♀ Madre: <b>{x.madre.nome||x.madre.bdn}</b> ({x.madre.bdn})
+                    {" · 🧬 "}{x.madre.razza_calcolata||x.madre.razza||"—"}
                   </div>
                 </div>
               ))

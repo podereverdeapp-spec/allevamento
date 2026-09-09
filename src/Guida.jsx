@@ -426,6 +426,7 @@ const SEZIONI = [
       {tipo:"bullets",voci:[
         "Nella scheda animale del Pedigree c'è ora il tab 🚫 Consanguineità con elenco genitori/figli/fratelli",
         "Report Excel con due fogli: Accoppiamenti a rischio (prevenzione monta) e Capi con genealogia consanguinea",
+        "Nell'elenco a schermo degli accoppiamenti a rischio, accanto a nome e matricola di maschio e femmina compare la RAZZA in evidenza — utile per capire subito se la coppia riguarda animali di razza pregiata",
       ]},
       {tipo:"h3",testo:"🏷️ Data registrazione BDN — Nuovo campo"},
       {tipo:"p",testo:"Ora ogni animale ha due date: data di nascita e data registrazione BDN (attribuzione ufficiale matricola). Compare nella scheda e nell'export."},
