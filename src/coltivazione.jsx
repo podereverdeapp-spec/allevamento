@@ -1,7 +1,8 @@
 // ============================================================================
 // SEZIONE COLTIVAZIONE — podereverdeapp.it
 // ----------------------------------------------------------------------------
-// Tre schermate: lista campi, scheda campo, riepilogo per coltura.
+// Quattro schermate: lista campi, scheda campo, riepilogo per coltura,
+// registro gasolio (v111).
 // Tutto e' filtrato dalla CAMPAGNA agraria selezionata in alto (es. 2025/2026).
 //
 // Tre scelte di struttura che si discostano dal foglio Excel di partenza, e
@@ -238,9 +239,13 @@ export default function Coltivazione() {
               <option key={c} value={c}>{c}{c===corrente?"  (in corso)":""}</option>
             ))}
           </select>
-          <div style={{fontSize:11,color:C.muted,marginTop:6}}>
-            Va dal 1° settembre al 31 agosto: la semina d'autunno e la trebbiatura
-            dell'estate dopo restano nella stessa campagna.
+          <div style={{marginTop:8,padding:"8px 10px",borderRadius:8,
+            background:C.yellow+"22",borderLeft:`4px solid ${C.yellow}`,
+            fontSize:12,lineHeight:1.4,color:C.text}}>
+            <b>📅 La campagna va dal 1° settembre al 31 agosto.</b><br/>
+            La semina d'autunno e la trebbiatura dell'estate dopo stanno nella stessa campagna.
+            Anche le semine di primavera-estate (pascoli, erbai in irriguo) appartengono alla
+            campagna iniziata il settembre precedente. Vale sia per le schede sia per i costi.
           </div>
         </Card>
 
@@ -251,17 +256,19 @@ export default function Coltivazione() {
         )}
 
         <div style={{display:"flex",gap:8,marginBottom:14}}>
-          {[{id:"campi",label:"🗺️ Campi"},{id:"riepilogo",label:"📊 Riepilogo"}].map(t=>(
+          {[{id:"campi",label:"🗺️ Campi"},{id:"riepilogo",label:"📊 Riepilogo"},{id:"gasolio",label:"⛽ Gasolio"}].map(t=>(
             <button key={t.id} onClick={()=>setSubTab(t.id)}
               style={{flex:1,background:subTab===t.id?C.primary:"#FFF",
                 color:subTab===t.id?"#FFF":C.text,border:`1.5px solid ${subTab===t.id?C.primary:C.border}`,
-                borderRadius:12,padding:"10px 8px",fontSize:14,fontWeight:600,cursor:"pointer"}}>
+                borderRadius:12,padding:"10px 8px",fontSize:13,fontWeight:600,cursor:"pointer"}}>
               {t.label}
             </button>
           ))}
         </div>
 
-        {loading ? <Spinner/> : subTab==="campi" ? (
+        {subTab==="gasolio" ? (
+          <RegistroGasolio campagna={campagna}/>
+        ) : loading ? <Spinner/> : subTab==="campi" ? (
           <ListaCampi campi={campi} coltureDelCampo={coltureDelCampo}
             nomeColtura={nomeColtura} onApri={setDettaglio}/>
         ) : (
@@ -1184,5 +1191,538 @@ function Riepilogo({campi,colture,lavori,raccolte,nomeColtura,campagna}){
       due volte gonfierebbe la superficie aziendale. Le loro rese sono comunque
       calcolate su quegli ettari.
     </div>
+  </>);
+}
+
+// ============================================================================
+// REGISTRO GASOLIO — prelievi dalla cisterna aziendale (con contalitri)
+// ----------------------------------------------------------------------------
+// Ogni riga: data e ora, operatore, mezzo, litri, lettura del contalitri.
+// Data e ora: di norma le mette il SERVER al momento del salvataggio (non si
+// possono cambiare). Con "Registrazione tardiva" l'operatore indica quando e'
+// avvenuto il prelievo (mai nel futuro); la riga resta segnata come tardiva e
+// created_at conserva quando e' stata scritta.
+// Operatori e mezzi vengono da coltivazione_catalogo (ambiti "operatore" e
+// "mezzo"). Un nome scritto in "Altro" si memorizza come voce da verificare,
+// cosi' la volta dopo e' gia' in lista e non nascono doppioni.
+// Le righe sono filtrate dalla campagna selezionata (1 settembre - 31 agosto).
+// ============================================================================
+const ALTRO = "__altro__";
+const numIn = (v) => parseFloat(String(v??"").replace(",","."));
+const MOTIVI = [{v:"coltivazione",l:"🌾 Coltivazione"},{v:"allevamento",l:"🐄 Allevamento"},{v:"altro",l:"Altro"}];
+const nomeMotivo = (r) => r.motivo==="altro" ? (r.motivo_altro||"Altro")
+  : (MOTIVI.find(m=>m.v===r.motivo)?.l.replace(/^\S+\s/,"")||r.motivo);
+const oraIt = (d) => d ? new Date(d).toLocaleString("it-IT",{day:"2-digit",month:"2-digit",
+  year:"numeric",hour:"2-digit",minute:"2-digit"}) : "—";
+// "YYYY-MM-DDTHH:MM" nell'ora locale del telefono, per <input type="datetime-local">
+const adessoLocale = () => { const d=new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset());
+  return d.toISOString().slice(0,16); };
+
+
+// --- Menu a tendina in cui si puo' anche scrivere --------------------------
+// Si tocca il campo: si apre l'elenco. Si scrive: l'elenco si restringe alle
+// voci che contengono il testo. Se il testo scritto coincide con una voce
+// (maiuscole e spazi a parte) si usa quella; se non c'e', diventa "Altro"
+// con quel nome, che al salvataggio viene memorizzato come da verificare.
+// onChange(value, testo): value = id della voce, ALTRO, oppure "".
+const normVoce = (t) => (t||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+  .trim().replace(/\s+/g," ").toLowerCase();
+
+function SceltaScrivi({label,voci,value,testo,onChange}){
+  const [aperto,setAperto] = useState(false);
+  const scelta = value && value!==ALTRO ? voci.find(v=>String(v.id)===String(value)) : null;
+  const [scritto,setScritto] = useState(scelta ? scelta.voce : (testo||""));
+
+  const q = normVoce(scritto);
+  const esatta = q ? voci.find(v=>normVoce(v.voce)===q) : null;
+  const filtrate = q && !scelta ? voci.filter(v=>normVoce(v.voce).includes(q)) : voci;
+
+  const scrivi = (t)=>{
+    setScritto(t); setAperto(true);
+    const n = normVoce(t);
+    const e = n ? voci.find(v=>normVoce(v.voce)===n) : null;
+    if(e) onChange(String(e.id),"");
+    else if(n) onChange(ALTRO,t.trim().replace(/\s+/g," "));
+    else onChange("","");
+  };
+  const scegli = (v)=>{ setScritto(v.voce); onChange(String(v.id),""); setAperto(false); };
+  const nuovo = value===ALTRO;
+
+  const riga = {padding:"10px 12px",fontSize:14,cursor:"pointer",borderBottom:`1px solid ${C.border}`};
+  return (
+    <div style={{marginBottom:12,position:"relative"}}>
+      <div style={{fontSize:12,fontWeight:600,color:C.muted,marginBottom:4}}>
+        {label}<span style={{color:C.red}}> *</span>
+      </div>
+      <div style={{position:"relative"}}>
+        <input value={scritto} placeholder="Scegli dall'elenco o scrivi…"
+          onFocus={()=>setAperto(true)} onBlur={()=>setTimeout(()=>setAperto(false),150)}
+          onChange={e=>scrivi(e.target.value)}
+          style={{...inputStyle,paddingRight:36,
+            borderColor:nuovo?C.yellow:(scelta?C.green:C.border)}}/>
+        <span onMouseDown={e=>{e.preventDefault();setAperto(a=>!a);}}
+          style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",
+            cursor:"pointer",color:C.muted,fontSize:14}}>▾</span>
+      </div>
+      {aperto && (
+        <div style={{position:"absolute",left:0,right:0,zIndex:20,background:"#FFF",
+          border:`1.5px solid ${C.border}`,borderRadius:10,marginTop:4,maxHeight:260,overflowY:"auto",
+          boxShadow:"0 6px 16px rgba(0,0,0,0.12)"}}>
+          {(scelta ? voci : filtrate).map(v=>(
+            <div key={v.id} onMouseDown={e=>{e.preventDefault();scegli(v);}}
+              style={{...riga,background:String(v.id)===String(value)?C.green+"15":"#FFF"}}>
+              {v.voce}{v.da_verificare && <span style={{fontSize:11,color:C.muted}}> (da verificare)</span>}
+            </div>
+          ))}
+          {q && !esatta ? (
+            <div onMouseDown={e=>{e.preventDefault();setAperto(false);}}
+              style={{...riga,color:C.accent,fontWeight:600}}>
+              ➕ Altro: «{scritto.trim()}» <span style={{fontWeight:400,fontSize:11}}>(nome nuovo)</span>
+            </div>
+          ) : !q && (
+            <div style={{...riga,color:C.muted,fontSize:12,cursor:"default"}}>
+              Altro: scrivi il nome qui sopra
+            </div>
+          )}
+        </div>
+      )}
+      {nuovo && !aperto && (
+        <div style={{fontSize:11,color:C.accent,marginTop:4}}>
+          ➕ Nome nuovo: verrà memorizzato come «da verificare».
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+// --- Istruzioni per l'operatore (riquadro apribile) -------------------------
+// etichette e valori leggibili per lo storico delle correzioni
+const ETICHETTE_CAMPI = {litri:"Litri",contalitri:"Contalitri",cisterna_id:"Cisterna",operatore_id:"Operatore",
+  mezzo_id:"Mezzo",motivo:"Motivo",motivo_altro:"Motivo (altro)",note:"Note",data_ora:"Data e ora"};
+const valoreCampo = (k,v,nomeVoce) => {
+  if(v===null || v===undefined || v==="") return "—";
+  if(k.endsWith("_id")) return nomeVoce(Number(v));
+  if(k==="data_ora") return oraIt(v);
+  if(k==="motivo") return nomeMotivo({motivo:v});
+  if(k==="litri"||k==="contalitri") return num(v,v%1?1:0);
+  return String(v);
+};
+
+function IstruzioniGasolio(){
+  const [aperto,setAperto] = useState(false);
+  const passi = [
+    ["Tocca «Registra rifornimento»","si apre il modulo."],
+    ["Data e ora","si registrano da sole al momento del salvataggio. Se stai scrivendo un prelievo fatto prima (per esempio ieri sera), spunta «Registrazione tardiva» e indica giorno e ora in cui hai preso il gasolio."],
+    ["Cisterna","è già scelta la Cisterna Podere. Se hai preso il gasolio da un'altra cisterna, scrivi il suo nome."],
+    ["Operatore e mezzo","tocca il campo e scegli dall'elenco, oppure inizia a scrivere: l'elenco si restringe. Se il nome non c'è, scrivilo per intero e scegli «➕ Altro»: resterà in elenco per la volta dopo."],
+    ["Motivo","tocca Coltivazione, Allevamento oppure Altro. Con Altro scrivi per cosa serve il gasolio."],
+    ["Litri","scrivi i litri presi (si può usare la virgola)."],
+    ["Contalitri","se puoi, scrivi il numero che segna il contalitri della cisterna DOPO il prelievo. Se non torna con l'ultima lettura, l'app te lo segnala: ricontrolla il numero, può capitare di leggerlo male o che manchi un prelievo precedente."],
+    ["Salva","il rifornimento compare nell'elenco in basso."],
+  ];
+  return (
+    <Card style={{padding:12,background:C.blue+"0D",border:`1px solid ${C.blue}40`}}>
+      <div onClick={()=>setAperto(a=>!a)} style={{display:"flex",justifyContent:"space-between",
+        alignItems:"center",cursor:"pointer"}}>
+        <b style={{fontSize:14,color:C.blue}}>ℹ️ Come si registra un rifornimento</b>
+        <span style={{color:C.blue,fontSize:13}}>{aperto?"chiudi ▲":"apri ▼"}</span>
+      </div>
+      {aperto && (<>
+        <div style={{margin:"10px 0",padding:"10px 12px",background:"#FFF",borderRadius:10,
+          border:`1px solid ${C.green}40`,fontSize:12,lineHeight:1.55,color:C.text}}>
+          <div style={{fontSize:13,fontWeight:700,color:C.green,marginBottom:4}}>🌱 Perché è importante</div>
+          Il gasolio è una delle spese più grandi dell'azienda. Ogni litro che registri serve a
+          <b> sapere quanto ci costa davvero</b> produrre il nostro fieno e il nostro orzo e allevare
+          i nostri animali.
+          <ul style={{margin:"6px 0",paddingLeft:18}}>
+            <li>capiamo <b>cosa conviene coltivare</b> e cosa conviene comprare;</li>
+            <li>scegliamo <b>la macchina giusta per ogni attività</b>;</li>
+            <li><b>ottimizziamo la nostra azienda</b>.</li>
+          </ul>
+          Dati giusti = decisioni giuste = un'azienda più forte, per tutti noi.
+          <div style={{marginTop:6,fontWeight:700}}>
+            Bastano 30 secondi: registra <u>ogni</u> prelievo, subito dopo averlo fatto.
+          </div>
+        </div>
+        <ol style={{margin:0,paddingLeft:20,fontSize:12,lineHeight:1.5,color:C.text}}>
+          {passi.map(([t,d])=>(
+            <li key={t} style={{marginBottom:6}}><b>{t}</b>: {d}</li>
+          ))}
+        </ol>
+        <div style={{fontSize:11,color:C.muted,marginTop:4}}>
+          I campi con <span style={{color:C.red}}>*</span> sono obbligatori: senza, il rifornimento non si salva.
+        </div>
+        <div style={{fontSize:13,fontWeight:700,color:C.blue,margin:"12px 0 4px"}}>Se hai sbagliato</div>
+        <ul style={{margin:0,paddingLeft:20,fontSize:12,lineHeight:1.5,color:C.text}}>
+          <li style={{marginBottom:6}}><b>Un dato sbagliato</b> (mezzo, litri, motivo…): tocca la matita ✏️
+            sulla riga, correggi solo quel dato e tocca «Salva correzione». Data e ora restano quelle
+            del prelievo.</li>
+          <li style={{marginBottom:6}}><b>Rifornimento inserito due volte</b>, o che non andava inserito:
+            cancellalo col cestino 🗑️.</li>
+          <li style={{marginBottom:6}}><b>Hai 48 ore</b> dall'inserimento per correggere o cancellare i
+            rifornimenti inseriti da te. Dopo, la matita e il cestino spariscono: avvisa l'amministratore,
+            che può correggere sempre.</li>
+          <li><b>Ogni correzione resta scritta</b> sulla riga («✏️ Corretto il… da…»): toccando
+            «cosa è cambiato» si vede il valore di prima e quello nuovo.</li>
+        </ul>
+      </>)}
+    </Card>
+  );
+}
+
+function RegistroGasolio({campagna}){
+  const [voci,setVoci]         = useState([]);   // operatori + mezzi
+  const [righe,setRighe]       = useState([]);
+  const [letture,setLetture]   = useState({});   // ultima lettura contalitri per cisterna
+  const [loading,setLoading]   = useState(true);
+  const [form,setForm]         = useState(null);
+  const [errore,setErrore]     = useState("");
+  const [salvando,setSalvando] = useState(false);
+  const [utente,setUtente]     = useState({id:null,admin:false});
+  const [modifiche,setModifiche] = useState([]); // storico correzioni delle righe mostrate
+  const [persone,setPersone]   = useState({});   // uuid -> nome (per "modificato da")
+  const [storicoAperto,setStoricoAperto] = useState(null);
+
+  const anno = annoInizioDi(campagna);
+  const dal = `${anno}-09-01`, al = `${anno+1}-08-31`;
+
+  const carica = useCallback(async()=>{
+    setLoading(true); setErrore("");
+    const [{data:v,error:e1},{data:r,error:e2},{data:u}] = await Promise.all([
+      supabase.from("coltivazione_catalogo").select("id,ambito,voce,ordine,da_verificare,attiva")
+        .in("ambito",["cisterna","operatore","mezzo"]).order("ordine",{nullsFirst:false}).order("voce"),
+      supabase.from("gasolio_rifornimenti").select("*")
+        .gte("data",dal).lte("data",al)
+        .order("data_ora",{ascending:false}),
+      supabase.from("gasolio_rifornimenti").select("cisterna_id,data_ora,contalitri")
+        .not("contalitri","is",null)
+        .order("data_ora",{ascending:false}).limit(500),
+    ]);
+    if(e1||e2) setErrore("Errore nel caricamento: "+(e1||e2).message);
+    setVoci(v||[]); setRighe(r||[]); const ult = {};   // la prima riga per cisterna e' la piu' recente
+    (u||[]).forEach(x=>{ if(!ult[x.cisterna_id]) ult[x.cisterna_id]=x; });
+    setLetture(ult);
+    // chi sono (per sapere cosa posso correggere) e storico delle correzioni
+    const {data:{user}} = await supabase.auth.getUser();
+    let admin = false;
+    if(user){
+      const {data:pr} = await supabase.from("profili").select("ruolo").eq("id",user.id).maybeSingle();
+      admin = pr?.ruolo==="admin";
+    }
+    setUtente({id:user?.id||null,admin});
+    const ids = (r||[]).filter(x=>x.modificato_at).map(x=>x.id);
+    const {data:mod} = ids.length ? await supabase.from("gasolio_rifornimenti_modifiche")
+      .select("*").in("rifornimento_id",ids).eq("azione","modifica").order("fatta_at") : {data:[]};
+    setModifiche(mod||[]);
+    const uuids = [...new Set([...(r||[]).map(x=>x.modificato_da),...(mod||[]).map(x=>x.fatta_da)].filter(Boolean))];
+    if(uuids.length){
+      const {data:pp} = await supabase.from("profili").select("id,nome,cognome").in("id",uuids);
+      const m = {}; (pp||[]).forEach(x=>{ m[x.id]=[x.nome,x.cognome].filter(Boolean).join(" ")||"utente"; });
+      setPersone(m);
+    }
+    setLoading(false);
+  },[dal,al]);
+  useEffect(()=>{ carica(); },[carica]);
+
+  const operatori = voci.filter(v=>v.ambito==="operatore" && v.attiva!==false);
+  const mezzi     = voci.filter(v=>v.ambito==="mezzo" && v.attiva!==false);
+  const cisterne  = voci.filter(v=>v.ambito==="cisterna" && v.attiva!==false);
+  const nomeVoce  = (id) => voci.find(v=>v.id===id)?.voce || "?";
+  const daVerif   = (id) => voci.find(v=>v.id===id)?.da_verificare;
+
+  // voce scelta dall'elenco, oppure nome nuovo scritto in "Altro":
+  // se esiste gia' (maiuscole/spazi a parte) si usa quella, altrimenti si memorizza
+  const risolviVoce = async(ambito, scelta, testo, userId)=>{
+    if(scelta!==ALTRO) return parseInt(scelta,10);
+    const nome = (testo||"").trim().replace(/\s+/g," ");
+    const esiste = voci.find(v=>v.ambito===ambito && v.voce.trim().toLowerCase()===nome.toLowerCase());
+    if(esiste) return esiste.id;
+    const {data,error} = await supabase.from("coltivazione_catalogo")
+      .insert([{ambito, voce:nome, da_verificare:true, inserita_da:userId}]).select("id").single();
+    if(error) throw new Error("Non riesco a memorizzare «"+nome+"»: "+error.message);
+    return data.id;
+  };
+
+  // l'operatore corregge le proprie righe entro 48 ore dall'inserimento; l'admin sempre
+  const ORE_CORREZIONE = 48;
+  const puoCorreggere = (r) => utente.admin || (!!utente.id && r.created_by===utente.id &&
+    (Date.now()-new Date(r.created_at).getTime()) < ORE_CORREZIONE*3600*1000);
+  const oreRimaste = (r) => Math.max(0,Math.ceil(ORE_CORREZIONE-(Date.now()-new Date(r.created_at).getTime())/3600000));
+  const locale = (iso) => { const d=new Date(iso); d.setMinutes(d.getMinutes()-d.getTimezoneOffset());
+    return d.toISOString().slice(0,16); };
+
+  const apriCorrezione = (r)=>{
+    setErrore("");
+    setForm({id:r.id, tardiva:r.tardiva, data_ora:locale(r.data_ora), data_ora_orig:r.data_ora,
+      created_at:r.created_at, created_by:r.created_by,
+      cisterna:String(r.cisterna_id), operatore:String(r.operatore_id), mezzo:String(r.mezzo_id),
+      motivo:r.motivo||"", motivo_altro:r.motivo_altro||"",
+      litri:String(r.litri).replace(".",","),
+      contalitri:r.contalitri===null?"":String(r.contalitri).replace(".",","),
+      note:r.note||""});
+    window.scrollTo({top:0,behavior:"smooth"});
+  };
+
+  const salva = async()=>{
+    const litri = numIn(form.litri);
+    const lettura = form.contalitri==="" ? null : numIn(form.contalitri);
+    if(form.tardiva){
+      if(!form.data_ora){ setErrore("Indica data e ora del prelievo"); return; }
+      if(new Date(form.data_ora) > new Date()){ setErrore("Data e ora non possono essere nel futuro"); return; }
+    }
+    if(!form.cisterna){ setErrore("Scegli la cisterna"); return; }
+    if(form.cisterna===ALTRO && !(form.cisterna_altro||"").trim()){ setErrore("Scrivi il nome della cisterna"); return; }
+    if(!form.operatore){ setErrore("Scegli l'operatore"); return; }
+    if(form.operatore===ALTRO && !(form.operatore_altro||"").trim()){ setErrore("Scrivi il nome dell'operatore"); return; }
+    if(!form.mezzo){ setErrore("Scegli il mezzo"); return; }
+    if(form.mezzo===ALTRO && !(form.mezzo_altro||"").trim()){ setErrore("Scrivi il nome del mezzo"); return; }
+    if(!form.motivo){ setErrore("Scegli il motivo del prelievo"); return; }
+    if(form.motivo==="altro" && !(form.motivo_altro||"").trim()){ setErrore("Scrivi il motivo"); return; }
+    if(!litri || litri<=0){ setErrore("Inserisci i litri (maggiori di zero)"); return; }
+    if(lettura!==null && (isNaN(lettura) || lettura<0)){ setErrore("La lettura del contalitri non e' valida"); return; }
+    setSalvando(true); setErrore("");
+    try{
+      const {data:{user}} = await supabase.auth.getUser();
+      const cisterna_id  = await risolviVoce("cisterna",form.cisterna,form.cisterna_altro,user?.id);
+      const operatore_id = await risolviVoce("operatore",form.operatore,form.operatore_altro,user?.id);
+      const mezzo_id     = await risolviVoce("mezzo",form.mezzo,form.mezzo_altro,user?.id);
+      const campi = {
+        // registrazione normale: data e ora le mette il server e non si cambiano
+        ...(form.tardiva ? {data_ora: new Date(form.data_ora).toISOString()} : {}),
+        cisterna_id, operatore_id, mezzo_id, litri, contalitri:lettura,
+        motivo:form.motivo, motivo_altro:form.motivo==="altro" ? form.motivo_altro.trim() : null,
+        note:(form.note||"").trim()||null,
+      };
+      if(form.id){
+        // correzione: il database accetta solo entro 48 ore (o admin) e ne tiene lo storico
+        const {data,error} = await supabase.from("gasolio_rifornimenti")
+          .update(campi).eq("id",form.id).select("id");
+        if(error) throw new Error("Errore nella correzione: "+error.message);
+        if(!data || data.length===0) throw new Error(
+          "Non puoi più correggere questo rifornimento: sono passate più di 48 ore dall'inserimento, "+
+          "oppure non l'hai inserito tu. Chiedi all'amministratore.");
+      } else {
+        const {error} = await supabase.from("gasolio_rifornimenti")
+          .insert([{tardiva: !!form.tardiva, ...campi}]);
+        if(error) throw new Error("Errore nel salvataggio: "+error.message);
+      }
+      setForm(null); await carica();
+    }catch(e){ setErrore(e.message); }
+    setSalvando(false);
+  };
+
+  const elimina = async(id)=>{
+    if(!window.confirm("Eliminare questo rifornimento?")) return;
+    const {error,count} = await supabase.from("gasolio_rifornimenti").delete({count:"exact"}).eq("id",id);
+    if(error || count===0){ setErrore("Puoi cancellare solo i rifornimenti inseriti da te, entro 48 ore. Altrimenti chiedi all'amministratore."); return; }
+    carica();
+  };
+
+  // controllo contalitri: la nuova lettura dovrebbe essere ultima lettura
+  // DI QUELLA CISTERNA + litri (ogni cisterna ha il suo contalitri)
+  // (in correzione il controllo non si fa: l'ultima lettura potrebbe essere proprio questa riga)
+  const ultima = form && !form.id && form.cisterna && form.cisterna!==ALTRO ? letture[form.cisterna]||null : null;
+  const litriForm   = form ? numIn(form.litri) : NaN;
+  const letturaForm = form && form.contalitri!=="" ? numIn(form.contalitri) : NaN;
+  const attesa = ultima && !isNaN(litriForm) ? Number(ultima.contalitri)+litriForm : null;
+  const scarto = attesa!==null && !isNaN(letturaForm) ? letturaForm-attesa : null;
+
+  const totale = righe.reduce((s,r)=>s+Number(r.litri),0);
+  const perMezzo = {};
+  righe.forEach(r=>{ perMezzo[r.mezzo_id]=(perMezzo[r.mezzo_id]||0)+Number(r.litri); });
+
+  if(loading) return <Spinner/>;
+
+  return (<>
+    <IstruzioniGasolio/>
+    {/* totali della campagna */}
+    <Card>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline"}}>
+        <div style={{fontSize:13,fontWeight:700,color:C.muted}}>⛽ Gasolio prelevato {campagna}</div>
+        <div style={{fontSize:20,fontWeight:800,color:C.primary}}>{num(totale,0)} L</div>
+      </div>
+      {Object.keys(perMezzo).length>0 && (
+        <div style={{marginTop:8}}>
+          {Object.entries(perMezzo).sort((a,b)=>b[1]-a[1]).map(([id,l])=>(
+            <div key={id} style={{display:"flex",justifyContent:"space-between",fontSize:13,
+              padding:"4px 0",borderTop:`1px solid ${C.border}`}}>
+              <span>{nomeVoce(Number(id))}</span><b>{num(l,0)} L</b>
+            </div>
+          ))}
+        </div>
+      )}
+      <div style={{fontSize:11,color:C.muted,marginTop:8}}>
+        {Object.keys(letture).length===0
+          ? "Nessuna lettura del contalitri ancora registrata."
+          : Object.entries(letture).map(([id,l])=>(
+              <div key={id}>Contalitri {nomeVoce(Number(id))}: <b>{num(l.contalitri,0)}</b> ({oraIt(l.data_ora)})</div>
+            ))}
+      </div>
+    </Card>
+
+    {errore && <div style={{color:C.red,fontSize:13,fontWeight:600,marginBottom:10}}>⚠️ {errore}</div>}
+
+    {/* nuovo rifornimento */}
+    {form ? (
+      <Card key={form.id||"nuovo"} style={{border:`1.5px solid ${form.id?C.accent:C.primary}`}}>
+        <div style={{fontSize:15,fontWeight:700,color:form.id?C.accent:C.primary,marginBottom:form.id?4:12}}>
+          {form.id ? "✏️ Correggi rifornimento" : "Nuovo rifornimento"}
+        </div>
+        {form.id && (
+          <div style={{fontSize:11,color:C.muted,marginBottom:12}}>
+            Cambia solo il dato sbagliato e salva. La correzione resta segnata sulla riga.
+            {!utente.admin && <> Puoi correggere ancora per circa <b>{oreRimaste(form)} ore</b>.</>}
+          </div>
+        )}
+        {/* data e ora: automatiche, oppure registrazione tardiva */}
+        <div style={{marginBottom:12,padding:10,borderRadius:10,background:C.bg,border:`1px solid ${C.border}`}}>
+          {form.id && !form.tardiva ? (
+            <div style={{fontSize:13}}>
+              📅 <b>Data e ora: {oraIt(form.data_ora_orig)}</b>
+              <div style={{fontSize:11,color:C.muted,marginTop:2}}>
+                Registrate automaticamente: non si possono cambiare.
+              </div>
+            </div>
+          ) : !form.tardiva ? (
+            <div style={{fontSize:13}}>
+              📅 <b>Data e ora: adesso</b>
+              <div style={{fontSize:11,color:C.muted,marginTop:2}}>
+                Registrate automaticamente al momento del salvataggio.
+              </div>
+            </div>
+          ) : (
+            <div>
+              <div style={{fontSize:12,fontWeight:600,color:C.muted,marginBottom:4}}>
+                Quando è avvenuto il prelievo<span style={{color:C.red}}> *</span>
+              </div>
+              <input type="datetime-local" value={form.data_ora} max={adessoLocale()}
+                onChange={e=>setForm(f=>({...f,data_ora:e.target.value}))} style={inputStyle}/>
+            </div>
+          )}
+          {!form.id && (
+            <label style={{display:"flex",alignItems:"center",gap:8,marginTop:8,fontSize:13,cursor:"pointer"}}>
+              <input type="checkbox" checked={!!form.tardiva}
+                onChange={e=>setForm(f=>({...f,tardiva:e.target.checked,data_ora:f.data_ora||adessoLocale()}))}/>
+              Registrazione tardiva (il prelievo è avvenuto prima)
+            </label>
+          )}
+        </div>
+        <SceltaScrivi label="Cisterna" voci={cisterne}
+          value={form.cisterna} testo={form.cisterna_altro}
+          onChange={(v,t)=>setForm(f=>({...f,cisterna:v,cisterna_altro:t}))}/>
+        <SceltaScrivi label="Operatore" voci={operatori}
+          value={form.operatore} testo={form.operatore_altro}
+          onChange={(v,t)=>setForm(f=>({...f,operatore:v,operatore_altro:t}))}/>
+        <SceltaScrivi label="Mezzo" voci={mezzi}
+          value={form.mezzo} testo={form.mezzo_altro}
+          onChange={(v,t)=>setForm(f=>({...f,mezzo:v,mezzo_altro:t}))}/>
+        {/* motivo: tre pulsanti, un tocco */}
+        <div style={{marginBottom:12}}>
+          <div style={{fontSize:12,fontWeight:600,color:C.muted,marginBottom:4}}>
+            Motivo<span style={{color:C.red}}> *</span>
+          </div>
+          <div style={{display:"flex",gap:6}}>
+            {MOTIVI.map(m=>(
+              <button key={m.v} type="button" onClick={()=>setForm(f=>({...f,motivo:m.v}))}
+                style={{flex:1,padding:"10px 4px",borderRadius:10,fontSize:13,fontWeight:600,cursor:"pointer",
+                  background:form.motivo===m.v?C.primary:"#FFF",color:form.motivo===m.v?"#FFF":C.text,
+                  border:`1.5px solid ${form.motivo===m.v?C.primary:C.border}`}}>
+                {m.l}
+              </button>
+            ))}
+          </div>
+        </div>
+        {form.motivo==="altro" && (
+          <Field label="Specifica il motivo" required value={form.motivo_altro}
+            placeholder="es. generatore, trasporto merci…"
+            onChange={v=>setForm(f=>({...f,motivo_altro:v}))}/>
+        )}
+        <Field label="Litri prelevati" required inputMode="decimal" value={form.litri}
+          onChange={v=>setForm(f=>({...f,litri:v}))}/>
+        <Field label="Lettura contalitri dopo il prelievo (facoltativa)" inputMode="decimal"
+          value={form.contalitri} onChange={v=>setForm(f=>({...f,contalitri:v}))}/>
+        {scarto!==null && Math.abs(scarto)>1 && (
+          <div style={{background:C.yellow+"15",border:`1px solid ${C.yellow}55`,borderRadius:10,
+            padding:10,marginBottom:12,fontSize:12,lineHeight:1.5}}>
+            ⚠️ Con l'ultima lettura ({num(ultima.contalitri,0)}) + {num(litriForm,0)} L
+            mi aspettavo <b>{num(attesa,0)}</b>: differenza di {num(scarto,0)} L.
+            Ricontrolla il numero: può capitare di leggerlo male o che manchi un prelievo precedente.
+          </div>
+        )}
+        <Field label="Note" value={form.note} onChange={v=>setForm(f=>({...f,note:v}))}/>
+        <div style={{display:"flex",gap:8}}>
+          <Btn label={salvando?"Salvo…":(form.id?"Salva correzione":"Salva")} icon="✓" variant="success" disabled={salvando}
+            onClick={salva} style={{flex:1}}/>
+          <Btn label="Annulla" variant="ghost" onClick={()=>{setForm(null);setErrore("");}}/>
+        </div>
+      </Card>
+    ) : (
+      <Btn label="Registra rifornimento" icon="+" style={{width:"100%",marginBottom:12}}
+        onClick={()=>setForm({tardiva:false,data_ora:"",
+          cisterna:cisterne.length===1?String(cisterne[0].id):"",operatore:"",mezzo:"",motivo:"",motivo_altro:"",litri:"",contalitri:"",note:""})}/>
+    )}
+
+    {/* elenco */}
+    <Card>
+      <div style={{fontSize:13,fontWeight:700,color:C.muted,marginBottom:6}}>
+        Rifornimenti ({righe.length})
+      </div>
+      {righe.length===0 && <Vuoto icona="⛽" testo="Nessun rifornimento registrato in questa campagna."/>}
+      {righe.map(r=>(
+        <div key={r.id} style={{borderTop:`1px solid ${C.border}`,padding:"10px 0",
+          display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+          <div style={{minWidth:0}}>
+            <div style={{fontSize:14,fontWeight:700}}>
+              {nomeVoce(r.mezzo_id)}
+              {daVerif(r.mezzo_id) && <span style={{marginLeft:6}}><Badge label="da verificare" color={C.yellow}/></span>}
+            </div>
+            <div style={{fontSize:12,color:C.muted,marginTop:2}}>
+              {oraIt(r.data_ora)} · {nomeVoce(r.cisterna_id)} · {nomeVoce(r.operatore_id)}
+              {r.motivo && <> · <b>{nomeMotivo(r)}</b></>}
+              {daVerif(r.operatore_id) && " (da verificare)"}
+              {r.contalitri!==null && <> · contalitri {num(r.contalitri,0)}</>}
+            </div>
+            {r.tardiva && (
+              <div style={{fontSize:11,color:C.accent,marginTop:2}}>
+                ⏱ Registrazione tardiva — scritta il {oraIt(r.created_at)}
+              </div>
+            )}
+            {r.note && <div style={{fontSize:12,color:C.text,marginTop:2}}>{r.note}</div>}
+            {r.modificato_at && (
+              <div style={{fontSize:11,color:C.accent,marginTop:2}}>
+                ✏️ Corretto il {oraIt(r.modificato_at)}{persone[r.modificato_da] && <> da {persone[r.modificato_da]}</>}
+                {" · "}
+                <span onClick={()=>setStoricoAperto(a=>a===r.id?null:r.id)}
+                  style={{textDecoration:"underline",cursor:"pointer"}}>
+                  {storicoAperto===r.id?"nascondi":"cosa è cambiato"}
+                </span>
+              </div>
+            )}
+            {storicoAperto===r.id && (
+              <div style={{marginTop:4,padding:"6px 8px",background:C.bg,borderRadius:8,fontSize:11,lineHeight:1.5}}>
+                {modifiche.filter(m=>m.rifornimento_id===r.id).map(m=>(
+                  <div key={m.id} style={{marginBottom:4}}>
+                    <b>{oraIt(m.fatta_at)}{persone[m.fatta_da] && <> — {persone[m.fatta_da]}</>}</b>
+                    {Object.keys(m.dopo||{}).map(k=>(
+                      <div key={k}>{ETICHETTE_CAMPI[k]||k}: {valoreCampo(k,m.prima[k],nomeVoce)} → <b>{valoreCampo(k,m.dopo[k],nomeVoce)}</b></div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
+            <b style={{fontSize:15,color:C.primary}}>{num(r.litri,0)} L</b>
+            {puoCorreggere(r) && (<>
+              <button onClick={()=>apriCorrezione(r)} title="Correggi"
+                style={{background:"none",border:"none",cursor:"pointer",fontSize:14,opacity:0.7}}>✏️</button>
+              <button onClick={()=>elimina(r.id)} title="Cancella"
+                style={{background:"none",border:"none",cursor:"pointer",fontSize:14,opacity:0.5}}>🗑️</button>
+            </>)}
+          </div>
+        </div>
+      ))}
+    </Card>
   </>);
 }

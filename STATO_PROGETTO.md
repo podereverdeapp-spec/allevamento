@@ -180,6 +180,15 @@ Gli avvisi sono **zittiti, non corretti**: nessuna riga di logica è stata tocca
 
 **Regola d'oro d'ora in poi**: prima di ogni consegna, compilare con **`CI=true npm run build`**, non con `npm run build`. È l'unico comando che riproduce quello che fa Vercel. Se fallisce lì, il deploy fallirà — e fallirà in silenzio.
 
+## 8-sexies. v111 — Registro gasolio in Coltivazione (22/09/2026)
+
+- Nuova sotto-scheda **⛽ Gasolio** in Coltivazione (`RegistroGasolio` in `coltivazione.jsx`): prelievi dalla cisterna con data/ora automatiche (o registrazione tardiva), cisterna, operatore, mezzo, motivo (coltivazione/allevamento/altro), litri, lettura contalitri con controllo, note.
+- Operatori, mezzi e cisterne stanno in `coltivazione_catalogo` (ambiti `operatore`, `mezzo`, `cisterna`). Il campo è un menu a tendina in cui si può scrivere (`SceltaScrivi`); un nome nuovo viene memorizzato come `da_verificare`.
+- Correzioni: l'operatore corregge o cancella le proprie righe entro 48 ore (policy RLS), l'admin sempre. Lo storico prima/dopo sta in `gasolio_rifornimenti_modifiche` (trigger).
+- Istruzioni per gli operatori nel riquadro «Come si registra un rifornimento».
+- Avviso campagna agraria 1/9–31/8 (vale anche per i costi) sotto il selettore campagna.
+- **Da sistemare**: la policy UPDATE di `profili` («Modifica autenticati», qual true) permette a chiunque sia autenticato di cambiarsi il ruolo.
+
 ## 9. Note per chi riprende questo progetto da zero
 
 - Ambiente di lavoro: la cartella sorgente (`allevamento`) potrebbe non essere presente in una sandbox nuova — chiedere a Filippo l'ultimo pacchetto `allevamento_vNN.tar.gz`, o verificare `/mnt/user-data/outputs/` prima di chiedere

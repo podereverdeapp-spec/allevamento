@@ -8,7 +8,7 @@ _Documento di lavoro. Riassume quanto richiesto da Filippo (prompt del 07/09/202
 
 | Domanda | Risposta |
 |---|---|
-| Stagione agricola | **Campagna a cavallo d'anno**: "2025/2026". Confine il 1° settembre, così semina d'autunno e trebbiatura dell'estate dopo restano insieme |
+| Stagione agricola | **Campagna a cavallo d'anno**: "2025/2026". Confine il 1° settembre, così semina d'autunno e trebbiatura dell'estate dopo restano insieme. **Confermato il 22/09/2026: vale anche per i costi** (prima calcolati dal 1° luglio). Le semine primaverili-estive di pascoli ed erbai irrigui appartengono alla campagna iniziata il settembre precedente |
 | Più colture sullo stesso campo nella stessa campagna | **Spesso sì** — le successioni sono la norma, non l'eccezione: trattate come caso normale |
 | Colture annotate nel file CAMPI (erbaio, medica, pisello, orzo) | **Non precaricate** — caricata solo l'anagrafica dei campi |
 | Chi registra | **Sborchia e gli operatori**, spesso da telefono → interfaccia a pochi tap, schermo stretto |
