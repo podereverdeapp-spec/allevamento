@@ -1,8 +1,9 @@
 // ============================================================================
 // SEZIONE COLTIVAZIONE — podereverdeapp.it
 // ----------------------------------------------------------------------------
-// Quattro schermate: lista campi, scheda campo, riepilogo per coltura,
-// registro gasolio (v111).
+// Tre schermate: lista campi, scheda campo, riepilogo per coltura.
+// Il registro gasolio (v111) e' qui dentro ma dalla v112 ha una scheda propria
+// nella barra in basso: export "Gasolio".
 // Tutto e' filtrato dalla CAMPAGNA agraria selezionata in alto (es. 2025/2026).
 //
 // Tre scelte di struttura che si discostano dal foglio Excel di partenza, e
@@ -256,19 +257,17 @@ export default function Coltivazione() {
         )}
 
         <div style={{display:"flex",gap:8,marginBottom:14}}>
-          {[{id:"campi",label:"🗺️ Campi"},{id:"riepilogo",label:"📊 Riepilogo"},{id:"gasolio",label:"⛽ Gasolio"}].map(t=>(
+          {[{id:"campi",label:"🗺️ Campi"},{id:"riepilogo",label:"📊 Riepilogo"}].map(t=>(
             <button key={t.id} onClick={()=>setSubTab(t.id)}
               style={{flex:1,background:subTab===t.id?C.primary:"#FFF",
                 color:subTab===t.id?"#FFF":C.text,border:`1.5px solid ${subTab===t.id?C.primary:C.border}`,
-                borderRadius:12,padding:"10px 8px",fontSize:13,fontWeight:600,cursor:"pointer"}}>
+                borderRadius:12,padding:"10px 8px",fontSize:14,fontWeight:600,cursor:"pointer"}}>
               {t.label}
             </button>
           ))}
         </div>
 
-        {subTab==="gasolio" ? (
-          <RegistroGasolio campagna={campagna}/>
-        ) : loading ? <Spinner/> : subTab==="campi" ? (
+        {loading ? <Spinner/> : subTab==="campi" ? (
           <ListaCampi campi={campi} coltureDelCampo={coltureDelCampo}
             nomeColtura={nomeColtura} onApri={setDettaglio}/>
         ) : (
@@ -1314,7 +1313,7 @@ function IstruzioniGasolio(){
   const passi = [
     ["Tocca «Registra rifornimento»","si apre il modulo."],
     ["Data e ora","si registrano da sole al momento del salvataggio. Se stai scrivendo un prelievo fatto prima (per esempio ieri sera), spunta «Registrazione tardiva» e indica giorno e ora in cui hai preso il gasolio."],
-    ["Cisterna","è già scelta la Cisterna Podere. Se hai preso il gasolio da un'altra cisterna, scrivi il suo nome."],
+    ["Cisterna","scegli la cisterna da cui hai preso il gasolio. Se non è in elenco, scrivi il suo nome."],
     ["Operatore e mezzo","tocca il campo e scegli dall'elenco, oppure inizia a scrivere: l'elenco si restringe. Se il nome non c'è, scrivilo per intero e scegli «➕ Altro»: resterà in elenco per la volta dopo."],
     ["Motivo","tocca Coltivazione, Allevamento oppure Altro. Con Altro scrivi per cosa serve il gasolio."],
     ["Litri","scrivi i litri presi (si può usare la virgola)."],
@@ -1660,7 +1659,7 @@ function RegistroGasolio({campagna}){
     ) : (
       <Btn label="Registra rifornimento" icon="+" style={{width:"100%",marginBottom:12}}
         onClick={()=>setForm({tardiva:false,data_ora:"",
-          cisterna:cisterne.length===1?String(cisterne[0].id):"",operatore:"",mezzo:"",motivo:"",motivo_altro:"",litri:"",contalitri:"",note:""})}/>
+          cisterna:"",operatore:"",mezzo:"",motivo:"",motivo_altro:"",litri:"",contalitri:"",note:""})}/>
     )}
 
     {/* elenco */}
@@ -1725,4 +1724,37 @@ function RegistroGasolio({campagna}){
       ))}
     </Card>
   </>);
+}
+
+
+// ============================================================================
+// SEZIONE GASOLIO — scheda propria nella barra in basso (v112)
+// Stessa campagna agraria di Coltivazione (1 settembre - 31 agosto).
+// ============================================================================
+export function Gasolio(){
+  const [campagna,setCampagna] = useState(campagnaDiData());
+  const corrente = campagnaDiData();
+  const annoOra  = annoInizioDi(corrente);
+  const campagne = [];
+  for(let a=annoOra+1; a>=annoOra-5; a--) campagne.push(`${a}/${a+1}`);
+  return (
+    <div style={{fontFamily:"'Segoe UI',system-ui,sans-serif",background:C.bg,
+      minHeight:"100vh",maxWidth:480,margin:"0 auto"}}>
+      <div style={{padding:"16px 16px 24px"}}>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
+          <span style={{fontSize:24}}>⛽</span>
+          <h2 style={{margin:0,fontSize:20,color:C.primary}}>Rifornimento gasolio</h2>
+        </div>
+        <Card style={{padding:12,marginBottom:12}}>
+          <div style={{fontSize:12,fontWeight:600,color:C.muted,marginBottom:4}}>Campagna agraria (1 settembre – 31 agosto)</div>
+          <select value={campagna} onChange={e=>setCampagna(e.target.value)} style={inputStyle}>
+            {campagne.map(c=>(
+              <option key={c} value={c}>{c}{c===corrente?"  (in corso)":""}</option>
+            ))}
+          </select>
+        </Card>
+        <RegistroGasolio campagna={campagna}/>
+      </div>
+    </div>
+  );
 }

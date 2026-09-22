@@ -17,7 +17,7 @@ import CostiAllevamento    from "./costi_allevamento";
 import RegistroUscite      from "./registro_uscite";
 // import CostiGenerali    from "./costi_generali";   // v104 — tab Struttura nascosta, vedi TABS
 // import CostiComplessivi from "./costi_complessivi";  // v107 — tab Costi nascosta
-import Coltivazione        from "./coltivazione";
+import Coltivazione, { Gasolio } from "./coltivazione";
 import Guida               from "./Guida";
 import ExportManager       from "./ExportManager";
 import UBAReport            from "./UBAReport";
@@ -30,13 +30,14 @@ const C = { primary:"#5C3D1E", border:"#D4C4A8", muted:"#8B7355", bg:"#F5F0E8", 
 // v104 — versione visibile nel menu utente. Serve a capire in un secondo se il
 // deploy Vercel e' arrivato davvero o se il browser sta servendo una copia
 // vecchia dalla cache: basta aprire il menu e leggere il numero.
-const VERSIONE = "v111";
+const VERSIONE = "v113";
 
 const TABS = [
   { id:"gestione",    label:"Gestione",   icon:"🐄" },
   { id:"pedigree",    label:"Pedigree",   icon:"🧬" },
   { id:"lotti",       label:"Lotti",      icon:"🐷" },
   { id:"coltivazione",label:"Coltivazione",icon:"🌾" },
+  { id:"gasolio",     label:"Gasolio",    icon:"⛽" },   // v112 — registro rifornimenti
   { id:"selezione",   label:"Selezione",  icon:"🏆" },
   // v107 — tab "Costi" (costi_complessivi.jsx) e "Origine" (costo_origine.jsx)
   // tolte dalla barra su richiesta di Filippo. Moduli e dati NON toccati:
@@ -148,6 +149,7 @@ export default function App() {
         {tab==="pedigree"    && <Pedigree          supabase={supabase}/>}
         {tab==="lotti"       && <LottiSuini        supabase={supabase}/>}
         {tab==="coltivazione"&& <Coltivazione/>}
+        {tab==="gasolio"     && <Gasolio/>}
         {tab==="selezione"   && <SelezioneGenetica supabase={supabase}/>}
         {/* v107 — {tab==="complessivi" && <CostiComplessivi supabase={supabase}/>} */}
         {/* v107 — {tab==="origine" && <CostoOrigine supabase={supabase}/>} */}
