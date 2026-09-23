@@ -149,6 +149,32 @@ const Vuoto = ({icona,testo}) => (
   </div>
 );
 
+// --- correzioni (v114) ------------------------------------------------------
+// Chi sta usando l'app e che cosa puo' correggere: le proprie righe entro 48 ore
+// dall'inserimento, l'amministratore sempre. La regola vera sta nelle policy del
+// database: qui serve solo a mostrare o nascondere matita e cestino.
+const ORE_CORREZIONE = 48;
+function useUtente(){
+  const [utente,setUtente] = useState({id:null,admin:false});
+  useEffect(()=>{ (async()=>{
+    const {data:{user}} = await supabase.auth.getUser();
+    if(!user){ return; }
+    const {data:pr} = await supabase.from("profili").select("ruolo").eq("id",user.id).maybeSingle();
+    setUtente({id:user.id,admin:pr?.ruolo==="admin"});
+  })(); },[]);
+  return utente;
+}
+const puoCorreggere = (riga,utente) => utente.admin ||
+  (!!utente.id && riga.created_by===utente.id &&
+   (Date.now()-new Date(riga.created_at).getTime()) < ORE_CORREZIONE*3600*1000);
+const oreRimaste = (riga) => Math.max(0,Math.ceil(
+  ORE_CORREZIONE-(Date.now()-new Date(riga.created_at).getTime())/3600000));
+const ERR_CORREZIONE = "Non puoi piu' correggere questa riga: sono passate piu' di 48 ore "+
+  "dall'inserimento, oppure non l'hai inserita tu. Chiedi all'amministratore.";
+const Corretto = ({riga}) => riga.modificato_at ? (
+  <div style={{fontSize:11,color:C.accent,marginTop:2}}>✏️ Corretto il {dataIt(riga.modificato_at)}</div>
+) : null;
+
 // ============================================================================
 export default function Coltivazione() {
   const [campagna,setCampagna]   = useState(campagnaDiData());
@@ -670,6 +696,16 @@ function Lavorazioni({coltura,ettari,lavori,concimi,diserbi,onRicarica}){
   const [aperta,setAperta] = useState(null);  // nome lavorazione espansa
   const [form,setForm]     = useState(null);
   const [errore,setErrore] = useState("");
+  const utente = useUtente();
+
+  // correzione di un'esecuzione gia' registrata
+  const apriCorrezione = (r)=>{
+    setForm({id:r.id, tipo:r.tipo, created_at:r.created_at,
+      data_esecuzione:r.data_esecuzione||"",
+      giornate_lavoro:r.giornate_lavoro===null||r.giornate_lavoro===undefined?"":String(r.giornate_lavoro).replace(".",","),
+      note:r.note||"", concimi:[], diserbo:{prodotto:"",quantita:"",unita:"litri"}});
+    setErrore("");
+  };
 
   const perTipo = (tipo) => lavori.filter(l=>l.tipo===tipo);
   const giornateTot = lavori.reduce((s,l)=>s+Number(l.giornate_lavoro||0),0);
@@ -684,6 +720,17 @@ function Lavorazioni({coltura,ettari,lavori,concimi,diserbi,onRicarica}){
     const g = form.giornate_lavoro==="" ? null : parseFloat(String(form.giornate_lavoro).replace(",","."));
     if(!form.data_esecuzione){ setErrore("Metti la data"); return; }
     if(g!==null && (isNaN(g)||g<0)){ setErrore("Le giornate lavoro non sono valide"); return; }
+
+    if(form.id){   // correzione: il database accetta solo entro 48 ore (o admin)
+      const {data:agg,error:eu} = await supabase.from("lavorazioni_campo").update({
+        data_esecuzione: form.data_esecuzione,
+        giornate_lavoro: g,
+        note: form.note||null,
+      }).eq("id",form.id).select("id");
+      if(eu){ setErrore("Errore nella correzione: "+eu.message); return; }
+      if(!agg || agg.length===0){ setErrore(ERR_CORREZIONE); return; }
+      setForm(null); setErrore(""); onRicarica(); return;
+    }
 
     const {data,error} = await supabase.from("lavorazioni_campo").insert([{
       coltura_campo_id: coltura.id,
@@ -725,7 +772,8 @@ function Lavorazioni({coltura,ettari,lavori,concimi,diserbi,onRicarica}){
 
   const elimina = async(id)=>{
     if(!window.confirm("Eliminare questa esecuzione?")) return;
-    await supabase.from("lavorazioni_campo").delete().eq("id",id);
+    const {error,count} = await supabase.from("lavorazioni_campo").delete({count:"exact"}).eq("id",id);
+    if(error || count===0){ setErrore(ERR_CORREZIONE); return; }
     onRicarica();
   };
 
@@ -783,6 +831,8 @@ function Lavorazioni({coltura,ettari,lavori,concimi,diserbi,onRicarica}){
                   <DettaglioEsecuzione key={r.id} riga={r} ettari={ettari}
                     concimi={concimi.filter(c=>c.lavorazione_id===r.id)}
                     diserbi={diserbi.filter(d=>d.lavorazione_id===r.id)}
+                    correggibile={puoCorreggere(r,utente)}
+                    onCorreggi={()=>apriCorrezione(r)}
                     onElimina={()=>elimina(r.id)}/>
                 ))}
                 <Btn label={righe.length>0?"Aggiungi un'altra esecuzione":"Registra esecuzione"}
@@ -803,19 +853,26 @@ function Lavorazioni({coltura,ettari,lavori,concimi,diserbi,onRicarica}){
     {form && (
       <div style={{marginTop:12,padding:14,background:"#FFF",borderRadius:12,
         border:`2px solid ${C.primary}`}}>
-        <div style={{fontSize:14,fontWeight:700,color:C.primary,marginBottom:12}}>
-          {form.tipo}
+        <div style={{fontSize:14,fontWeight:700,color:form.id?C.accent:C.primary,marginBottom:form.id?4:12}}>
+          {form.id ? "✏️ Correggi — "+form.tipo : form.tipo}
         </div>
+        {form.id && (
+          <div style={{fontSize:11,color:C.muted,marginBottom:12}}>
+            Cambia solo il dato sbagliato e salva. La correzione resta segnata sulla riga.
+            {!utente.admin && <> Puoi correggere ancora per circa <b>{oreRimaste(form)} ore</b>.</>}
+            {(form.tipo==="Concimazione"||form.tipo==="Disserbo") && <> I prodotti usati non si correggono da qui: per ora si cancella la riga e si rifà.</>}
+          </div>
+        )}
         <Field label="Data di esecuzione" required type="date" value={form.data_esecuzione}
           onChange={v=>setForm(f=>({...f,data_esecuzione:v}))}/>
         <Field label="Giornate lavoro impiegate" type="text" inputMode="decimal"
           value={form.giornate_lavoro} placeholder="es. 1,5"
           onChange={v=>setForm(f=>({...f,giornate_lavoro:v}))}/>
 
-        {form.tipo==="Concimazione" && (
+        {form.tipo==="Concimazione" && !form.id && (
           <FormConcimi form={form} setForm={setForm} ettari={ettari}/>
         )}
-        {form.tipo==="Disserbo" && (
+        {form.tipo==="Disserbo" && !form.id && (
           <div style={{background:C.bg,borderRadius:10,padding:12,marginBottom:12}}>
             <div style={{fontSize:12,fontWeight:700,color:C.text,marginBottom:8}}>Prodotto usato</div>
             <Field label="Tipo di disserbo" value={form.diserbo.prodotto}
@@ -842,7 +899,7 @@ function Lavorazioni({coltura,ettari,lavori,concimi,diserbi,onRicarica}){
         <Field label="Note" value={form.note} onChange={v=>setForm(f=>({...f,note:v}))}/>
         {errore && <div style={{color:C.red,fontSize:12,fontWeight:600,marginBottom:8}}>⚠️ {errore}</div>}
         <div style={{display:"flex",gap:8}}>
-          <Btn label="Salva" icon="✓" variant="success" onClick={salva} style={{flex:1}}/>
+          <Btn label={form.id?"Salva correzione":"Salva"} icon="✓" variant="success" onClick={salva} style={{flex:1}}/>
           <Btn label="Annulla" variant="ghost" onClick={()=>{setForm(null);setErrore("");}}/>
         </div>
       </div>
@@ -850,7 +907,7 @@ function Lavorazioni({coltura,ettari,lavori,concimi,diserbi,onRicarica}){
   </>);
 }
 
-function DettaglioEsecuzione({riga,ettari,concimi,diserbi,onElimina}){
+function DettaglioEsecuzione({riga,ettari,concimi,diserbi,correggibile,onCorreggi,onElimina}){
   return (
     <div style={{background:"#FFF",borderRadius:10,padding:10,marginTop:8,
       border:`1px solid ${C.border}`}}>
@@ -861,9 +918,16 @@ function DettaglioEsecuzione({riga,ettari,concimi,diserbi,onElimina}){
             {riga.giornate_lavoro ? `${num(riga.giornate_lavoro,1)} giornate lavoro` : "giornate non indicate"}
           </div>
           {riga.note && <div style={{fontSize:11,color:C.muted,fontStyle:"italic",marginTop:2}}>{riga.note}</div>}
+          <Corretto riga={riga}/>
         </div>
-        <button onClick={onElimina}
-          style={{background:"none",border:"none",cursor:"pointer",fontSize:13,opacity:0.5}}>🗑️</button>
+        {correggibile && (
+          <div style={{display:"flex",gap:6,flexShrink:0}}>
+            <button onClick={onCorreggi} title="Correggi"
+              style={{background:"none",border:"none",cursor:"pointer",fontSize:13,opacity:0.7}}>✏️</button>
+            <button onClick={onElimina} title="Cancella"
+              style={{background:"none",border:"none",cursor:"pointer",fontSize:13,opacity:0.5}}>🗑️</button>
+          </div>
+        )}
       </div>
 
       {concimi.length>0 && (
@@ -957,6 +1021,17 @@ function FormConcimi({form,setForm,ettari}){
 function Raccolta({coltura,ettari,raccolte,onRicarica}){
   const [form,setForm] = useState(null);
   const [errore,setErrore] = useState("");
+  const utente = useUtente();
+
+  const apriCorrezione = (r)=>{
+    const inCatalogo = PRODOTTI.some(p=>p.nome===r.prodotto);
+    setForm({id:r.id, created_at:r.created_at,
+      prodotto: inCatalogo ? r.prodotto : "Altro",
+      prodotto_altro: inCatalogo ? "" : r.prodotto,
+      unita:r.unita, quantita:String(r.quantita).replace(".",","),
+      data_raccolta:r.data_raccolta||""});
+    setErrore("");
+  };
 
   const salva = async()=>{
     const q = parseFloat(String(form.quantita).replace(",","."));
@@ -966,21 +1041,28 @@ function Raccolta({coltura,ettari,raccolte,onRicarica}){
     }
     if(!q || q<=0){ setErrore("Inserisci una quantita' maggiore di zero"); return; }
     const def = PRODOTTI.find(p=>p.nome===form.prodotto);
-    const {error} = await supabase.from("raccolte").insert([{
-      coltura_campo_id: coltura.id,
+    const campi = {
       prodotto: form.prodotto==="Altro" ? form.prodotto_altro.trim() : form.prodotto,
       sottoprodotto: def ? def.sotto : false,
       unita: form.unita || (def?def.unita:"quintali"),
       quantita: q,
       data_raccolta: form.data_raccolta||null,
-    }]);
+    };
+    if(form.id){   // correzione
+      const {data:agg,error:eu} = await supabase.from("raccolte").update(campi).eq("id",form.id).select("id");
+      if(eu){ setErrore("Errore nella correzione: "+eu.message); return; }
+      if(!agg || agg.length===0){ setErrore(ERR_CORREZIONE); return; }
+      setForm(null); setErrore(""); onRicarica(); return;
+    }
+    const {error} = await supabase.from("raccolte").insert([{coltura_campo_id: coltura.id, ...campi}]);
     if(error){ setErrore("Errore nel salvataggio: "+error.message); return; }
     setForm(null); setErrore(""); onRicarica();
   };
 
   const elimina = async(id)=>{
     if(!window.confirm("Eliminare questa riga di raccolta?")) return;
-    await supabase.from("raccolte").delete().eq("id",id);
+    const {error,count} = await supabase.from("raccolte").delete({count:"exact"}).eq("id",id);
+    if(error || count===0){ setErrore(ERR_CORREZIONE); return; }
     onRicarica();
   };
 
@@ -1005,9 +1087,16 @@ function Raccolta({coltura,ettari,raccolte,onRicarica}){
             <div style={{fontSize:12,color:C.green,fontWeight:700,marginTop:2}}>
               {resa!==null ? `${num(resa,2)} ${r.unita}/ha` : "—"}
             </div>
+            <Corretto riga={r}/>
           </div>
-          <button onClick={()=>elimina(r.id)}
-            style={{background:"none",border:"none",cursor:"pointer",fontSize:14,opacity:0.5}}>🗑️</button>
+          {puoCorreggere(r,utente) && (
+            <div style={{display:"flex",gap:6,flexShrink:0}}>
+              <button onClick={()=>apriCorrezione(r)} title="Correggi"
+                style={{background:"none",border:"none",cursor:"pointer",fontSize:14,opacity:0.7}}>✏️</button>
+              <button onClick={()=>elimina(r.id)} title="Cancella"
+                style={{background:"none",border:"none",cursor:"pointer",fontSize:14,opacity:0.5}}>🗑️</button>
+            </div>
+          )}
         </div>
       );
     })}
@@ -1016,7 +1105,13 @@ function Raccolta({coltura,ettari,raccolte,onRicarica}){
 
     {form ? (
       <div style={{marginTop:12,padding:12,background:C.bg,borderRadius:12,
-        border:`1.5px solid ${C.border}`}}>
+        border:`1.5px solid ${form.id?C.accent:C.border}`}}>
+        {form.id && (
+          <div style={{fontSize:13,fontWeight:700,color:C.accent,marginBottom:8}}>
+            ✏️ Correggi la raccolta
+            {!utente.admin && <span style={{fontSize:11,fontWeight:400,color:C.muted}}> — ancora per circa {oreRimaste(form)} ore</span>}
+          </div>
+        )}
         <Field label="Prodotto raccolto" required value={form.prodotto}
           options={PRODOTTI.map(p=>p.nome)}
           onChange={v=>{
@@ -1054,7 +1149,7 @@ function Raccolta({coltura,ettari,raccolte,onRicarica}){
           </div>
         )}
         <div style={{display:"flex",gap:8}}>
-          <Btn label="Salva" icon="✓" variant="success" small onClick={salva} style={{flex:1}}/>
+          <Btn label={form.id?"Salva correzione":"Salva"} icon="✓" variant="success" small onClick={salva} style={{flex:1}}/>
           <Btn label="Annulla" variant="ghost" small onClick={()=>{setForm(null);setErrore("");}}/>
         </div>
       </div>
