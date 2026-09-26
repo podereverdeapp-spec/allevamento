@@ -17,6 +17,7 @@
 // ============================================================================
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "./supabase";
+import ReportColtivazione from "./coltivazione_report"; // v115
 
 const C = {
   bg:"#F5F0E8", card:"#FFFFFF", primary:"#5C3D1E", accent:"#A0522D",
@@ -234,7 +235,8 @@ export default function Coltivazione() {
   const corrente = campagnaDiData();
   const annoOra  = annoInizioDi(corrente);
   const campagne = [];
-  for(let a=annoOra+1; a>=annoOra-5; a--) campagne.push(`${a}/${a+1}`);
+  // v115 — si arriva fino al 2019/2020, prima campagna caricata nello storico
+  for(let a=annoOra+1; a>=Math.min(annoOra-5,2019); a--) campagne.push(`${a}/${a+1}`);
 
   const coltureDelCampo = (campoId) => colture.filter(c=>c.campo_id===campoId);
   const nomeColtura = (c) => c.coltura==="Altro" ? (c.coltura_altro||"Altro") : c.coltura;
@@ -283,7 +285,7 @@ export default function Coltivazione() {
         )}
 
         <div style={{display:"flex",gap:8,marginBottom:14}}>
-          {[{id:"campi",label:"🗺️ Campi"},{id:"riepilogo",label:"📊 Riepilogo"}].map(t=>(
+          {[{id:"campi",label:"🗺️ Campi"},{id:"riepilogo",label:"📊 Riepilogo"},{id:"report",label:"📈 Report"}].map(t=>(
             <button key={t.id} onClick={()=>setSubTab(t.id)}
               style={{flex:1,background:subTab===t.id?C.primary:"#FFF",
                 color:subTab===t.id?"#FFF":C.text,border:`1.5px solid ${subTab===t.id?C.primary:C.border}`,
@@ -293,7 +295,17 @@ export default function Coltivazione() {
           ))}
         </div>
 
-        {loading ? <Spinner/> : subTab==="campi" ? (
+        {/* v115 — istruzioni della linguetta aperta */}
+        <div style={{margin:"-4px 0 12px",padding:"8px 10px",borderRadius:8,background:C.blue+"14",
+          borderLeft:`4px solid ${C.blue}`,fontSize:12.5,lineHeight:1.4,color:C.text}}>
+          {subTab==="campi" && <><b style={{color:C.blue}}>🗺️ Campi</b> · L'elenco dei campi. Tocca un campo per aprire la sua scheda e registrare semina, lavorazioni, concimazioni e raccolta della campagna scelta sopra.</>}
+          {subTab==="riepilogo" && <><b style={{color:C.blue}}>📊 Riepilogo</b> · I totali della campagna per coltura: ettari, giornate di lavoro e quantità raccolte. Si compila da solo con i dati inseriti nei campi.</>}
+          {subTab==="report" && <><b style={{color:C.blue}}>📈 Report</b> · Quanto è costato ogni prodotto della campagna, il confronto con il prezzo di mercato e con le rese di riferimento, e dove si perde o si guadagna. Tocca una coltura per vedere i suoi campi.</>}
+        </div>
+
+        {subTab==="report" ? (
+          <ReportColtivazione campagna={campagna}/>
+        ) : loading ? <Spinner/> : subTab==="campi" ? (
           <ListaCampi campi={campi} coltureDelCampo={coltureDelCampo}
             nomeColtura={nomeColtura} onApri={setDettaglio}/>
         ) : (

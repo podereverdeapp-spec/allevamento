@@ -196,3 +196,11 @@ Gli avvisi sono **zittiti, non corretti**: nessuna riga di logica è stata tocca
 - **`CI=true` e' obbligatorio** in quel comando: e' cosi' che compila Vercel. Se il build fallisce con `CI=true` ma passa senza, il deploy fallira' in silenzio (vedi sezione 8-quinquies). Dalla v105 gli avvisi sono zittiti e il build passa.
 - Le versioni sono numerate progressivamente (v66...v94 al momento di scrivere) — usare il numero successivo per ogni nuovo pacchetto, mai sovrascrivere
 - Repo GitHub e deploy Vercel separati da quelli della Contabilità Industriale, ma stesso account/proprietario (Filippo) per entrambi i progetti — l'accesso condiviso è a livello di **database** (stesso Supabase), non di codice sorgente: ogni sessione di chat vede solo i file che vengono caricati o che restano nell'ambiente di lavoro di quella sessione specifica.
+
+## v115 (26/09/2026) — Report coltivazione
+- Nuova linguetta **📈 Report** in Coltivazione (file `src/coltivazione_report.jsx`), accanto a Campi e Riepilogo; riquadro blu di istruzioni sotto le tre linguette.
+- Il report legge la vista `v_coltivazione_report_prodotti`: il costo di ogni coltura si divide tra tutti i suoi prodotti (paglia e seme compresi) in proporzione al valore di mercato.
+- Parametri in tre tabelle nuove (RLS: lettura per tutti, scrittura solo admin): `coltivazione_parametri` (peso ballone, soglia semaforo), `coltivazione_prezzi_mercato` (€/q per campagna e prodotto, con fonte), `coltivazione_benchmark_rese` (q/ha di riferimento). Si modificano da **⚙️ Prezzi e rese**.
+- **📅 Confronto tra stagioni**: tutte le campagne affiancate; dove mancano costi o prezzi lo dice invece di mostrare zero.
+- Export Excel del report: fogli REPORT, DETTAGLIO CAMPI, PREZZI E RESE.
+- Selettore campagna esteso fino al 2019/2020.
