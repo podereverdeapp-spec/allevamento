@@ -18,6 +18,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "./supabase";
 import ReportColtivazione from "./coltivazione_report"; // v115
+import StoricoColtivazione from "./coltivazione_storico"; // v116
 
 const C = {
   bg:"#F5F0E8", card:"#FFFFFF", primary:"#5C3D1E", accent:"#A0522D",
@@ -284,8 +285,8 @@ export default function Coltivazione() {
           </Card>
         )}
 
-        <div style={{display:"flex",gap:8,marginBottom:14}}>
-          {[{id:"campi",label:"🗺️ Campi"},{id:"riepilogo",label:"📊 Riepilogo"},{id:"report",label:"📈 Report"}].map(t=>(
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
+          {[{id:"campi",label:"🗺️ Campi"},{id:"riepilogo",label:"📊 Riepilogo"},{id:"report",label:"📈 Report"},{id:"storico",label:"📚 Storico"}].map(t=>(
             <button key={t.id} onClick={()=>setSubTab(t.id)}
               style={{flex:1,background:subTab===t.id?C.primary:"#FFF",
                 color:subTab===t.id?"#FFF":C.text,border:`1.5px solid ${subTab===t.id?C.primary:C.border}`,
@@ -301,9 +302,12 @@ export default function Coltivazione() {
           {subTab==="campi" && <><b style={{color:C.blue}}>🗺️ Campi</b> · L'elenco dei campi. Tocca un campo per aprire la sua scheda e registrare semina, lavorazioni, concimazioni e raccolta della campagna scelta sopra.</>}
           {subTab==="riepilogo" && <><b style={{color:C.blue}}>📊 Riepilogo</b> · I totali della campagna per coltura: ettari, giornate di lavoro e quantità raccolte. Si compila da solo con i dati inseriti nei campi.</>}
           {subTab==="report" && <><b style={{color:C.blue}}>📈 Report</b> · Quanto è costato ogni prodotto della campagna, il confronto con il prezzo di mercato e con le rese di riferimento, e dove si perde o si guadagna. Tocca una coltura per vedere i suoi campi.</>}
+          {subTab==="storico" && <><b style={{color:C.blue}}>📚 Storico</b> · Tutte le stagioni insieme: costi e rese per coltura, la storia di ogni campo con la concimazione, la classifica dei campi per stagione e per resa. Non dipende dalla campagna scelta sopra e si aggiorna da solo con le nuove stagioni.</>}
         </div>
 
-        {subTab==="report" ? (
+        {subTab==="storico" ? (
+          <StoricoColtivazione/>
+        ) : subTab==="report" ? (
           <ReportColtivazione campagna={campagna}/>
         ) : loading ? <Spinner/> : subTab==="campi" ? (
           <ListaCampi campi={campi} coltureDelCampo={coltureDelCampo}
