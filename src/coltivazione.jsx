@@ -19,6 +19,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "./supabase";
 import ReportColtivazione from "./coltivazione_report"; // v115
 import StoricoColtivazione from "./coltivazione_storico"; // v116
+import ProgrammaColtivazione from "./coltivazione_programma"; // v117
 
 const C = {
   bg:"#F5F0E8", card:"#FFFFFF", primary:"#5C3D1E", accent:"#A0522D",
@@ -286,9 +287,9 @@ export default function Coltivazione() {
         )}
 
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
-          {[{id:"campi",label:"🗺️ Campi"},{id:"riepilogo",label:"📊 Riepilogo"},{id:"report",label:"📈 Report"},{id:"storico",label:"📚 Storico"}].map(t=>(
+          {[{id:"campi",label:"🗺️ Campi"},{id:"riepilogo",label:"📊 Riepilogo"},{id:"programma",label:"🗓️ Programma"},{id:"report",label:"📈 Report"},{id:"storico",label:"📚 Storico"}].map(t=>(
             <button key={t.id} onClick={()=>setSubTab(t.id)}
-              style={{flex:1,background:subTab===t.id?C.primary:"#FFF",
+              style={{gridColumn:t.id==="storico"?"1 / span 2":"auto",background:subTab===t.id?C.primary:"#FFF",
                 color:subTab===t.id?"#FFF":C.text,border:`1.5px solid ${subTab===t.id?C.primary:C.border}`,
                 borderRadius:12,padding:"10px 8px",fontSize:14,fontWeight:600,cursor:"pointer"}}>
               {t.label}
@@ -301,11 +302,14 @@ export default function Coltivazione() {
           borderLeft:`4px solid ${C.blue}`,fontSize:12.5,lineHeight:1.4,color:C.text}}>
           {subTab==="campi" && <><b style={{color:C.blue}}>🗺️ Campi</b> · L'elenco dei campi. Tocca un campo per aprire la sua scheda e registrare semina, lavorazioni, concimazioni e raccolta della campagna scelta sopra.</>}
           {subTab==="riepilogo" && <><b style={{color:C.blue}}>📊 Riepilogo</b> · I totali della campagna per coltura: ettari, giornate di lavoro e quantità raccolte. Si compila da solo con i dati inseriti nei campi.</>}
+          {subTab==="programma" && <><b style={{color:C.blue}}>🗓️ Programma</b> · Il programma di semina e concimazione della campagna scelta sopra: per ogni campo cosa si semina e si concima, la dose per ettaro e la quantità totale, con le istruzioni. In «Da acquistare» la lista dei semi e dei concimi da comprare. È un piano: quando si esegue un lavoro si registra nella scheda del campo.</>}
           {subTab==="report" && <><b style={{color:C.blue}}>📈 Report</b> · Quanto è costato ogni prodotto della campagna, il confronto con il prezzo di mercato e con le rese di riferimento, e dove si perde o si guadagna. Tocca una coltura per vedere i suoi campi.</>}
           {subTab==="storico" && <><b style={{color:C.blue}}>📚 Storico</b> · Tutte le stagioni insieme: costi e rese per coltura, la storia di ogni campo con la concimazione, la classifica dei campi per stagione e per resa. Non dipende dalla campagna scelta sopra e si aggiorna da solo con le nuove stagioni.</>}
         </div>
 
-        {subTab==="storico" ? (
+        {subTab==="programma" ? (
+          <ProgrammaColtivazione campagna={campagna}/>
+        ) : subTab==="storico" ? (
           <StoricoColtivazione/>
         ) : subTab==="report" ? (
           <ReportColtivazione campagna={campagna}/>
