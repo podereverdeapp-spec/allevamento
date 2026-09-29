@@ -607,16 +607,37 @@ function Semina({coltura,ettari,semine,onRicarica}){
   const [errore,setErrore] = useState("");
   const composta = SEMENTI_COMPOSTE.includes(coltura.coltura);
   const nome = coltura.coltura==="Altro" ? (coltura.coltura_altro||"Altro") : coltura.coltura;
-  const semiPossibili = composta ? ESSENZE : [nome];
-  const puoDosi = AMMETTE_DOSI.includes(coltura.coltura);
+  // v117 — il seme non è più legato al nome della coltura: in cima i semi del Programma
+  // della campagna per questa coltura, poi tutti i semi già usati in azienda, poi «Altro».
+  const [previsti,setPrevisti] = useState([]);
+  const [catalogo,setCatalogo] = useState([]);
+  useEffect(()=>{ let vivo=true; (async()=>{
+    const [pr,tut,st] = await Promise.all([
+      supabase.from("coltivazione_programma").select("prodotto,dose_ha,unita,ordine").eq("coltura_campo_id",coltura.id).eq("tipo","Seme").order("ordine"),
+      supabase.from("coltivazione_programma").select("prodotto").eq("tipo","Seme").range(0,4999),
+      supabase.from("semine").select("seme").range(0,4999),
+    ]);
+    if(!vivo) return;
+    setPrevisti((pr.data||[]).map(x=>x.prodotto));
+    setCatalogo([...new Set([...(tut.data||[]).map(x=>x.prodotto),...(st.data||[]).map(x=>x.seme),...ESSENZE,nome])]
+      .filter(Boolean).sort((a,b)=>a.localeCompare(b,"it")));
+  })(); return ()=>{ vivo=false; }; },[coltura.id,nome]);
+  const ALTRO="__altro__";
+  const semiPossibili = [
+    ...previsti.map(x=>({value:x,label:"📋 "+x+" (dal programma)"})),
+    ...catalogo.filter(x=>!previsti.includes(x)).map(x=>({value:x,label:x})),
+    {value:ALTRO,label:"✏️ Altro seme (scrivi il nome)"},
+  ];
+  const puoDosi = AMMETTE_DOSI.includes(coltura.coltura) || previsti.some(x=>/confezione|polimix/i.test(x));
 
   const salva = async()=>{
     const q = parseFloat(String(form.quantita).replace(",","."));
-    if(!form.seme){ setErrore("Scegli il seme"); return; }
+    const seme = form.seme===ALTRO ? (form.seme_altro||"").trim() : form.seme;
+    if(!seme){ setErrore(form.seme===ALTRO?"Scrivi il nome del seme":"Scegli il seme"); return; }
     if(!q || q<=0){ setErrore("Inserisci una quantita' maggiore di zero"); return; }
     const {error} = await supabase.from("semine").insert([{
       coltura_campo_id: coltura.id,
-      seme: form.seme,
+      seme,
       unita: form.unita||"quintali",
       quantita: q,
       data_semina: form.data_semina||null,
@@ -664,6 +685,8 @@ function Semina({coltura,ettari,semine,onRicarica}){
         border:`1.5px solid ${C.border}`}}>
         <Field label="Seme" required value={form.seme} options={semiPossibili}
           onChange={v=>setForm(f=>({...f,seme:v}))}/>
+        {form.seme===ALTRO && <Field label="Nome del seme" required value={form.seme_altro}
+          placeholder="es. Veccia villosa" onChange={v=>setForm(f=>({...f,seme_altro:v}))}/>}
         {puoDosi && (
           <div style={{marginBottom:12}}>
             <div style={{fontSize:12,fontWeight:600,color:C.muted,marginBottom:4}}>Unita' di misura</div>
@@ -696,7 +719,7 @@ function Semina({coltura,ettari,semine,onRicarica}){
       </div>
     ) : (
       <Btn label={composta?"Aggiungi seme":"Registra semina"} icon="+" small
-        onClick={()=>setForm({seme:composta?"":semiPossibili[0],unita:"quintali",data_semina:today()})}
+        onClick={()=>setForm({seme:previsti[0]||"",unita:"quintali",data_semina:today()})}
         style={{width:"100%",marginTop:10}}/>
     )}
 
