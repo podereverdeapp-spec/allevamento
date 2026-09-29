@@ -545,6 +545,8 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
     }
     return true;
   });
+  // v118 — con il filtro «Usciti» la lista va dalla uscita più recente alla più remota
+  if(filtroStato==="usciti") lista.sort((a,b)=>(b.data_uscita||"").localeCompare(a.data_uscita||""));
 
   // Calcolo razza automatico quando cambiano padre/madre
   const f=form||{};

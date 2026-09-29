@@ -266,7 +266,8 @@ export default function RegistroUscite() {
       if(a.stato==="attivo") return false;
       if(filtroUsciti!=="tutti"&&a.specie!==filtroUsciti) return false;
       return true;
-    })
+    // v118 — dalla uscita più recente alla più remota; senza data in fondo
+    }).sort((a,b)=>(b.data_uscita||"").localeCompare(a.data_uscita||""))
   ,[animali,filtroUsciti]);
 
   const totAttivi  = animali.filter(a=>a.stato==="attivo").length;
