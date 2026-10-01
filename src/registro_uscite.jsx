@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { t } from "./i18n";   // v119 — lingue
 import { supabase } from "./supabase";
 
 const C = {
@@ -42,7 +43,7 @@ const Card=({children,style={}})=>(
 );
 const Badge=({label,color})=>(
   <span style={{background:color+"22",color,border:`1px solid ${color}44`,
-    borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:700}}>{label}</span>
+    borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:700}}>{t(label)}</span>
 );
 const Btn=({label,icon,onClick,variant="primary",small=false,disabled=false})=>{
   const bg={primary:C.primary,danger:C.red,success:C.green,ghost:"transparent",outline:"transparent"}[variant]||C.primary;
@@ -54,21 +55,21 @@ const Btn=({label,icon,onClick,variant="primary",small=false,disabled=false})=>{
         borderRadius:10,padding:small?"6px 12px":"10px 18px",
         fontSize:small?13:15,fontWeight:600,cursor:disabled?"default":"pointer",
         opacity:disabled?0.5:1}}>
-      {icon&&<span>{icon}</span>}{label}
+      {icon&&<span>{icon}</span>}{t(label)}
     </button>
   );
 };
 const Field=({label,value,onChange,type="text",options,required,placeholder})=>(
   <div style={{marginBottom:12}}>
     <div style={{fontSize:12,fontWeight:600,color:C.muted,marginBottom:4}}>
-      {label}{required&&<span style={{color:C.red}}> *</span>}
+      {t(label)}{required&&<span style={{color:C.red}}> *</span>}
     </div>
     {options
       ?<select value={value??""} onChange={e=>onChange(e.target.value)} style={inputStyle}>
-          <option value="">— seleziona —</option>
-          {options.map(o=><option key={o} value={o}>{o}</option>)}
+          <option value="">{t("— seleziona —")}</option>
+          {options.map(o=><option key={o} value={o}>{t(o)}</option>)}
         </select>
-      :<input type={type} value={value??""} placeholder={placeholder||""}
+      :<input type={type} value={value??""} placeholder={t(placeholder)||""}
           onChange={e=>onChange(e.target.value)} style={inputStyle}/>
     }
   </div>
@@ -76,7 +77,7 @@ const Field=({label,value,onChange,type="text",options,required,placeholder})=>(
 const Spinner=()=>(
   <div style={{textAlign:"center",padding:60,color:C.muted}}>
     <div style={{fontSize:36,marginBottom:12}}>⏳</div>
-    <div>Caricamento animali...</div>
+    <div>{t("Caricamento animali...")}</div>
   </div>
 );
 
@@ -94,7 +95,7 @@ function FiltriSpecie({valore, onChange}) {
               border:`1.5px solid ${sel?col:C.border}`,
               borderRadius:20,padding:"5px 14px",fontSize:13,fontWeight:600,
               cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>
-            {s==="tutti"?"🐾 Tutti":specieIcon(s)+" "+specieLabel(s)}
+            {s==="tutti"?t("🐾 Tutti"):specieIcon(s)+" "+specieLabel(s)}
           </button>
         );
       })}
@@ -139,7 +140,7 @@ function FormUscita({animale, onSave, onCancel}) {
     const{error}=await supabase.from("animali").update(payload).eq("id",animale.id);
     setSaving(false);
     if(error){
-      alert(`⚠️ Errore nel salvataggio dell'uscita:\n\n${error.message}`);
+      alert(t("⚠️ Errore nel salvataggio dell'uscita:\n\n{0}",{0:(error.message)}));
       return;
     }
     onSave();
@@ -150,7 +151,7 @@ function FormUscita({animale, onSave, onCancel}) {
       minHeight:"100vh",maxWidth:480,margin:"0 auto",padding:"16px 16px 100px"}}>
       <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
         <button onClick={onCancel} style={{background:"none",border:"none",cursor:"pointer",fontSize:22}}>←</button>
-        <span style={{fontSize:18,fontWeight:800}}>Registra uscita</span>
+        <span style={{fontSize:18,fontWeight:800}}>{t("Registra uscita")}</span>
       </div>
       <Card style={{background:specieColor(animale.specie)+"12",
         borderLeft:`4px solid ${specieColor(animale.specie)}`}}>
@@ -158,39 +159,39 @@ function FormUscita({animale, onSave, onCancel}) {
           {specieIcon(animale.specie)} {animale.nome||animale.bdn}
         </div>
         <div style={{fontSize:13,color:C.muted}}>{animale.bdn} · {animale.razza||"—"}</div>
-        {animale.data_ingresso&&<div style={{fontSize:12,color:C.muted}}>📥 Ingresso: {animale.data_ingresso}</div>}
+        {animale.data_ingresso&&<div style={{fontSize:12,color:C.muted}}>{t("📥 Ingresso:")} {animale.data_ingresso}</div>}
       </Card>
 
-      <Field label="Motivo uscita" value={form.motivo_uscita} onChange={v=>setForm(f=>({...f,motivo_uscita:v}))}
+      <Field label={t("Motivo uscita")} value={form.motivo_uscita} onChange={v=>setForm(f=>({...f,motivo_uscita:v}))}
         options={["Macellato","Morto (cause naturali)","Morto (malattia)","Venduto vivo","Furto","Scappato","Trasferito","Altro"]}
         required/>
       {form.motivo_uscita==="Morto (malattia)"&&
-        <Field label="Causa (malattia/diagnosi)" value={form.causa_morte}
-          onChange={v=>setForm(f=>({...f,causa_morte:v}))} placeholder="Es. Polmonite, PRRS, setticemia..."/>}
-      <Field label="Nuovo stato" value={form.stato} onChange={v=>setForm(f=>({...f,stato:v}))}
+        <Field label={t("Causa (malattia/diagnosi)")} value={form.causa_morte}
+          onChange={v=>setForm(f=>({...f,causa_morte:v}))} placeholder={t("Es. Polmonite, PRRS, setticemia...")}/>}
+      <Field label={t("Nuovo stato")} value={form.stato} onChange={v=>setForm(f=>({...f,stato:v}))}
         options={["macellato","deceduto","venduto","trasferito"]}/>
-      <Field label="Data uscita" value={form.data_uscita} onChange={v=>setForm(f=>({...f,data_uscita:v}))} type="date"/>
+      <Field label={t("Data uscita")} value={form.data_uscita} onChange={v=>setForm(f=>({...f,data_uscita:v}))} type="date"/>
 
       {gg>0&&(
         <div style={{background:C.blue+"12",border:`1px solid ${C.blue}33`,borderRadius:10,
           padding:"8px 12px",marginBottom:12,fontSize:13}}>
-          📅 Permanenza: <strong style={{color:C.blue}}>{gg} giorni</strong>
-          {gg>=365&&<span style={{color:C.muted}}> ({(gg/365).toFixed(1)} anni)</span>}
+          {t("📅 Permanenza:")} <strong style={{color:C.blue}}>{gg} {t("giorni")}</strong>
+          {gg>=365&&<span style={{color:C.muted}}> ({(gg/365).toFixed(1)} {t("anni)")}</span>}
         </div>
       )}
 
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-        <Field label="Peso vivo (kg)" value={form.peso_vivo_uscita}
+        <Field label={t("Peso vivo (kg)")} value={form.peso_vivo_uscita}
           onChange={v=>setForm(f=>({...f,peso_vivo_uscita:v}))} type="number"/>
         {form.motivo_uscita==="Macellato"&&
-          <Field label="Peso carcassa (kg)" value={form.peso_carcassa}
+          <Field label={t("Peso carcassa (kg)")} value={form.peso_carcassa}
             onChange={v=>setForm(f=>({...f,peso_carcassa:v}))} type="number"/>}
       </div>
 
       {resa&&(
         <div style={{background:C.green+"12",border:`1px solid ${C.green}33`,borderRadius:10,
           padding:"8px 12px",marginBottom:12,fontSize:13}}>
-          ⚖️ Resa: <strong style={{color:C.green}}>{resa}%</strong>
+          {t("⚖️ Resa:")} <strong style={{color:C.green}}>{resa}%</strong>
         </div>
       )}
       {/* IPG - visualizzazione dinamica in fase di registrazione */}
@@ -202,18 +203,18 @@ function FormUscita({animale, onSave, onCancel}) {
         if(!ipgVivo&&!ipgCarc) return null;
         return (
           <div style={{background:C.primary+"12",borderRadius:8,padding:"6px 10px",marginBottom:8,fontSize:12,color:C.primary}}>
-            📈 Permanenza: <b>{gg} gg</b>
-            {ipgVivo&&<> · IPG vivo: <b>{ipgVivo} kg/gg</b></>}
-            {ipgCarc&&<> · IPG carcassa: <b>{ipgCarc} kg/gg</b></>}
+            {t("📈 Permanenza:")} <b>{gg} {t("gg")}</b>
+            {ipgVivo&&<> {t("· IPG vivo:")} <b>{ipgVivo} {t("kg/gg")}</b></>}
+            {ipgCarc&&<> {t("· IPG carcassa:")} <b>{ipgCarc} {t("kg/gg")}</b></>}
           </div>
         );
       })()}
 
-      <Field label="Note" value={form.note} onChange={v=>setForm(f=>({...f,note:v}))}/>
+      <Field label={t("Note")} value={form.note} onChange={v=>setForm(f=>({...f,note:v}))}/>
       <div style={{display:"flex",gap:10,marginTop:16}}>
-        <Btn label={saving?"Salvataggio...":"Registra uscita"} icon="✓" onClick={salva}
+        <Btn label={saving?t("Salvataggio..."):t("Registra uscita")} icon="✓" onClick={salva}
           variant="success" disabled={saving||!form.motivo_uscita}/>
-        <Btn label="Annulla" onClick={onCancel} variant="ghost"/>
+        <Btn label={t("Annulla")} onClick={onCancel} variant="ghost"/>
       </div>
     </div>
   );
@@ -289,9 +290,9 @@ export default function RegistroUscite() {
       {/* Header */}
       <div style={{background:`linear-gradient(135deg,${C.primary},${C.accent})`,
         borderRadius:"0 0 28px 28px",padding:"24px 20px 20px"}}>
-        <div style={{fontSize:22,fontWeight:800,color:"#FFF"}}>📤 Registro Uscite</div>
+        <div style={{fontSize:22,fontWeight:800,color:"#FFF"}}>{t("📤 Registro Uscite")}</div>
         <div style={{fontSize:14,color:"rgba(255,255,255,0.75)",marginTop:4}}>
-          {usciti.length} usciti · {totAttivi} in stalla
+          {usciti.length} {t("usciti ·")} {totAttivi} {t("in stalla")}
         </div>
       </div>
 
@@ -329,8 +330,8 @@ export default function RegistroUscite() {
                 onChange={e=>setCerca(e.target.value)}
                 placeholder={
                   filtroSpecie==="suino"
-                    ?"Cerca per nome, matricola, ultime 4 cifre o lotto..."
-                    :"Cerca per nome, matricola, ultime 4 cifre o razza..."
+                    ?t("Cerca per nome, matricola, ultime 4 cifre o lotto...")
+                    :t("Cerca per nome, matricola, ultime 4 cifre o razza...")
                 }
                 style={{...inputStyle,
                   border:`2px solid ${cerca?C.primary:C.border}`,
@@ -351,7 +352,7 @@ export default function RegistroUscite() {
                 color:attivi.length>0?C.green:C.red,
                 background:attivi.length>0?C.green+"12":C.red+"12",
                 borderRadius:8,padding:"4px 10px",display:"inline-block"}}>
-                {attivi.length>0?`✓ ${attivi.length} trovato/i`:"Nessun risultato"}
+                {attivi.length>0?t("✓ {0} trovato/i",{0:(attivi.length)}):t("Nessun risultato")}
               </div>
             )}
 
@@ -361,16 +362,16 @@ export default function RegistroUscite() {
             ):totAttivi===0?(
               <div style={{textAlign:"center",padding:40,color:C.muted}}>
                 <div style={{fontSize:40,marginBottom:8}}>🐄</div>
-                <div>Nessun animale in stalla</div>
+                <div>{t("Nessun animale in stalla")}</div>
               </div>
             ):attivi.length===0?(
               <div style={{textAlign:"center",padding:32,color:C.muted}}>
                 <div style={{fontSize:36,marginBottom:8}}>🔍</div>
-                <div>Nessun animale trovato</div>
+                <div>{t("Nessun animale trovato")}</div>
                 <button onClick={()=>{setCerca("");setFiltroSpecie("tutti");}}
                   style={{marginTop:10,background:C.primary,color:"#FFF",border:"none",
                     borderRadius:10,padding:"8px 16px",cursor:"pointer",fontSize:13}}>
-                  Mostra tutti
+                  {t("Mostra tutti")}
                 </button>
               </div>
             ):(
@@ -391,12 +392,12 @@ export default function RegistroUscite() {
                           <Badge label={specieLabel(a.specie)} color={specieColor(a.specie)}/>
                           <Badge label={a.sesso==="M"?"♂":"♀"} color={a.sesso==="M"?C.blue:"#B5547A"}/>
                           {a.categoria&&<Badge label={a.categoria} color={C.muted}/>}
-                          {a.peso_attuale&&<Badge label={a.peso_attuale+"kg"} color={C.muted}/>}
-                          {a.lotto_box&&<Badge label={"Lotto: "+a.lotto_box} color={C.suini}/>}
+                          {a.peso_attuale&&<Badge label={a.peso_attuale+t("kg")} color={C.muted}/>}
+                          {a.lotto_box&&<Badge label={t("Lotto: ")+a.lotto_box} color={C.suini}/>}
                         </div>
                       </div>
                     </div>
-                    <Btn label="Uscita" icon="📤" onClick={()=>setFormUscita(a)}
+                    <Btn label={t("Uscita")} icon="📤" onClick={()=>setFormUscita(a)}
                       variant="danger" small/>
                   </div>
                 </Card>
@@ -415,7 +416,7 @@ export default function RegistroUscite() {
             {macellati.length>0&&(
               <Card style={{background:`linear-gradient(135deg,${C.bovini}15,${C.card})`}}>
                 <div style={{fontSize:12,fontWeight:700,color:C.muted,marginBottom:10}}>
-                  🔪 MACELLAZIONI ({macellati.length} capi{filtroUsciti!=="tutti"?" · "+specieLabel(filtroUsciti):""})
+                  {t("🔪 MACELLAZIONI (")}{macellati.length} {t("capi")}{filtroUsciti!=="tutti"?" · "+specieLabel(filtroUsciti):""})
                 </div>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
                   {[
@@ -426,7 +427,7 @@ export default function RegistroUscite() {
                     <div key={s.label} style={{textAlign:"center",
                       background:s.col+"12",borderRadius:10,padding:"8px 4px"}}>
                       <div style={{fontSize:16,fontWeight:800,color:s.col}}>{s.val}</div>
-                      <div style={{fontSize:10,color:C.muted}}>{s.label}</div>
+                      <div style={{fontSize:10,color:C.muted}}>{t(s.label)}</div>
                     </div>
                   ))}
                 </div>
@@ -440,8 +441,8 @@ export default function RegistroUscite() {
                 <div style={{fontSize:40,marginBottom:8}}>📤</div>
                 <div>
                   {filtroUsciti!=="tutti"
-                    ?"Nessuna uscita per "+specieLabel(filtroUsciti)
-                    :"Nessuna uscita registrata"}
+                    ?t("Nessuna uscita per ")+specieLabel(filtroUsciti)
+                    :t("Nessuna uscita registrata")}
                 </div>
               </div>
             ):(
@@ -465,7 +466,7 @@ export default function RegistroUscite() {
                       </div>
                       <div style={{textAlign:"right",flexShrink:0}}>
                         {a.data_uscita&&<div style={{fontSize:13,color:C.muted}}>{a.data_uscita}</div>}
-                        {gg>0&&<div style={{fontSize:11,color:C.blue}}>{gg}gg stalla</div>}
+                        {gg>0&&<div style={{fontSize:11,color:C.blue}}>{gg}{t("gg stalla")}</div>}
                       </div>
                     </div>
                     <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:6}}>
@@ -474,8 +475,8 @@ export default function RegistroUscite() {
                     </div>
                     {(a.peso_vivo_uscita||a.peso_carcassa)&&(
                       <div style={{display:"flex",gap:12,fontSize:13,color:C.muted,marginTop:4,flexWrap:"wrap"}}>
-                        {a.peso_vivo_uscita&&<span>⚖️ Vivo: <b>{a.peso_vivo_uscita}kg</b></span>}
-                        {a.peso_carcassa&&<span>🥩 Carcassa: <b>{a.peso_carcassa}kg</b></span>}
+                        {a.peso_vivo_uscita&&<span>{t("⚖️ Vivo:")} <b>{a.peso_vivo_uscita}{t("kg")}</b></span>}
+                        {a.peso_carcassa&&<span>{t("🥩 Carcassa:")} <b>{a.peso_carcassa}{t("kg")}</b></span>}
                         {a.resa_percent&&<span style={{color:C.green}}>↩ <b>{a.resa_percent}%</b></span>}
                       </div>
                     )}
@@ -488,9 +489,9 @@ export default function RegistroUscite() {
                       if(!ipgVivo&&!ipgCarc) return null;
                       return (
                         <div style={{display:"flex",gap:12,fontSize:12,color:C.muted,marginTop:3,flexWrap:"wrap"}}>
-                          <span style={{color:C.primary}}>📈 {gg}gg</span>
-                          {ipgVivo&&<span>IPG vivo: <b>{ipgVivo} kg/gg</b></span>}
-                          {ipgCarc&&<span>IPG carcassa: <b>{ipgCarc} kg/gg</b></span>}
+                          <span style={{color:C.primary}}>📈 {gg}{t("gg")}</span>
+                          {ipgVivo&&<span>{t("IPG vivo:")} <b>{ipgVivo} {t("kg/gg")}</b></span>}
+                          {ipgCarc&&<span>{t("IPG carcassa:")} <b>{ipgCarc} {t("kg/gg")}</b></span>}
                         </div>
                       );
                     })()}
@@ -499,34 +500,34 @@ export default function RegistroUscite() {
                       <button onClick={()=>setFormUscita(a)}
                         style={{flex:1,background:C.blue+"18",border:"none",borderRadius:8,
                           padding:"7px 4px",cursor:"pointer",fontSize:11,fontWeight:700,color:C.blue}}>
-                        ✏️ Modifica
+                        {t("✏️ Modifica")}
                       </button>
                       <button onClick={async()=>{
-                          if(!window.confirm(`Annullare l'uscita di ${a.nome||a.bdn} e riportarla ad "attivo"?\nI dati di uscita (data, motivo, pesi) verranno cancellati.`)) return;
+                          if(!window.confirm(t("Annullare l'uscita di {0} e riportarla ad \"attivo\"?\nI dati di uscita (data, motivo, pesi) verranno cancellati.",{0:(a.nome||a.bdn)}))) return;
                           const{error}=await supabase.from("animali").update({
                             stato:"attivo", vivo:true,
                             motivo_uscita:null, causa_morte:null, data_uscita:null,
                             peso_vivo_uscita:null, peso_carcassa:null, resa_percent:null,
                           }).eq("id",a.id);
-                          if(error){ alert(`⚠️ Errore nell'annullamento:\n\n${error.message}`); return; }
+                          if(error){ alert(t("⚠️ Errore nell'annullamento:\n\n{0}",{0:(error.message)})); return; }
                           carica();
                         }}
                         style={{flex:1,background:C.green+"18",border:"none",borderRadius:8,
                           padding:"7px 4px",cursor:"pointer",fontSize:11,fontWeight:700,color:C.green}}>
-                        ↩️ Annulla
+                        {t("↩️ Annulla")}
                       </button>
                       <button onClick={async()=>{
-                          if(!window.confirm(`Eliminare DEFINITIVAMENTE la scheda di ${a.nome||a.bdn} (${a.bdn})?\nUsa questa opzione solo se l'animale è già stato reinserito altrove — questa operazione non è reversibile.`)) return;
+                          if(!window.confirm(t("Eliminare DEFINITIVAMENTE la scheda di {0} ({1})?\nUsa questa opzione solo se l'animale è già stato reinserito altrove — questa operazione non è reversibile.",{0:(a.nome||a.bdn),1:(a.bdn)}))) return;
                           const{error}=await supabase.from("animali").delete().eq("id",a.id);
                           if(error){
-                            alert(`⚠️ Impossibile eliminare:\n\n${error.message}\n\nProbabile causa: la scheda è ancora collegata a un lotto (come madre/padre) o a un evento riproduttivo/sanitario.`);
+                            alert(t("⚠️ Impossibile eliminare:\n\n{0}\n\nProbabile causa: la scheda è ancora collegata a un lotto (come madre/padre) o a un evento riproduttivo/sanitario.",{0:(error.message)}));
                             return;
                           }
                           carica();
                         }}
                         style={{flex:1,background:"#00000015",border:"none",borderRadius:8,
                           padding:"7px 4px",cursor:"pointer",fontSize:11,fontWeight:700,color:C.muted}}>
-                        🗑️ Elimina
+                        {t("🗑️ Elimina")}
                       </button>
                     </div>
                   </Card>

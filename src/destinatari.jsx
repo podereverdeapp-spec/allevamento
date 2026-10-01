@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { t } from "./i18n";   // v119 — lingue
 import { supabase } from "./supabase";
 
 const C = {
@@ -33,7 +34,7 @@ export default function Destinatari() {
   useEffect(()=>{ carica(); }, []);
 
   const salva = async () => {
-    if (!form.email || !form.nome) { alert("Nome ed email obbligatori"); return; }
+    if (!form.email || !form.nome) { alert(t("Nome ed email obbligatori")); return; }
     setSaving(true);
     if (form.id) {
       await supabase.from("destinatari_email").update({
@@ -56,7 +57,7 @@ export default function Destinatari() {
   };
 
   const elimina = async (id) => {
-    if (!window.confirm("Eliminare questo destinatario? L'operazione è definitiva.")) return;
+    if (!window.confirm(t("Eliminare questo destinatario? L'operazione è definitiva."))) return;
     await supabase.from("destinatari_email").delete().eq("id", id);
     carica();
   };
@@ -69,8 +70,8 @@ export default function Destinatari() {
   const [inviandoTest, setInviandoTest] = useState(false);
   const testInvio = async () => {
     if (!window.confirm(
-      "Verrà inviata un'email di TEST a tutti i destinatari attivi con permesso Report.\n\n" +
-      "Vuoi procedere?"
+      t("Verrà inviata un'email di TEST a tutti i destinatari attivi con permesso Report.\n\n") +
+      t("Vuoi procedere?")
     )) return;
     setInviandoTest(true);
     try {
@@ -99,17 +100,17 @@ export default function Destinatari() {
         }
         alert(msg);
       } else {
-        alert(`⚠️ Errore durante il test:\n\n${data.error || JSON.stringify(data, null, 2)}`);
+        alert(t("⚠️ Errore durante il test:\n\n{0}",{0:(data.error || JSON.stringify(data, null, 2))}));
       }
       carica(); // ricarica log
     } catch (e) {
-      alert(`⚠️ Errore di connessione:\n\n${e.message}`);
+      alert(t("⚠️ Errore di connessione:\n\n{0}",{0:(e.message)}));
     }
     setInviandoTest(false);
   };
 
   if (loading) {
-    return <div style={{textAlign:"center",padding:60,color:C.muted}}>⏳ Caricamento...</div>;
+    return <div style={{textAlign:"center",padding:60,color:C.muted}}>{t("⏳ Caricamento...")}</div>;
   }
 
   // ── FORM MODIFICA/NUOVO ───────────────────────────────────────────────────
@@ -118,28 +119,28 @@ export default function Destinatari() {
       <div style={{padding:"16px 16px 80px"}}>
         <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
           <button onClick={()=>setForm(null)} style={{background:"none",border:"none",cursor:"pointer",fontSize:22}}>←</button>
-          <span style={{fontSize:18,fontWeight:800}}>{form.id?"Modifica destinatario":"Nuovo destinatario"}</span>
+          <span style={{fontSize:18,fontWeight:800}}>{form.id?t("Modifica destinatario"):t("Nuovo destinatario")}</span>
         </div>
         <div style={{background:C.card,borderRadius:16,padding:14,marginBottom:12,border:`1px solid ${C.border}`}}>
-          <label style={{fontSize:12,fontWeight:700,color:C.muted}}>NOME *</label>
+          <label style={{fontSize:12,fontWeight:700,color:C.muted}}>{t("NOME *")}</label>
           <input type="text" value={form.nome||""} onChange={e=>setForm(f=>({...f,nome:e.target.value}))}
-            placeholder="Es. Mario Rossi"
+            placeholder={t("Es. Mario Rossi")}
             style={{width:"100%",boxSizing:"border-box",border:`1.5px solid ${C.border}`,
               borderRadius:10,padding:"9px 12px",fontSize:14,marginBottom:12,marginTop:4}}/>
 
-          <label style={{fontSize:12,fontWeight:700,color:C.muted}}>EMAIL *</label>
+          <label style={{fontSize:12,fontWeight:700,color:C.muted}}>{t("EMAIL *")}</label>
           <input type="email" value={form.email||""} onChange={e=>setForm(f=>({...f,email:e.target.value.toLowerCase().trim()}))}
-            placeholder="mario.rossi@esempio.it"
+            placeholder={t("mario.rossi@esempio.it")}
             style={{width:"100%",boxSizing:"border-box",border:`1.5px solid ${C.border}`,
               borderRadius:10,padding:"9px 12px",fontSize:14,marginBottom:12,marginTop:4}}/>
 
-          <label style={{fontSize:12,fontWeight:700,color:C.muted}}>RUOLO</label>
+          <label style={{fontSize:12,fontWeight:700,color:C.muted}}>{t("RUOLO")}</label>
           <input type="text" value={form.ruolo||""} onChange={e=>setForm(f=>({...f,ruolo:e.target.value}))}
-            placeholder="Es. Commercialista, Direttore, Consulente..."
+            placeholder={t("Es. Commercialista, Direttore, Consulente...")}
             style={{width:"100%",boxSizing:"border-box",border:`1.5px solid ${C.border}`,
               borderRadius:10,padding:"9px 12px",fontSize:14,marginBottom:16,marginTop:4}}/>
 
-          <div style={{fontSize:12,fontWeight:700,color:C.muted,marginBottom:8}}>COSA DEVE RICEVERE</div>
+          <div style={{fontSize:12,fontWeight:700,color:C.muted,marginBottom:8}}>{t("COSA DEVE RICEVERE")}</div>
           {[
             {k:"riceve_report",l:"📊 Report mensili completi",d:"Report Excel di tutte le sezioni + link Google Drive"},
             {k:"riceve_backup",l:"💾 Backup database mensile",d:"File SQL con backup completo del database (per archivio)"},
@@ -163,9 +164,9 @@ export default function Destinatari() {
           ))}
 
           <div style={{marginTop:16,marginBottom:12}}>
-            <label style={{fontSize:12,fontWeight:700,color:C.muted}}>NOTE</label>
+            <label style={{fontSize:12,fontWeight:700,color:C.muted}}>{t("NOTE")}</label>
             <textarea value={form.note||""} onChange={e=>setForm(f=>({...f,note:e.target.value}))}
-              placeholder="Note interne (opzionale)"
+              placeholder={t("Note interne (opzionale)")}
               rows={2}
               style={{width:"100%",boxSizing:"border-box",border:`1.5px solid ${C.border}`,
                 borderRadius:10,padding:"9px 12px",fontSize:13,marginTop:4,resize:"vertical"}}/>
@@ -185,7 +186,7 @@ export default function Destinatari() {
                   transition:"left 0.2s"}}/>
               </div>
               <span style={{fontSize:13,fontWeight:600,color:form.attivo!==false?C.green:C.red}}>
-                {form.attivo!==false?"✅ Destinatario ATTIVO":"⛔ Destinatario DISATTIVATO"}
+                {form.attivo!==false?t("✅ Destinatario ATTIVO"):t("⛔ Destinatario DISATTIVATO")}
               </span>
             </div>
           )}
@@ -195,12 +196,12 @@ export default function Destinatari() {
           <button onClick={salva} disabled={saving}
             style={{background:C.green,color:"#FFF",border:"none",borderRadius:12,
               padding:"12px 24px",fontSize:15,fontWeight:700,cursor:"pointer",flex:1}}>
-            {saving?"⏳ Salvataggio...":"✓ Salva"}
+            {saving?t("⏳ Salvataggio..."):t("✓ Salva")}
           </button>
           <button onClick={()=>setForm(null)}
             style={{background:C.card,color:C.muted,border:`1.5px solid ${C.border}`,
               borderRadius:12,padding:"12px 20px",fontSize:14,cursor:"pointer"}}>
-            Annulla
+            {t("Annulla")}
           </button>
         </div>
       </div>
@@ -213,14 +214,14 @@ export default function Destinatari() {
       <div style={{padding:"16px 16px 80px"}}>
         <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
           <button onClick={()=>setShowLogs(false)} style={{background:"none",border:"none",cursor:"pointer",fontSize:22}}>←</button>
-          <span style={{fontSize:18,fontWeight:800}}>📋 Storico invii</span>
+          <span style={{fontSize:18,fontWeight:800}}>{t("📋 Storico invii")}</span>
         </div>
         {logs.length===0 ? (
           <div style={{textAlign:"center",padding:40,color:C.muted}}>
             <div style={{fontSize:36,marginBottom:8}}>📭</div>
-            <div>Nessun invio registrato</div>
+            <div>{t("Nessun invio registrato")}</div>
             <div style={{fontSize:12,marginTop:8}}>
-              Gli invii mensili appariranno qui una volta configurato il sistema
+              {t("Gli invii mensili appariranno qui una volta configurato il sistema")}
             </div>
           </div>
         ) : logs.map(l=>{
@@ -237,10 +238,10 @@ export default function Destinatari() {
                 <span style={{fontSize:11,color:C.muted}}>{dt.toLocaleString("it-IT")}</span>
               </div>
               <div style={{fontSize:13,color:C.text,marginBottom:4}}>
-                Mese: <b>{l.mese_riferimento||"—"}</b> · Stato: <b>{l.stato}</b>
+                {t("Mese:")} <b>{l.mese_riferimento||"—"}</b> {t("· Stato:")} <b>{t(l.stato)}</b>
               </div>
               <div style={{fontSize:11,color:C.muted}}>
-                Destinatari: {(l.destinatari||[]).length} · File: {(l.files_generati||[]).length}
+                {t("Destinatari:")} {(l.destinatari||[]).length} {t("· File:")} {(l.files_generati||[]).length}
               </div>
               {l.errore&&(
                 <div style={{fontSize:11,color:C.red,marginTop:4,padding:6,
@@ -263,16 +264,16 @@ export default function Destinatari() {
       {/* Header */}
       <div style={{background:`linear-gradient(135deg,${C.primary},${C.accent})`,
         borderRadius:20,padding:"18px 16px",marginBottom:16,color:"#FFF"}}>
-        <div style={{fontSize:20,fontWeight:800,marginBottom:4}}>📮 Report Mensili</div>
+        <div style={{fontSize:20,fontWeight:800,marginBottom:4}}>{t("📮 Report Mensili")}</div>
         <div style={{fontSize:13,color:"rgba(255,255,255,0.85)"}}>
-          Gestione destinatari e invio automatico report + backup
+          {t("Gestione destinatari e invio automatico report + backup")}
         </div>
         <div style={{display:"flex",gap:8,marginTop:12,flexWrap:"wrap"}}>
           <div style={{background:"rgba(255,255,255,0.2)",borderRadius:10,padding:"6px 12px",fontSize:12}}>
-            👥 {attivi.length} destinatari attivi
+            👥 {attivi.length} {t("destinatari attivi")}
           </div>
           <div style={{background:"rgba(255,255,255,0.2)",borderRadius:10,padding:"6px 12px",fontSize:12}}>
-            📅 Invio: 1° del mese ore 06:00
+            {t("📅 Invio: 1° del mese ore 06:00")}
           </div>
         </div>
       </div>
@@ -283,21 +284,20 @@ export default function Destinatari() {
         borderLeft:`5px solid ${config.drive_folder_url?C.green:C.yellow}`}}>
         <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:6}}>
           <span style={{fontSize:18}}>📁</span>
-          <span style={{fontWeight:700,fontSize:14}}>Cartella Google Drive</span>
+          <span style={{fontWeight:700,fontSize:14}}>{t("Cartella Google Drive")}</span>
           {config.drive_folder_url ?
-            <span style={{fontSize:11,color:C.green,fontWeight:700,marginLeft:"auto"}}>✓ Configurata</span>
+            <span style={{fontSize:11,color:C.green,fontWeight:700,marginLeft:"auto"}}>{t("✓ Configurata")}</span>
           :
-            <span style={{fontSize:11,color:C.yellow,fontWeight:700,marginLeft:"auto"}}>⚠ Da configurare</span>
+            <span style={{fontSize:11,color:C.yellow,fontWeight:700,marginLeft:"auto"}}>{t("⚠ Da configurare")}</span>
           }
         </div>
         <input type="text" value={config.drive_folder_url||""}
           onChange={e=>salvaConfig("drive_folder_url", e.target.value)}
-          placeholder="Incolla qui il link della cartella Drive"
+          placeholder={t("Incolla qui il link della cartella Drive")}
           style={{width:"100%",boxSizing:"border-box",border:`1px solid ${C.border}`,
             borderRadius:8,padding:"7px 10px",fontSize:12,fontFamily:"monospace"}}/>
         <div style={{fontSize:11,color:C.muted,marginTop:6,lineHeight:1.4}}>
-          Crea su Drive la cartella <b>"Podere Verde — Archivio Report"</b>,
-          condividila con i destinatari come "Visualizzatore" e incolla qui il link.
+          {t("Crea su Drive la cartella")} <b>{t("\"Podere Verde — Archivio Report\"")}</b>{t(", condividila con i destinatari come \"Visualizzatore\" e incolla qui il link.")}
         </div>
       </div>
 
@@ -317,10 +317,10 @@ export default function Destinatari() {
               justifyContent:"space-between",alignItems:"center"}}>
               <div>
                 <div style={{fontSize:13,fontWeight:700,color:C.green}}>
-                  ✅ Upload di questo mese confermato
+                  {t("✅ Upload di questo mese confermato")}
                 </div>
                 <div style={{fontSize:11,color:C.muted,marginTop:2}}>
-                  Report caricati su Drive per {meseCorrente}
+                  {t("Report caricati su Drive per")} {meseCorrente}
                 </div>
               </div>
             </div>
@@ -334,11 +334,10 @@ export default function Destinatari() {
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>
               <div style={{flex:1}}>
                 <div style={{fontSize:13,fontWeight:700,color:inFinestraPromemoria?C.yellow:C.muted}}>
-                  {inFinestraPromemoria?"⏰ Promemoria: ":""}📁 Carica i report su Google Drive
+                  {inFinestraPromemoria?t("⏰ Promemoria: "):""}{t("📁 Carica i report su Google Drive")}
                 </div>
                 <div style={{fontSize:11,color:C.muted,marginTop:2}}>
-                  Genera gli Excel dal tab 📥 Esporta e caricali nella cartella del mese {meseCorrente}.
-                  Poi conferma qui sotto.
+                  {t("Genera gli Excel dal tab 📥 Esporta e caricali nella cartella del mese")} {meseCorrente}{t(". Poi conferma qui sotto.")}
                 </div>
               </div>
               <button onClick={async()=>{
@@ -347,7 +346,7 @@ export default function Destinatari() {
                 style={{background:C.green,color:"#FFF",border:"none",borderRadius:16,
                   padding:"8px 14px",fontSize:12,fontWeight:700,cursor:"pointer",
                   whiteSpace:"nowrap",flexShrink:0}}>
-                ✓ Fatto
+                {t("✓ Fatto")}
               </button>
             </div>
           </div>
@@ -359,29 +358,29 @@ export default function Destinatari() {
         <button onClick={()=>setForm({attivo:true,riceve_report:true,riceve_backup:false,riceve_alert:false})}
           style={{background:C.green,color:"#FFF",border:"none",borderRadius:20,
             padding:"8px 14px",fontSize:13,fontWeight:700,cursor:"pointer"}}>
-          ➕ Nuovo destinatario
+          {t("➕ Nuovo destinatario")}
         </button>
         <button onClick={testInvio} disabled={inviandoTest}
           style={{background:C.blue,color:"#FFF",border:"none",borderRadius:20,
             padding:"8px 14px",fontSize:13,fontWeight:700,
             cursor:inviandoTest?"wait":"pointer",opacity:inviandoTest?0.7:1}}>
-          {inviandoTest?"⏳ Invio in corso...":"🧪 Test invio"}
+          {inviandoTest?t("⏳ Invio in corso..."):t("🧪 Test invio")}
         </button>
         <button onClick={()=>setShowLogs(true)}
           style={{background:C.card,color:C.primary,border:`1.5px solid ${C.primary}`,
             borderRadius:20,padding:"8px 14px",fontSize:13,fontWeight:700,cursor:"pointer"}}>
-          📋 Storico invii ({logs.length})
+          {t("📋 Storico invii (")}{logs.length})
         </button>
       </div>
 
       {/* Lista destinatari */}
       <div style={{fontSize:12,fontWeight:700,color:C.muted,marginBottom:8,textTransform:"uppercase",letterSpacing:1}}>
-        Destinatari registrati ({destinatari.length})
+        {t("Destinatari registrati (")}{destinatari.length})
       </div>
       {destinatari.length===0 ? (
         <div style={{textAlign:"center",padding:40,color:C.muted}}>
           <div style={{fontSize:36,marginBottom:8}}>📭</div>
-          <div>Nessun destinatario registrato</div>
+          <div>{t("Nessun destinatario registrato")}</div>
         </div>
       ) : destinatari.map(d=>(
         <div key={d.id} onClick={()=>setForm({...d})}
@@ -394,17 +393,17 @@ export default function Destinatari() {
               <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",marginBottom:3}}>
                 <span style={{fontWeight:700,fontSize:14}}>{d.nome}</span>
                 {d.attivo===false&&<span style={{fontSize:10,background:C.red+"22",color:C.red,
-                  padding:"1px 6px",borderRadius:6,fontWeight:700}}>DISATTIVO</span>}
+                  padding:"1px 6px",borderRadius:6,fontWeight:700}}>{t("DISATTIVO")}</span>}
               </div>
               <div style={{fontSize:12,color:C.muted,marginBottom:3}}>{d.email}</div>
               {d.ruolo&&<div style={{fontSize:11,color:C.accent,fontWeight:600,marginBottom:4}}>{d.ruolo}</div>}
               <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
                 {d.riceve_report&&<span style={{fontSize:10,background:C.blue+"18",color:C.blue,
-                  padding:"2px 7px",borderRadius:6,fontWeight:700}}>📊 Report</span>}
+                  padding:"2px 7px",borderRadius:6,fontWeight:700}}>{t("📊 Report")}</span>}
                 {d.riceve_backup&&<span style={{fontSize:10,background:C.primary+"18",color:C.primary,
-                  padding:"2px 7px",borderRadius:6,fontWeight:700}}>💾 Backup</span>}
+                  padding:"2px 7px",borderRadius:6,fontWeight:700}}>{t("💾 Backup")}</span>}
                 {d.riceve_alert&&<span style={{fontSize:10,background:C.red+"18",color:C.red,
-                  padding:"2px 7px",borderRadius:6,fontWeight:700}}>🚨 Alert</span>}
+                  padding:"2px 7px",borderRadius:6,fontWeight:700}}>{t("🚨 Alert")}</span>}
               </div>
             </div>
             <button onClick={(e)=>{e.stopPropagation();elimina(d.id);}}
@@ -417,9 +416,7 @@ export default function Destinatari() {
       {/* Info riepilogo */}
       <div style={{background:C.blue+"10",border:`1px solid ${C.blue}33`,
         borderRadius:12,padding:12,marginTop:16,fontSize:12,color:C.text}}>
-        ℹ️ <b>Il 1° di ogni mese alle 06:00</b> l'app genererà automaticamente tutti i report Excel
-        del mese chiuso, un backup SQL del database, li caricherà nella cartella Google Drive
-        e invierà email di notifica ai destinatari attivi in base al loro tipo di ricezione.
+        ℹ️ <b>{t("Il 1° di ogni mese alle 06:00")}</b> {t("l'app genererà automaticamente tutti i report Excel del mese chiuso, un backup SQL del database, li caricherà nella cartella Google Drive e invierà email di notifica ai destinatari attivi in base al loro tipo di ricezione.")}
       </div>
     </div>
   );

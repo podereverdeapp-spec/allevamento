@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { t } from "./i18n";   // v119 — lingue
 import * as XLSX from "xlsx-js-style";
 import { supabase } from "./supabase";
 
@@ -1509,9 +1510,9 @@ export default function ExportManager() {
       {/* Header */}
       <div style={{background:`linear-gradient(135deg,${C.primary},${C.accent})`,
         borderRadius:"0 0 28px 28px",padding:"24px 20px 20px",marginBottom:20}}>
-        <div style={{fontSize:22,fontWeight:800,color:"#FFF"}}>📥 Esporta Dati</div>
+        <div style={{fontSize:22,fontWeight:800,color:"#FFF"}}>{t("📥 Esporta Dati")}</div>
         <div style={{fontSize:14,color:"rgba(255,255,255,0.75)",marginTop:4}}>
-          Seleziona le sezioni da includere nel file Excel
+          {t("Seleziona le sezioni da includere nel file Excel")}
         </div>
       </div>
 
@@ -1521,7 +1522,7 @@ export default function ExportManager() {
         <div style={{background:C.card,borderRadius:16,padding:16,marginBottom:16,
           border:`1px solid ${C.border}`}}>
           <div style={{fontSize:13,fontWeight:700,color:C.muted,marginBottom:10}}>
-            📅 FILTRO DATA (opzionale)
+            {t("📅 FILTRO DATA (opzionale)")}
           </div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
             {[["Da:",dataDa,setDataDa],["A:",dataA,setDataA]].map(([lbl,val,set])=>(
@@ -1535,7 +1536,7 @@ export default function ExportManager() {
             ))}
           </div>
           <div style={{fontSize:11,color:C.muted,marginTop:8}}>
-            Si applica a: registro sanitario, alimentazione, parti, costi animali
+            {t("Si applica a: registro sanitario, alimentazione, parti, costi animali")}
           </div>
         </div>
 
@@ -1543,7 +1544,7 @@ export default function ExportManager() {
         <div style={{background:C.card,borderRadius:16,padding:16,marginBottom:16,
           border:`1px solid ${C.border}`}}>
           <div style={{fontSize:13,fontWeight:700,color:C.muted,marginBottom:10}}>
-            📆 ANNO DI RIFERIMENTO (fogli UBA e Costi Acquisto)
+            {t("📆 ANNO DI RIFERIMENTO (fogli UBA e Costi Acquisto)")}
           </div>
           <input type="number" value={annoUba} onChange={e=>setAnnoUba(parseInt(e.target.value)||new Date().getFullYear())}
             min="2000" max={new Date().getFullYear()}
@@ -1551,8 +1552,7 @@ export default function ExportManager() {
               borderRadius:10,padding:"8px 10px",fontSize:14,background:"#FAFAF8",
               color:C.text,outline:"none"}}/>
           <div style={{fontSize:11,color:C.muted,marginTop:8}}>
-            Il report UBA considera tutti gli animali presenti in quell'anno (anche già usciti dopo),
-            limitando il conteggio dei giorni al solo periodo di reale presenza nell'anno scelto.
+            {t("Il report UBA considera tutti gli animali presenti in quell'anno (anche già usciti dopo), limitando il conteggio dei giorni al solo periodo di reale presenza nell'anno scelto.")}
           </div>
         </div>
 
@@ -1561,12 +1561,12 @@ export default function ExportManager() {
           <button onClick={selAll}
             style={{background:C.primary,color:"#FFF",border:"none",borderRadius:10,
               padding:"7px 14px",fontSize:13,fontWeight:600,cursor:"pointer"}}>
-            ☑ Seleziona tutto
+            {t("☑ Seleziona tutto")}
           </button>
           <button onClick={deselAll}
             style={{background:C.card,color:C.muted,border:`1.5px solid ${C.border}`,
               borderRadius:10,padding:"7px 14px",fontSize:13,fontWeight:600,cursor:"pointer"}}>
-            ☐ Deseleziona tutto
+            {t("☐ Deseleziona tutto")}
           </button>
         </div>
 
@@ -1589,7 +1589,7 @@ export default function ExportManager() {
                 <span style={{fontSize:18}}>{s.icon}</span>
                 <div style={{flex:1}}>
                   <div style={{fontWeight:600,fontSize:14,
-                    color:sel.has(s.id)?C.primary:C.text}}>{s.label}</div>
+                    color:sel.has(s.id)?C.primary:C.text}}>{t(s.label)}</div>
                 </div>
               </div>
             ))}
@@ -1603,13 +1603,13 @@ export default function ExportManager() {
             cursor:sel.size>0?"pointer":"default",marginTop:8,
             boxShadow:sel.size>0?"0 4px 16px rgba(74,124,89,0.35)":"none"}}>
           {loading
-            ?"⏳ Generazione in corso..."
+            ?t("⏳ Generazione in corso...")
             :sel.size===0
-              ?"Seleziona almeno una sezione"
-              :`📥 Genera Excel (${sel.size} fogli)`}
+              ?t("Seleziona almeno una sezione")
+              :t("📥 Genera Excel ({0} fogli)",{0:(sel.size)})}
         </button>
         <div style={{textAlign:"center",fontSize:12,color:C.muted,marginTop:10}}>
-          Il file viene scaricato automaticamente sul tuo dispositivo
+          {t("Il file viene scaricato automaticamente sul tuo dispositivo")}
         </div>
       </div>
     </div>

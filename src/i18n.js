@@ -4,11 +4,11 @@
 // Ogni testo visibile passa da t("testo in italiano"). La chiave e' il testo
 // italiano stesso: se la lingua scelta e' l'italiano, o se manca la traduzione,
 // compare l'italiano. Le traduzioni stanno in src/lingue/en.js (inglese) e
-// src/lingue/hi.js (hindi): il telefono scarica solo quella della lingua scelta.
+// src/lingue/pa.js (punjabi, scrittura gurmukhi): il telefono scarica solo quella della lingua scelta.
 // Valori variabili: t("Salvati {n} animali",{n:5}).
 // ATTENZIONE: t() serve solo per quello che si LEGGE. I valori che si salvano
 // nel database o si confrontano nel codice restano sempre in italiano.
-// La lingua di ogni utente sta in profili.lingua (it / en / hi); prima
+// La lingua di ogni utente sta in profili.lingua (it / en / pa); prima
 // dell'accesso vale quella salvata nel telefono.
 // ============================================================================
 let DIZ = {};
@@ -17,7 +17,7 @@ let LINGUA = "it";
 export const LINGUE = [
   { id:"it", nome:"Italiano" },
   { id:"en", nome:"English"  },
-  { id:"hi", nome:"हिन्दी"    },
+  { id:"pa", nome:"ਪੰਜਾਬੀ"   },
 ];
 
 export function t(testo, valori){
@@ -32,7 +32,7 @@ export const linguaCorrente = () => LINGUA;
 export async function impostaLingua(l){
   const lingua = LINGUE.some(x => x.id === l) ? l : "it";
   if (lingua === "en")      DIZ = (await import("./lingue/en")).default;
-  else if (lingua === "hi") DIZ = (await import("./lingue/hi")).default;
+  else if (lingua === "pa") DIZ = (await import("./lingue/pa")).default;
   else                      DIZ = {};
   LINGUA = lingua;
   try { localStorage.setItem("lingua", lingua); } catch (e) {}
@@ -61,7 +61,7 @@ export function Bandiera({ id, h=18 }){
       <path d="M30,0 V40 M0,20 H60" stroke="#FFF" strokeWidth="12"/>
       <path d="M30,0 V40 M0,20 H60" stroke="#C8102E" strokeWidth="7"/>
     </svg>);
-  if (id === "hi") return (
+  if (id === "pa") return (
     <svg width={w} height={h} viewBox="0 0 30 20" style={st}>
       <rect width="30" height="20" fill="#FFF"/><rect width="30" height="6.67" fill="#FF9933"/><rect width="30" height="6.67" y="13.33" fill="#138808"/>
       <circle cx="15" cy="10" r="2.6" fill="none" stroke="#000080" strokeWidth="0.6"/><circle cx="15" cy="10" r="0.6" fill="#000080"/>

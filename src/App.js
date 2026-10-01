@@ -31,7 +31,7 @@ const C = { primary:"#5C3D1E", border:"#D4C4A8", muted:"#8B7355", bg:"#F5F0E8", 
 // v104 — versione visibile nel menu utente. Serve a capire in un secondo se il
 // deploy Vercel e' arrivato davvero o se il browser sta servendo una copia
 // vecchia dalla cache: basta aprire il menu e leggere il numero.
-const VERSIONE = "v119";
+const VERSIONE = "v120";
 
 const TABS = [
   { id:"gestione",    label:"Gestione",   icon:"🐄" },
@@ -145,7 +145,7 @@ export default function App() {
           </div>
           {/* v119 — scelta della lingua, salvata nel profilo dell'utente */}
           <div style={{padding:"10px 12px",borderBottom:`1px solid ${C.border}`}}>
-            <div style={{fontSize:11,color:C.muted,marginBottom:6,textAlign:"center"}}>🌐 {t("Lingua")} · Language · भाषा</div>
+            <div style={{fontSize:11,color:C.muted,marginBottom:6,textAlign:"center"}}>🌐 {t("Lingua")} · Language · ਭਾਸ਼ਾ</div>
             <SceltaLingua lingua={lingua} compatta onScegli={l=>{scegliLingua(l);setMenuAperto(false);}}/>
           </div>
           <button onClick={esportaTutto} style={{width:"100%",padding:"12px 16px",background:"none",border:"none",textAlign:"left",fontSize:14,cursor:"pointer",borderBottom:`1px solid ${C.border}`}}>

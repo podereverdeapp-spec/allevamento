@@ -6,6 +6,7 @@
 // di logica e' stata toccata. Una pulizia vera si puo' fare con calma, un file
 // alla volta, verificando ogni rimozione.
 import { useState, useEffect, useMemo } from "react";
+import { t } from "./i18n";   // v119 — lingue
 import * as XLSX from "xlsx";
 import { supabase } from "./supabase";
 
@@ -48,7 +49,7 @@ const Card = ({children,style={}}) => (
 );
 const Badge = ({label,color}) => (
   <span style={{background:color+"22",color,border:`1px solid ${color}44`,
-    borderRadius:20,padding:"2px 9px",fontSize:11,fontWeight:700}}>{label}</span>
+    borderRadius:20,padding:"2px 9px",fontSize:11,fontWeight:700}}>{t(label)}</span>
 );
 const Btn = ({label,onClick,variant="primary",small=false,icon,disabled=false,full=false}) => {
   const bg={primary:C.primary,danger:C.red,success:C.green,ghost:"transparent",
@@ -61,27 +62,27 @@ const Btn = ({label,onClick,variant="primary",small=false,icon,disabled=false,fu
         borderRadius:10,padding:small?"6px 12px":"10px 18px",
         fontSize:small?13:15,fontWeight:600,cursor:disabled?"default":"pointer",
         width:full?"100%":"auto",opacity:disabled?0.5:1}}>
-      {icon&&<span>{icon}</span>}{label}
+      {icon&&<span>{icon}</span>}{t(label)}
     </button>
   );
 };
 const Field = ({label,value,onChange,type="text",options,required,placeholder}) => (
   <div style={{marginBottom:12}}>
     <div style={{fontSize:12,fontWeight:600,color:C.muted,marginBottom:4}}>
-      {label}{required&&<span style={{color:C.red}}> *</span>}
+      {t(label)}{required&&<span style={{color:C.red}}> *</span>}
     </div>
     {options
       ?<select value={value??""} onChange={e=>onChange(e.target.value)} style={inputStyle}>
-         <option value="">— seleziona —</option>
-         {options.map(o=><option key={o.value??o} value={o.value??o}>{o.label??o}</option>)}
+         <option value="">{t("— seleziona —")}</option>
+         {options.map(o=><option key={o.value??o} value={o.value??o}>{t(o.label??o)}</option>)}
        </select>
-      :<input type={type} value={value??""} placeholder={placeholder||""}
+      :<input type={type} value={value??""} placeholder={t(placeholder)||""}
          onChange={e=>onChange(e.target.value)} style={inputStyle}/>}
   </div>
 );
 const Spinner = () => (
   <div style={{textAlign:"center",padding:60,color:C.muted}}>
-    <div style={{fontSize:36,marginBottom:12}}>⏳</div><div>Caricamento lotti...</div>
+    <div style={{fontSize:36,marginBottom:12}}>⏳</div><div>{t("Caricamento lotti...")}</div>
   </div>
 );
 
@@ -97,7 +98,7 @@ function FormAssegnaBDN({unita, lotto, animali, onSave, onCancel}) {
   const salva = async () => {
     if(!bdn.trim()) return;
     if(!unita.sesso){
-      alert("⚠️ Questa unità non ha ancora un sesso registrato.\n\nChiudi questo modulo, usa prima il pulsante ⚖️ per impostarlo, poi torna qui ad assegnare il BDN.");
+      alert(t("⚠️ Questa unità non ha ancora un sesso registrato.\n\nChiudi questo modulo, usa prima il pulsante ⚖️ per impostarlo, poi torna qui ad assegnare il BDN."));
       return;
     }
     setSaving(true);
@@ -122,7 +123,7 @@ function FormAssegnaBDN({unita, lotto, animali, onSave, onCancel}) {
     }]).select("id").single();
     if(errInsert){
       setSaving(false);
-      alert(`⚠️ Errore nella creazione della scheda animale:\n\n${errInsert.message}`);
+      alert(t("⚠️ Errore nella creazione della scheda animale:\n\n{0}",{0:(errInsert.message)}));
       return;
     }
     // 2. Aggiorna unità lotto: segna come "uscita con BDN"
@@ -137,7 +138,7 @@ function FormAssegnaBDN({unita, lotto, animali, onSave, onCancel}) {
     }).eq("id", unita.id);
     if(errUpdate){
       setSaving(false);
-      alert(`⚠️ La scheda animale è stata creata, ma l'aggiornamento del lotto ha dato errore:\n\n${errUpdate.message}`);
+      alert(t("⚠️ La scheda animale è stata creata, ma l'aggiornamento del lotto ha dato errore:\n\n{0}",{0:(errUpdate.message)}));
       return;
     }
     // 3. Traghetta i costi già calcolati dalla Contabilità Industriale (ci_costo_animale_annuale)
@@ -177,21 +178,20 @@ function FormAssegnaBDN({unita, lotto, animali, onSave, onCancel}) {
     <div style={{background:"#E3F2FD",border:`2px solid ${C.blue}`,
       borderRadius:14,padding:14,marginBottom:10}}>
       <div style={{fontWeight:700,color:C.blue,marginBottom:10,fontSize:14}}>
-        🏷️ Assegna BDN/ID a {codice}
+        {t("🏷️ Assegna BDN/ID a")} {codice}
       </div>
       <div style={{fontSize:12,color:C.muted,marginBottom:10}}>
-        L'unità uscirà dal lotto ed entrerà nel Registro Suini con i dati ereditati:
-        nascita {lotto.data_parto} · madre {madre?.nome||madre?.bdn||"—"} · padre {padre?.nome||padre?.bdn||"—"}
-        {unita.peso_nascita&&` · peso nascita ${unita.peso_nascita}kg`}
+        {t("L'unità uscirà dal lotto ed entrerà nel Registro Suini con i dati ereditati: nascita")} {lotto.data_parto} {t("· madre")} {madre?.nome||madre?.bdn||"—"} {t("· padre")} {padre?.nome||padre?.bdn||"—"}
+        {unita.peso_nascita&&t(" · peso nascita {0}kg",{0:(unita.peso_nascita)})}
       </div>
-      <Field label="BDN / Matricola *" value={bdn} onChange={setBdn}
-        placeholder="Es. IT058990123456 o 334966" required/>
-      <Field label="Nome (facoltativo)" value={nome} onChange={setNome}
-        placeholder="Es. NERO, BELINDA..."/>
+      <Field label={t("BDN / Matricola *")} value={bdn} onChange={setBdn}
+        placeholder={t("Es. IT058990123456 o 334966")} required/>
+      <Field label={t("Nome (facoltativo)")} value={nome} onChange={setNome}
+        placeholder={t("Es. NERO, BELINDA...")}/>
       <div style={{display:"flex",gap:8}}>
-        <Btn label={saving?"...":"✓ Registra e trasferisci"} onClick={salva}
+        <Btn label={saving?"...":t("✓ Registra e trasferisci")} onClick={salva}
           variant="blue" disabled={saving||!bdn.trim()} small/>
-        <Btn label="Annulla" onClick={onCancel} variant="ghost" small/>
+        <Btn label={t("Annulla")} onClick={onCancel} variant="ghost" small/>
       </div>
     </div>
   );
@@ -244,7 +244,7 @@ function FormUscitaUnita({unita, lotto, onSave, onCancel}) {
     }).eq("id", unita.id);
     setSaving(false);
     if(error){
-      alert(`⚠️ Errore nel salvataggio dell'uscita:\n\n${error.message}`);
+      alert(t("⚠️ Errore nel salvataggio dell'uscita:\n\n{0}",{0:(error.message)}));
       return;
     }
     onSave();
@@ -254,42 +254,42 @@ function FormUscitaUnita({unita, lotto, onSave, onCancel}) {
     <div style={{background:"#FFEBEE",border:`2px solid ${C.red}`,
       borderRadius:14,padding:14,marginBottom:10}}>
       <div style={{fontWeight:700,color:C.red,marginBottom:10,fontSize:14}}>
-        📤 {giaUscita?"Modifica":"Registra"} uscita — {codice}
+        📤 {giaUscita?t("Modifica"):t("Registra")} {t("uscita —")} {codice}
       </div>
-      <Field label="Motivo uscita" value={form.motivo}
+      <Field label={t("Motivo uscita")} value={form.motivo}
         onChange={v=>{
           const m=MOTIVI.find(x=>x.label===v);
           setForm(f=>({...f,motivo:v,stato:m?.stato||"uscito"}));
         }}
         options={MOTIVI.map(m=>m.label)}/>
       {form.motivo==="Morto (malattia)"&&
-        <Field label="Causa (malattia/diagnosi)" value={form.causa_morte}
-          onChange={v=>setForm(f=>({...f,causa_morte:v}))} placeholder="Es. Polmonite, PRRS, setticemia..."/>}
-      <Field label="Data uscita" value={form.data_uscita}
+        <Field label={t("Causa (malattia/diagnosi)")} value={form.causa_morte}
+          onChange={v=>setForm(f=>({...f,causa_morte:v}))} placeholder={t("Es. Polmonite, PRRS, setticemia...")}/>}
+      <Field label={t("Data uscita")} value={form.data_uscita}
         onChange={v=>setForm(f=>({...f,data_uscita:v}))} type="date"/>
       {giorni>0&&<div style={{fontSize:12,color:C.blue,marginBottom:8}}>
-        📅 {giorni} giorni di permanenza
+        📅 {giorni} {t("giorni di permanenza")}
       </div>}
       {(form.motivo==="Macellato"||form.motivo==="Venduto vivo")&&(
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-          <Field label="Peso vivo (kg)" value={form.peso_vivo_uscita}
+          <Field label={t("Peso vivo (kg)")} value={form.peso_vivo_uscita}
             onChange={v=>setForm(f=>({...f,peso_vivo_uscita:v}))} type="number"/>
           {form.motivo==="Macellato"&&
-            <Field label="Peso carcassa (kg)" value={form.peso_carcassa}
+            <Field label={t("Peso carcassa (kg)")} value={form.peso_carcassa}
               onChange={v=>setForm(f=>({...f,peso_carcassa:v}))} type="number"/>}
         </div>
       )}
       {resa&&<div style={{fontSize:12,color:C.green,marginBottom:8}}>
-        ⚖️ Resa: <strong>{resa}%</strong>
+        {t("⚖️ Resa:")} <strong>{resa}%</strong>
       </div>}
       {accrescimento&&<div style={{fontSize:12,color:C.primary,marginBottom:8}}>
-        📈 Accrescimento: <strong>{accrescimento} kg/giorno</strong>
-        {pesoNascita>0&&` (da ${pesoNascita}kg)`}
+        {t("📈 Accrescimento:")} <strong>{accrescimento} {t("kg/giorno")}</strong>
+        {pesoNascita>0&&t(" (da {0}kg)",{0:(pesoNascita)})}
       </div>}
       <div style={{display:"flex",gap:8}}>
-        <Btn label={saving?"...":"✓ Conferma"} onClick={salva}
+        <Btn label={saving?"...":t("✓ Conferma")} onClick={salva}
           variant="danger" disabled={saving} small/>
-        <Btn label="Annulla" onClick={onCancel} variant="ghost" small/>
+        <Btn label={t("Annulla")} onClick={onCancel} variant="ghost" small/>
       </div>
     </div>
   );
@@ -311,7 +311,7 @@ function FormPesoUnita({unita, lotto, onSave, onCancel}) {
     }).eq("id", unita.id);
     setSaving(false);
     if(error){
-      alert(`⚠️ Errore nel salvataggio:\n\n${error.message}`);
+      alert(t("⚠️ Errore nel salvataggio:\n\n{0}",{0:(error.message)}));
       return;
     }
     onSave();
@@ -321,17 +321,17 @@ function FormPesoUnita({unita, lotto, onSave, onCancel}) {
     <div style={{background:"#FFF3E0",border:`2px solid ${C.yellow}`,
       borderRadius:14,padding:14,marginBottom:10}}>
       <div style={{fontWeight:700,color:C.yellow,marginBottom:10,fontSize:14}}>
-        ⚖️ Peso e sesso — {codice}
+        {t("⚖️ Peso e sesso —")} {codice}
       </div>
-      <Field label="Sesso" value={sesso} onChange={setSesso}
+      <Field label={t("Sesso")} value={sesso} onChange={setSesso}
         options={[{value:"M",label:"♂ Maschio"},
                   {value:"F",label:"♀ Femmina"},{value:"Castrato",label:"✂ Castrato"}]}/>
-      <Field label={`Peso ${acquistato?"in entrata":"alla nascita"} (kg)`} value={peso}
-        onChange={setPeso} type="number" placeholder="Es. 1.4"/>
+      <Field label={t("Peso {0} (kg)",{0:(acquistato?"in entrata":"alla nascita")})} value={peso}
+        onChange={setPeso} type="number" placeholder={t("Es. 1.4")}/>
       <div style={{display:"flex",gap:8}}>
-        <Btn label={saving?"...":"✓ Salva"} onClick={salva}
+        <Btn label={saving?"...":t("✓ Salva")} onClick={salva}
           variant="success" disabled={saving} small/>
-        <Btn label="Annulla" onClick={onCancel} variant="ghost" small/>
+        <Btn label={t("Annulla")} onClick={onCancel} variant="ghost" small/>
       </div>
     </div>
   );
@@ -369,19 +369,19 @@ function CardUnita({u, lotto, animali, onUpdate}) {
           <div style={{fontFamily:"monospace",fontSize:16,fontWeight:800,
             color:vivo?C.primary:C.muted,letterSpacing:1}}>{codice}</div>
           <div style={{display:"flex",gap:6,marginTop:4,flexWrap:"wrap"}}>
-            {u.sesso&&<Badge label={u.sesso==="M"?"♂ M":u.sesso==="F"?"♀ F":"✂ Castrato"}
+            {u.sesso&&<Badge label={u.sesso==="M"?t("♂ M"):u.sesso==="F"?t("♀ F"):t("✂ Castrato")}
               color={sessoColor(u.sesso)}/>}
-            {u.peso_nascita&&<Badge label={u.peso_nascita+"kg"} color={C.muted}/>}
+            {u.peso_nascita&&<Badge label={u.peso_nascita+t("kg")} color={C.muted}/>}
             {!vivo&&<Badge label={u.motivo_uscita||u.stato} color={C.muted}/>}
             {u.bdn&&u.stato==="registrato_individuale"&&
-              <Badge label={"→ BDN: "+u.bdn} color={C.green}/>}
+              <Badge label={t("→ BDN: ")+u.bdn} color={C.green}/>}
           </div>
           {u.data_uscita&&(
             <div style={{fontSize:11,color:C.muted,marginTop:3}}>
-              Uscito: {u.data_uscita}
-              {u.peso_vivo_uscita&&` · ${u.peso_vivo_uscita}kg vivo`}
-              {u.peso_carcassa&&` · ${u.peso_carcassa}kg carcassa`}
-              {u.resa_percent&&<strong style={{color:C.green}}> · resa {u.resa_percent}%</strong>}
+              {t("Uscito:")} {u.data_uscita}
+              {u.peso_vivo_uscita&&t(" · {0}kg vivo",{0:(u.peso_vivo_uscita)})}
+              {u.peso_carcassa&&t(" · {0}kg carcassa",{0:(u.peso_carcassa)})}
+              {u.resa_percent&&<strong style={{color:C.green}}> {t("· resa")} {u.resa_percent}%</strong>}
             </div>
           )}
         </div>
@@ -395,7 +395,7 @@ function CardUnita({u, lotto, animali, onUpdate}) {
             <button onClick={()=>setModal("bdn")}
               style={{background:C.blue+"20",border:"none",borderRadius:8,
                 padding:"6px 8px",cursor:"pointer",fontSize:12,fontWeight:700,color:C.blue}}>
-              🏷️ BDN
+              {t("🏷️ BDN")}
             </button>
           </>)}
           <button onClick={()=>setModal("uscita")}
@@ -405,13 +405,13 @@ function CardUnita({u, lotto, animali, onUpdate}) {
           </button>
           {!vivo&&u.stato!=="registrato_individuale"&&(
             <button onClick={async()=>{
-                if(!window.confirm(`Annullare l'uscita di ${codice} e riportarla ad "attivo"?\nI dati di uscita (data, motivo, pesi) verranno cancellati.`)) return;
+                if(!window.confirm(t("Annullare l'uscita di {0} e riportarla ad \"attivo\"?\nI dati di uscita (data, motivo, pesi) verranno cancellati.",{0:(codice)}))) return;
                 const {error} = await supabase.from("suini_lotto").update({
                   stato:"attivo", vivo:true,
                   motivo_uscita:null, causa_morte:null, data_uscita:null,
                   peso_vivo_uscita:null, peso_carcassa:null, resa_percent:null,
                 }).eq("id", u.id);
-                if(error){ alert(`⚠️ Errore nell'annullamento:\n\n${error.message}`); return; }
+                if(error){ alert(t("⚠️ Errore nell'annullamento:\n\n{0}",{0:(error.message)})); return; }
                 onUpdate();
               }}
               style={{background:C.green+"20",border:"none",borderRadius:8,
@@ -420,9 +420,9 @@ function CardUnita({u, lotto, animali, onUpdate}) {
             </button>
           )}
           <button onClick={async()=>{
-              if(!window.confirm(`Eliminare definitivamente l'unità ${codice}?\nQuesta operazione NON è reversibile.`)) return;
+              if(!window.confirm(t("Eliminare definitivamente l'unità {0}?\nQuesta operazione NON è reversibile.",{0:(codice)}))) return;
               const {error} = await supabase.from("suini_lotto").delete().eq("id", u.id);
-              if(error){ alert(`⚠️ Errore nell'eliminazione:\n\n${error.message}`); return; }
+              if(error){ alert(t("⚠️ Errore nell'eliminazione:\n\n{0}",{0:(error.message)})); return; }
               onUpdate();
             }}
             style={{background:"#00000015",border:"none",borderRadius:8,
@@ -449,22 +449,22 @@ function SchedaLotto({lotto, suini, animali, onBack, onUpdate, onDelete}) {
   const eliminaLotto = async () => {
     const nUnita = unita.length;
     if(!window.confirm(
-      `Eliminare definitivamente il lotto ${lotto.codice_lotto||lotto.codice}?\n\n`+
-      `Verranno cancellate anche tutte le ${nUnita} unità al suo interno.\n`+
-      `Questa operazione NON è reversibile.`
+      t("Eliminare definitivamente il lotto {0}?\n\n",{0:(lotto.codice_lotto||lotto.codice)})+
+      t("Verranno cancellate anche tutte le {0} unità al suo interno.\n",{0:(nUnita)})+
+      t("Questa operazione NON è reversibile.")
     )) return;
-    if(!window.confirm("Confermi? Non si può tornare indietro.")) return;
+    if(!window.confirm(t("Confermi? Non si può tornare indietro."))) return;
     setEliminando(true);
     const {error: errUnita} = await supabase.from("suini_lotto").delete().eq("lotto_id", lotto.id);
     if(errUnita){
       setEliminando(false);
-      alert(`⚠️ Errore nell'eliminazione delle unità del lotto:\n\n${errUnita.message}`);
+      alert(t("⚠️ Errore nell'eliminazione delle unità del lotto:\n\n{0}",{0:(errUnita.message)}));
       return;
     }
     const {error: errLotto} = await supabase.from("lotti_suini").delete().eq("id", lotto.id);
     setEliminando(false);
     if(errLotto){
-      alert(`⚠️ Le unità sono state eliminate, ma il lotto stesso ha dato errore:\n\n${errLotto.message}`);
+      alert(t("⚠️ Le unità sono state eliminate, ma il lotto stesso ha dato errore:\n\n{0}",{0:(errLotto.message)}));
       return;
     }
     onDelete();
@@ -522,46 +522,46 @@ function SchedaLotto({lotto, suini, animali, onBack, onUpdate, onDelete}) {
       <div style={{padding:"16px 16px 100px"}}>
         <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
           <button onClick={()=>setForm(null)} style={{background:"none",border:"none",cursor:"pointer",fontSize:22}}>←</button>
-          <span style={{fontSize:18,fontWeight:800}}>✏️ Modifica lotto {lotto.codice_lotto||lotto.codice}</span>
+          <span style={{fontSize:18,fontWeight:800}}>{t("✏️ Modifica lotto")} {lotto.codice_lotto||lotto.codice}</span>
         </div>
 
-        <Field label="Codice lotto" value={form.codice_lotto??form.codice}
+        <Field label={t("Codice lotto")} value={form.codice_lotto??form.codice}
           onChange={v=>setForm(f=>({...f,codice_lotto:v.toUpperCase()}))}/>
-        <Field label="Tipo provenienza" value={form.tipo_provenienza}
+        <Field label={t("Tipo provenienza")} value={form.tipo_provenienza}
           onChange={v=>setForm(f=>({...f,tipo_provenienza:v}))}
           options={[{value:"nato",label:"🐣 Nato in azienda"},{value:"acquistato",label:"📦 Acquistato"}]}/>
-        <Field label="Data parto / acquisto" value={form.data_parto}
+        <Field label={t("Data parto / acquisto")} value={form.data_parto}
           onChange={v=>setForm(f=>({...f,data_parto:v}))} type="date"/>
 
-        <Field label="Madre (in azienda)" value={form.madre_id}
+        <Field label={t("Madre (in azienda)")} value={form.madre_id}
           onChange={v=>setForm(f=>({...f,madre_id:v}))}
           options={madri.map(a=>({value:a.id,label:`${a.nome||a.bdn} (${a.razza||"—"})`}))}/>
-        <Field label="Padre (in azienda)" value={form.padre_id}
+        <Field label={t("Padre (in azienda)")} value={form.padre_id}
           onChange={v=>setForm(f=>({...f,padre_id:v}))}
           options={padri.map(a=>({value:a.id,label:`${a.nome||a.bdn} (${a.razza||"—"})`}))}/>
-        <Field label="Razza madre" value={form.razza_madre} onChange={v=>setForm(f=>({...f,razza_madre:v}))}/>
-        <Field label="Razza padre" value={form.razza_padre} onChange={v=>setForm(f=>({...f,razza_padre:v}))}/>
+        <Field label={t("Razza madre")} value={form.razza_madre} onChange={v=>setForm(f=>({...f,razza_madre:v}))}/>
+        <Field label={t("Razza padre")} value={form.razza_padre} onChange={v=>setForm(f=>({...f,razza_padre:v}))}/>
 
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
-          <Field label="Nati totali" value={form.nati_totali} onChange={v=>setForm(f=>({...f,nati_totali:v}))} type="number"/>
-          <Field label="Nati vivi" value={form.nati_vivi} onChange={v=>setForm(f=>({...f,nati_vivi:v}))} type="number"/>
-          <Field label="Nati morti" value={form.nati_morti} onChange={v=>setForm(f=>({...f,nati_morti:v}))} type="number"/>
+          <Field label={t("Nati totali")} value={form.nati_totali} onChange={v=>setForm(f=>({...f,nati_totali:v}))} type="number"/>
+          <Field label={t("Nati vivi")} value={form.nati_vivi} onChange={v=>setForm(f=>({...f,nati_vivi:v}))} type="number"/>
+          <Field label={t("Nati morti")} value={form.nati_morti} onChange={v=>setForm(f=>({...f,nati_morti:v}))} type="number"/>
         </div>
 
-        <Field label="Fornitore" value={form.fornitore} onChange={v=>setForm(f=>({...f,fornitore:v}))}/>
+        <Field label={t("Fornitore")} value={form.fornitore} onChange={v=>setForm(f=>({...f,fornitore:v}))}/>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-          <Field label="Data fattura" value={form.data_fattura}
+          <Field label={t("Data fattura")} value={form.data_fattura}
             onChange={v=>setForm(f=>({...f,data_fattura:v}))} type="date"/>
-          <Field label="Numero fattura" value={form.numero_fattura}
-            onChange={v=>setForm(f=>({...f,numero_fattura:v}))} placeholder="Es. FT-2026-0042"/>
+          <Field label={t("Numero fattura")} value={form.numero_fattura}
+            onChange={v=>setForm(f=>({...f,numero_fattura:v}))} placeholder={t("Es. FT-2026-0042")}/>
         </div>
-        <Field label="Prezzo acquisto (€)" value={form.prezzo_acquisto}
+        <Field label={t("Prezzo acquisto (€)")} value={form.prezzo_acquisto}
           onChange={v=>setForm(f=>({...f,prezzo_acquisto:v}))} type="number"/>
-        <Field label="Note" value={form.note} onChange={v=>setForm(f=>({...f,note:v}))}/>
+        <Field label={t("Note")} value={form.note} onChange={v=>setForm(f=>({...f,note:v}))}/>
 
         <div style={{display:"flex",gap:10,marginTop:16}}>
-          <Btn label={saving?"Salvataggio...":"Salva"} icon="✓" onClick={salvaLotto} variant="success" disabled={saving}/>
-          <Btn label="Annulla" onClick={()=>setForm(null)} variant="ghost"/>
+          <Btn label={saving?t("Salvataggio..."):t("Salva")} icon="✓" onClick={salvaLotto} variant="success" disabled={saving}/>
+          <Btn label={t("Annulla")} onClick={()=>setForm(null)} variant="ghost"/>
         </div>
       </div>
     );
@@ -580,14 +580,14 @@ function SchedaLotto({lotto, suini, animali, onBack, onUpdate, onDelete}) {
               <div style={{fontSize:22,fontWeight:900,color:"#FFF",
                 fontFamily:"monospace",letterSpacing:2}}>{lotto.codice_lotto||lotto.codice}</div>
               <div style={{fontSize:13,color:"rgba(255,255,255,0.8)"}}>
-                {lotto.tipo_provenienza==="acquistato"?"📦 Acquistato":"🐣 Parto"} {lotto.data_parto}
+                {lotto.tipo_provenienza==="acquistato"?t("📦 Acquistato"):t("🐣 Parto")} {lotto.data_parto}
               </div>
             </div>
           </div>
           <div style={{display:"flex",gap:8,flexShrink:0}}>
             <button onClick={()=>setForm({...lotto})} style={{background:"rgba(255,255,255,0.2)",
               border:"none",borderRadius:10,padding:"6px 10px",color:"#FFF",
-              cursor:"pointer",fontSize:16}}>✏️ Modifica</button>
+              cursor:"pointer",fontSize:16}}>{t("✏️ Modifica")}</button>
             <button onClick={eliminaLotto} disabled={eliminando} style={{background:"rgba(0,0,0,0.25)",
               border:"none",borderRadius:10,padding:"6px 10px",color:"#FFF",
               cursor:"pointer",fontSize:16}}>{eliminando?"...":"🗑️"}</button>
@@ -626,7 +626,7 @@ function SchedaLotto({lotto, suini, animali, onBack, onUpdate, onDelete}) {
           <span style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",
             fontSize:16,color:C.muted}}>🔍</span>
           <input type="text" value={cerca} onChange={e=>setCerca(e.target.value)}
-            placeholder="Cerca per tatuaggio (es. 2304CC1905) o numero..."
+            placeholder={t("Cerca per tatuaggio (es. 2304CC1905) o numero...")}
             style={{...inputStyle,border:`2px solid ${cerca?C.primary:C.border}`,
               borderRadius:12,padding:"10px 38px"}}/>
           {cerca&&<button onClick={()=>setCerca("")}
@@ -635,8 +635,8 @@ function SchedaLotto({lotto, suini, animali, onBack, onUpdate, onDelete}) {
         </div>
 
         <div style={{fontSize:12,fontWeight:700,color:C.muted,marginBottom:8}}>
-          UNITÀ DEL LOTTO — {unitaFiltrate.length} / {unita.length}
-          {castrati>0&&` · ${castrati} castrati`}
+          {t("UNITÀ DEL LOTTO —")} {unitaFiltrate.length} / {unita.length}
+          {castrati>0&&t(" · {0} castrati",{0:(castrati)})}
         </div>
 
         {unitaFiltrate.map(u=>(
@@ -646,7 +646,7 @@ function SchedaLotto({lotto, suini, animali, onBack, onUpdate, onDelete}) {
         {vivi===0&&unita.length>0&&(
           <div style={{textAlign:"center",padding:20,background:C.green+"15",
             borderRadius:12,marginTop:8,fontSize:13,color:C.green,fontWeight:600}}>
-            ✓ Tutte le unità sono uscite dal lotto
+            {t("✓ Tutte le unità sono uscite dal lotto")}
           </div>
         )}
       </div>
@@ -678,9 +678,9 @@ function ListaLotti({lotti, suini, animali, onSeleziona, onAcquisto}) {
     <div style={{paddingBottom:80}}>
       <div style={{background:`linear-gradient(135deg,${C.suini},${C.primary})`,
         borderRadius:"0 0 28px 28px",padding:"24px 16px 20px"}}>
-        <div style={{fontSize:22,fontWeight:800,color:"#FFF"}}>🐷 Lotti Suini</div>
+        <div style={{fontSize:22,fontWeight:800,color:"#FFF"}}>{t("🐷 Lotti Suini")}</div>
         <div style={{fontSize:14,color:"rgba(255,255,255,0.75)",marginTop:4}}>
-          {lotti.length} lotti · <strong style={{color:"#FFF"}}>{totVivi} suinetti vivi nei lotti</strong>
+          {lotti.length} {t("lotti ·")} <strong style={{color:"#FFF"}}>{totVivi} {t("suinetti vivi nei lotti")}</strong>
         </div>
       </div>
 
@@ -690,7 +690,7 @@ function ListaLotti({lotti, suini, animali, onSeleziona, onAcquisto}) {
           <span style={{position:"absolute",left:12,top:"50%",
             transform:"translateY(-50%)",fontSize:16,color:C.muted}}>🔍</span>
           <input type="text" value={cerca} onChange={e=>setCerca(e.target.value)}
-            placeholder="Cerca per codice lotto, tatuaggio unità o BDN madre..."
+            placeholder={t("Cerca per codice lotto, tatuaggio unità o BDN madre...")}
             style={{...inputStyle,border:`2px solid ${cerca?C.suini:C.border}`,
               borderRadius:12,padding:"10px 38px"}}/>
           {cerca&&<button onClick={()=>setCerca("")}
@@ -699,18 +699,18 @@ function ListaLotti({lotti, suini, animali, onSeleziona, onAcquisto}) {
         </div>
 
         <div style={{display:"flex",gap:8,marginBottom:14}}>
-          <Btn label="📦 Lotto acquistato" onClick={onAcquisto} variant="outline" small/>
-          <Btn label="📊 Excel" onClick={()=>esportaExcel(lotti,suini,animali)} variant="outline" small/>
+          <Btn label={t("📦 Lotto acquistato")} onClick={onAcquisto} variant="outline" small/>
+          <Btn label={t("📊 Excel")} onClick={()=>esportaExcel(lotti,suini,animali)} variant="outline" small/>
         </div>
 
         {lottiFiltrati.length===0?(
           <div style={{textAlign:"center",padding:48,color:C.muted}}>
             <div style={{fontSize:48,marginBottom:12}}>🐷</div>
             <div style={{fontWeight:700,fontSize:16}}>
-              {cerca?"Nessun lotto trovato":"Nessun lotto registrato"}
+              {cerca?t("Nessun lotto trovato"):t("Nessun lotto registrato")}
             </div>
             <div style={{fontSize:13,marginTop:8}}>
-              {cerca?"Prova con un codice diverso":"I lotti si creano automaticamente registrando un parto suino dalla scheda della madre"}
+              {cerca?t("Prova con un codice diverso"):t("I lotti si creano automaticamente registrando un parto suino dalla scheda della madre")}
             </div>
           </div>
         ):lottiFiltrati.map(l=>{
@@ -748,8 +748,8 @@ function ListaLotti({lotti, suini, animali, onSeleziona, onAcquisto}) {
                 </div>
                 <div style={{textAlign:"right"}}>
                   <div style={{fontSize:26,fontWeight:900,color:chiuso?C.muted:C.green}}>{vivi}</div>
-                  <div style={{fontSize:11,color:C.muted}}>vivi / {tot}</div>
-                  {chiuso&&<div style={{fontSize:10,color:C.muted,fontWeight:600}}>✓ CHIUSO</div>}
+                  <div style={{fontSize:11,color:C.muted}}>{t("vivi /")} {tot}</div>
+                  {chiuso&&<div style={{fontSize:10,color:C.muted,fontWeight:600}}>{t("✓ CHIUSO")}</div>}
                 </div>
               </div>
               {tot>0&&(
@@ -758,7 +758,7 @@ function ListaLotti({lotti, suini, animali, onSeleziona, onAcquisto}) {
                 </div>
               )}
               <div style={{fontSize:12,color:C.blue,fontWeight:600}}>
-                👆 Tocca per aprire la scheda completa
+                {t("👆 Tocca per aprire la scheda completa")}
               </div>
             </div>
           );
@@ -800,7 +800,7 @@ function FormLottoAcquistato({onSave, onCancel}) {
     }]).select("id").single();
     if(errLotto){
       setSaving(false);
-      alert(`⚠️ Errore nella creazione del lotto:\n\n${errLotto.message}`);
+      alert(t("⚠️ Errore nella creazione del lotto:\n\n{0}",{0:(errLotto.message)}));
       return;
     }
     if(nuovoLotto){
@@ -813,7 +813,7 @@ function FormLottoAcquistato({onSave, onCancel}) {
       );
       if(errUnita){
         setSaving(false);
-        alert(`⚠️ Il lotto è stato creato, ma il salvataggio delle unità è fallito:\n\n${errUnita.message}`);
+        alert(t("⚠️ Il lotto è stato creato, ma il salvataggio delle unità è fallito:\n\n{0}",{0:(errUnita.message)}));
         return;
       }
     }
@@ -825,46 +825,46 @@ function FormLottoAcquistato({onSave, onCancel}) {
       minHeight:"100vh",maxWidth:480,margin:"0 auto",padding:"16px 16px 80px"}}>
       <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
         <button onClick={onCancel} style={{background:"none",border:"none",cursor:"pointer",fontSize:22}}>←</button>
-        <span style={{fontSize:18,fontWeight:800}}>📦 Lotto acquistato</span>
+        <span style={{fontSize:18,fontWeight:800}}>{t("📦 Lotto acquistato")}</span>
       </div>
       {codice&&(
         <div style={{background:"#E3F2FD",border:`2px solid ${C.blue}`,borderRadius:14,
           padding:"12px 16px",marginBottom:16,textAlign:"center"}}>
-          <div style={{fontSize:11,fontWeight:700,color:C.blue,marginBottom:4}}>🏷️ CODICE LOTTO</div>
+          <div style={{fontSize:11,fontWeight:700,color:C.blue,marginBottom:4}}>{t("🏷️ CODICE LOTTO")}</div>
           <div style={{fontSize:30,fontWeight:900,color:C.blue,fontFamily:"monospace",letterSpacing:3}}>{codice}</div>
           {nCapi>0&&<div style={{fontSize:11,color:C.muted,marginTop:4}}>
-            Unità: {codice}01 … {codice}{String(nCapi).padStart(2,"0")}
+            {t("Unità:")} {codice}01 … {codice}{String(nCapi).padStart(2,"0")}
           </div>}
         </div>
       )}
-      <Field label="Data acquisto *" value={form.data_acquisto}
+      <Field label={t("Data acquisto *")} value={form.data_acquisto}
         onChange={v=>setForm(f=>({...f,data_acquisto:v}))} type="date" required/>
-      <Field label="Fornitore / Azienda" value={form.fornitore}
-        onChange={v=>setForm(f=>({...f,fornitore:v}))} placeholder="Es. Az. Agr. Rossi"/>
+      <Field label={t("Fornitore / Azienda")} value={form.fornitore}
+        onChange={v=>setForm(f=>({...f,fornitore:v}))} placeholder={t("Es. Az. Agr. Rossi")}/>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-        <Field label="Data fattura" value={form.data_fattura}
+        <Field label={t("Data fattura")} value={form.data_fattura}
           onChange={v=>setForm(f=>({...f,data_fattura:v}))} type="date"/>
-        <Field label="Numero fattura" value={form.numero_fattura}
-          onChange={v=>setForm(f=>({...f,numero_fattura:v}))} placeholder="Es. FT-2026-0042"/>
+        <Field label={t("Numero fattura")} value={form.numero_fattura}
+          onChange={v=>setForm(f=>({...f,numero_fattura:v}))} placeholder={t("Es. FT-2026-0042")}/>
       </div>
-      <Field label="N° capi acquistati *" value={form.n_capi}
+      <Field label={t("N° capi acquistati *")} value={form.n_capi}
         onChange={v=>setForm(f=>({...f,n_capi:v}))} type="number" required/>
-      <Field label="Razza" value={form.razza} onChange={v=>setForm(f=>({...f,razza:v}))}
+      <Field label={t("Razza")} value={form.razza} onChange={v=>setForm(f=>({...f,razza:v}))}
         options={["Cinta Senese","Nero Apucalabro","Nero Casertano","Mora Romagnola",
           "Duroc","Large White","Landrace","Meticcia","Altra"]}/>
-      <Field label="Prezzo totale (€)" value={form.prezzo_acquisto}
+      <Field label={t("Prezzo totale (€)")} value={form.prezzo_acquisto}
         onChange={v=>setForm(f=>({...f,prezzo_acquisto:v}))} type="number"/>
       <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:12,padding:12,marginBottom:12}}>
         <div style={{fontSize:11,color:C.muted,marginBottom:6}}>
-          Codice tatuaggio (lascia vuoto per generazione automatica: {codiceAuto})
+          {t("Codice tatuaggio (lascia vuoto per generazione automatica:")} {codiceAuto})
         </div>
         <input type="text" value={form.codice_manuale}
           onChange={e=>setForm(f=>({...f,codice_manuale:e.target.value.toUpperCase()}))}
           placeholder={codiceAuto}
           style={{...inputStyle,fontFamily:"monospace"}}/>
       </div>
-      <Field label="Note" value={form.note} onChange={v=>setForm(f=>({...f,note:v}))}/>
-      <Btn label={saving?"...":nCapi>0?`📦 Crea lotto con ${nCapi} unità`:"Inserisci il numero di capi"}
+      <Field label={t("Note")} value={form.note} onChange={v=>setForm(f=>({...f,note:v}))}/>
+      <Btn label={saving?"...":nCapi>0?t("📦 Crea lotto con {0} unità",{0:(nCapi)}):t("Inserisci il numero di capi")}
         onClick={salva} disabled={saving||!form.data_acquisto||!nCapi} full variant="primary"/>
     </div>
   );

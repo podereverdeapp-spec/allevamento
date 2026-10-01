@@ -6,6 +6,7 @@
 // di logica e' stata toccata. Una pulizia vera si puo' fare con calma, un file
 // alla volta, verificando ogni rimozione.
 import { useState, useEffect, useRef } from "react";
+import { t } from "./i18n";   // v119 — lingue
 import { supabase } from "./supabase";
 
 const C = {
@@ -15,7 +16,7 @@ const C = {
   bovini:"#8B6914", suini:"#B5547A", ovini:"#4A7C59",
 };
 const specieColor = s=>({bovino:C.bovini,suino:C.suini,ovino:C.ovini}[s]||C.muted);
-const specieLabel = s=>({bovino:"Bovino",suino:"Suino",ovino:"Ovino"}[s]||s);
+const specieLabel = s=>t({bovino:"Bovino",suino:"Suino",ovino:"Ovino"}[s]||s);
 const specieIcon  = s=>({bovino:"🐄",suino:"🐷",ovino:"🐑"}[s]||"🐾");
 const today = ()=>new Date().toISOString().split("T")[0];
 
@@ -80,11 +81,11 @@ const Card=({children,style={},refEsterno})=>(
 );
 const Badge=({label,color})=>(
   <span style={{background:color+"22",color,border:`1px solid ${color}44`,
-    borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:700}}>{label}</span>
+    borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:700}}>{t(label)}</span>
 );
 const RigaCosto=({label,valore})=>(
   <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0"}}>
-    <span style={{color:C.muted}}>{label}</span>
+    <span style={{color:C.muted}}>{t(label)}</span>
     <span style={{fontWeight:700}}>{(valore||0).toFixed(2)}€</span>
   </div>
 );
@@ -99,7 +100,7 @@ const Btn=({label,icon,onClick,variant="primary",small=false,disabled=false})=>{
         fontSize:small?13:15,fontWeight:600,cursor:disabled?"default":"pointer",
         boxShadow:["primary","success","danger"].includes(variant)?"0 2px 6px rgba(0,0,0,0.15)":"none",
         opacity:disabled?0.5:1}}>
-      {icon&&<span>{icon}</span>}{label}
+      {icon&&<span>{icon}</span>}{t(label)}
     </button>
   );
 };
@@ -108,14 +109,14 @@ const inputStyle={width:"100%",boxSizing:"border-box",border:`1.5px solid ${C.bo
 const Field=({label,value,onChange,type="text",options,required,placeholder})=>(
   <div style={{marginBottom:12}}>
     <div style={{fontSize:12,fontWeight:600,color:C.muted,marginBottom:4}}>
-      {label}{required&&<span style={{color:C.red}}> *</span>}
+      {t(label)}{required&&<span style={{color:C.red}}> *</span>}
     </div>
     {options
       ?<select value={value??""} onChange={e=>onChange(e.target.value)} style={inputStyle}>
-          <option value="">— seleziona —</option>
-          {options.map(o=><option key={o.value??o} value={o.value??o}>{o.label??o}</option>)}
+          <option value="">{t("— seleziona —")}</option>
+          {options.map(o=><option key={o.value??o} value={o.value??o}>{t(o.label??o)}</option>)}
         </select>
-      :<input type={type} value={value??""} placeholder={placeholder||""}
+      :<input type={type} value={value??""} placeholder={t(placeholder)||""}
           onChange={e=>onChange(e.target.value)} style={inputStyle}/>
     }
   </div>
@@ -123,12 +124,12 @@ const Field=({label,value,onChange,type="text",options,required,placeholder})=>(
 const Sezione=({label})=>(
   <div style={{fontSize:11,fontWeight:800,color:C.primary,letterSpacing:1.2,
     textTransform:"uppercase",padding:"10px 0 6px",borderBottom:`1.5px solid ${C.border}`,
-    marginBottom:12,marginTop:8}}>{label}</div>
+    marginBottom:12,marginTop:8}}>{t(label)}</div>
 );
 const Spinner=()=>(
   <div style={{textAlign:"center",padding:40,color:C.muted}}>
     <div style={{fontSize:32,marginBottom:8}}>⏳</div>
-    <div>Caricamento...</div>
+    <div>{t("Caricamento...")}</div>
   </div>
 );
 
@@ -289,7 +290,7 @@ function Dashboard({animali,eventi_sanitari,magazzino,onNav,suiniLotto}){
   const richiamiImminenti=eventi_sanitari.filter(e=>e.scadenza&&new Date(e.scadenza)>=oggi&&new Date(e.scadenza)<=in30gg);
   return(
     <div style={{padding:"16px 16px 80px"}}>
-      <div style={{fontSize:22,fontWeight:800,marginBottom:4}}>Buongiorno 👋</div>
+      <div style={{fontSize:22,fontWeight:800,marginBottom:4}}>{t("Buongiorno 👋")}</div>
       <div style={{fontSize:14,color:C.muted,marginBottom:20}}>{new Date().toLocaleDateString("it-IT",{weekday:"long",day:"numeric",month:"long"})}</div>
       {/* Alert scadenze richiami */}
       {(richiamiScaduti.length>0||richiamiImminenti.length>0)&&(
@@ -299,11 +300,11 @@ function Dashboard({animali,eventi_sanitari,magazzino,onNav,suiniLotto}){
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div>
               <div style={{fontSize:13,fontWeight:700,color:richiamiScaduti.length>0?C.red:C.yellow,marginBottom:4}}>
-                {richiamiScaduti.length>0?"⚠️ Richiami sanitari SCADUTI":"⏰ Richiami sanitari in scadenza"}
+                {richiamiScaduti.length>0?t("⚠️ Richiami sanitari SCADUTI"):t("⏰ Richiami sanitari in scadenza")}
               </div>
               <div style={{fontSize:12,color:C.text}}>
-                {richiamiScaduti.length>0&&<><b>{richiamiScaduti.length}</b> scaduti · </>}
-                <b>{richiamiImminenti.length}</b> in scadenza (30 gg)
+                {richiamiScaduti.length>0&&<><b>{richiamiScaduti.length}</b> {t("scaduti ·")} </>}
+                <b>{richiamiImminenti.length}</b> {t("in scadenza (30 gg)")}
               </div>
             </div>
             <div style={{fontSize:18,color:C.muted}}>›</div>
@@ -324,10 +325,10 @@ function Dashboard({animali,eventi_sanitari,magazzino,onNav,suiniLotto}){
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
               <div>
                 <div style={{fontSize:13,fontWeight:700,color:C.yellow,marginBottom:4}}>
-                  📁 Promemoria: carica i report su Drive
+                  {t("📁 Promemoria: carica i report su Drive")}
                 </div>
                 <div style={{fontSize:12,color:C.text}}>
-                  Report di {meseCorrente} ancora da caricare · vai al tab 📮 Email (menu in alto)
+                  {t("Report di {0} ancora da caricare · vai al tab 📮 Email (menu in alto)",{0:meseCorrente})}
                 </div>
               </div>
             </div>
@@ -335,7 +336,7 @@ function Dashboard({animali,eventi_sanitari,magazzino,onNav,suiniLotto}){
         );
       })()}
       <Card style={{background:`linear-gradient(135deg,${C.primary},${C.accent})`}}>
-        <div style={{color:"rgba(255,255,255,0.8)",fontSize:13,marginBottom:8}}>CAPI ATTIVI</div>
+        <div style={{color:"rgba(255,255,255,0.8)",fontSize:13,marginBottom:8}}>{t("CAPI ATTIVI")}</div>
         <div style={{fontSize:36,fontWeight:800,color:"#FFF",marginBottom:12}}>{attivi.length}</div>
         <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
           {[[bovini,"🐄",C.bovini,"Bovini"],[suini,"🐷",C.suini,"Suini"],[ovini,"🐑",C.ovini,"Ovini"]].map(([n,ic,col,lbl],i)=>(
@@ -351,14 +352,14 @@ function Dashboard({animali,eventi_sanitari,magazzino,onNav,suiniLotto}){
                 textAlign:"center",cursor:"pointer",border:"1.5px solid rgba(255,255,255,0.4)"}}>
               <div style={{fontSize:18}}>🏷️</div>
               <div style={{fontSize:18,fontWeight:800,color:"#FFF"}}>{suiniLottoAttivi}</div>
-              <div style={{fontSize:9,color:"rgba(255,255,255,0.9)",fontWeight:700}}>LOTTI</div>
+              <div style={{fontSize:9,color:"rgba(255,255,255,0.9)",fontWeight:700}}>{t("LOTTI")}</div>
             </div>
           )}
         </div>
       </Card>
       {allerte.length>0&&(
         <Card style={{borderLeft:`4px solid ${C.red}`}}>
-          <div style={{fontSize:13,fontWeight:700,color:C.red,marginBottom:8}}>⚠️ Scorte in esaurimento</div>
+          <div style={{fontSize:13,fontWeight:700,color:C.red,marginBottom:8}}>{t("⚠️ Scorte in esaurimento")}</div>
           {allerte.map(m=>(
             <div key={m.id} style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"4px 0"}}>
               <span>{m.nome}</span><span style={{color:C.red,fontWeight:700}}>{m.quantita} {m.unita}</span>
@@ -368,30 +369,30 @@ function Dashboard({animali,eventi_sanitari,magazzino,onNav,suiniLotto}){
       )}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
         {[
-          {id:"anagrafica",icon:"🏷️",label:"Animali",sub:`${attivi.length} attivi`,col:C.primary},
-          {id:"sanitario",icon:"💉",label:"Sanitario",sub:`${eventi_sanitari.length} eventi`,col:C.blue},
-          {id:"alimentazione",icon:"🌾",label:"Dieta",sub:"Mangimi",col:C.bovini},
-          {id:"magazzino",icon:"📦",label:"Magazzino",sub:`${allerte.length} allerte`,col:allerte.length?C.red:C.green},
-        ].map(t=>(
-          <button key={t.id} onClick={()=>onNav(t.id)}
+          {id:"anagrafica",icon:"🏷️",label:"Animali",sub:t("{0} attivi",{0:attivi.length}),col:C.primary},
+          {id:"sanitario",icon:"💉",label:"Sanitario",sub:t("{0} eventi",{0:eventi_sanitari.length}),col:C.blue},
+          {id:"alimentazione",icon:"🌾",label:"Dieta",sub:t("Mangimi"),col:C.bovini},
+          {id:"magazzino",icon:"📦",label:"Magazzino",sub:t("{0} allerte",{0:allerte.length}),col:allerte.length?C.red:C.green},
+        ].map(tx=>(
+          <button key={tx.id} onClick={()=>onNav(tx.id)}
             style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:16,padding:14,
               textAlign:"left",cursor:"pointer",boxShadow:"0 2px 6px rgba(0,0,0,0.06)"}}>
-            <div style={{fontSize:24,marginBottom:6}}>{t.icon}</div>
-            <div style={{fontWeight:700,fontSize:15,color:C.text}}>{t.label}</div>
-            <div style={{fontSize:12,color:t.col,fontWeight:600}}>{t.sub}</div>
+            <div style={{fontSize:24,marginBottom:6}}>{tx.icon}</div>
+            <div style={{fontWeight:700,fontSize:15,color:C.text}}>{t(tx.label)}</div>
+            <div style={{fontSize:12,color:tx.col,fontWeight:600}}>{tx.sub}</div>
           </button>
         ))}
       </div>
       {ultimiSan.length>0&&(
         <Card>
-          <div style={{fontSize:13,fontWeight:700,color:C.muted,marginBottom:8}}>ULTIMI EVENTI SANITARI</div>
+          <div style={{fontSize:13,fontWeight:700,color:C.muted,marginBottom:8}}>{t("ULTIMI EVENTI SANITARI")}</div>
           {ultimiSan.map(e=>{
             const a=animali.find(x=>x.id===e.animale_id);
             return(
               <div key={e.id} style={{display:"flex",justifyContent:"space-between",
                 padding:"6px 0",borderBottom:`1px solid ${C.border}`}}>
                 <div>
-                  <span style={{fontSize:13,fontWeight:600}}>{e.tipo}</span>
+                  <span style={{fontSize:13,fontWeight:600}}>{t(e.tipo)}</span>
                   {a&&<span style={{fontSize:12,color:C.muted}}> · {a.nome||a.bdn}</span>}
                 </div>
                 <span style={{fontSize:12,color:C.muted}}>{e.data}</span>
@@ -496,7 +497,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
   },[dettaglio?.id]);
 
   async function salvaPesata(){
-    if(!nuovaPesata.peso||!nuovaPesata.data){ alert("Inserisci almeno data e peso."); return; }
+    if(!nuovaPesata.peso||!nuovaPesata.data){ alert(t("Inserisci almeno data e peso.")); return; }
     setSalvandoPesata(true);
     const {error}=await supabase.from("pesate_storico").insert([{
       animale_id:dettaglio.id, data_rilevazione:nuovaPesata.data,
@@ -504,16 +505,16 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
       stimato:false, note:nuovaPesata.note||null,
     }]);
     setSalvandoPesata(false);
-    if(error){ alert(`⚠️ Errore nel salvataggio della pesata:\n\n${error.message}`); return; }
+    if(error){ alert(t("⚠️ Errore nel salvataggio della pesata:\n\n{0}",{0:(error.message)})); return; }
     setNuovaPesata({data:today(),peso:"",tipo:"vita",note:""});
     const {data}=await supabase.from("pesate_storico").select("*").eq("animale_id",dettaglio.id).order("data_rilevazione");
     setPesateAnimale(data||[]);
   }
 
   async function eliminaPesata(id){
-    if(!window.confirm("Eliminare questa pesata? Non si può annullare.")) return;
+    if(!window.confirm(t("Eliminare questa pesata? Non si può annullare."))) return;
     const {error}=await supabase.from("pesate_storico").delete().eq("id",id);
-    if(error){ alert(`⚠️ Errore nell'eliminazione:\n\n${error.message}`); return; }
+    if(error){ alert(t("⚠️ Errore nell'eliminazione:\n\n{0}",{0:(error.message)})); return; }
     setPesateAnimale(prev=>prev.filter(p=>p.id!==id));
   }
 
@@ -569,7 +570,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
   };
 
   const salva=async()=>{
-    if(!form.bdn&&!form.nome){setErrore("Inserisci almeno BDN o nome");return;}
+    if(!form.bdn&&!form.nome){setErrore(t("Inserisci almeno BDN o nome"));return;}
     setSaving(true);setErrore("");
     // Risolvi genitori esterni
     let padre_id=form.padre_id?parseInt(form.padre_id):null;
@@ -631,15 +632,15 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
     }
     else{const r=await aggiungi(payload);err=r.error;}
     setSaving(false);
-    if(err){setErrore("Errore nel salvataggio: "+err.message);return;}
+    if(err){setErrore(t("Errore nel salvataggio: ")+err.message);return;}
     setForm(null);
   };
 
   const cancella=async(id)=>{
-    if(!window.confirm("Eliminare questo animale?"))return;
+    if(!window.confirm(t("Eliminare questo animale?")))return;
     const {error} = await elimina(id);
     if(error){
-      alert(`⚠️ Impossibile eliminare l'animale:\n\n${error.message}\n\nProbabile causa: è ancora collegato a un lotto (come madre/padre) o a un evento riproduttivo/sanitario/costo. Rimuovi prima quei riferimenti, oppure usa "Modifica" per correggere i dati invece di eliminare.`);
+      alert(t("⚠️ Impossibile eliminare l'animale:\n\n{0}\n\nProbabile causa: è ancora collegato a un lotto (come madre/padre) o a un evento riproduttivo/sanitario/costo. Rimuovi prima quei riferimenti, oppure usa \"Modifica\" per correggere i dati invece di eliminare.",{0:(error.message)}));
       return;
     }
     setDettaglio(null);
@@ -831,7 +832,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
           const{error:errUnita}=await supabase.from("suini_lotto").insert(righeUnita);
           if(errUnita){
             setSavingParto(false);
-            alert(`⚠️ Il lotto ${codLotto} è stato creato, ma il salvataggio delle singole unità è fallito:\n\n${errUnita.message}\n\nIl lotto risulterà con "0 vivi attuali" finché non correggi questo problema (segnalalo, o elimina il lotto e riprova).`);
+            alert(t("⚠️ Il lotto {0} è stato creato, ma il salvataggio delle singole unità è fallito:\n\n{1}\n\nIl lotto risulterà con \"0 vivi attuali\" finché non correggi questo problema (segnalalo, o elimina il lotto e riprova).",{0:(codLotto),1:(errUnita.message)}));
             return;
           }
         }
@@ -854,7 +855,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
   };
 
   const eliminaParto=async(eventoId)=>{
-    if(!window.confirm("Eliminare questo evento parto? I dati statistici verranno persi. Le schede dei nati già create NON vengono cancellate.")) return;
+    if(!window.confirm(t("Eliminare questo evento parto? I dati statistici verranno persi. Le schede dei nati già create NON vengono cancellate."))) return;
     await eliminaEvento(eventoId);
     ricaricaEventi();
   };
@@ -870,120 +871,120 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
       <div style={{padding:"16px 16px 100px"}}>
         <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
           <button onClick={()=>setForm(null)} style={{background:"none",border:"none",cursor:"pointer",fontSize:22}}>←</button>
-          <span style={{fontSize:18,fontWeight:800}}>{form.id?"Modifica":"Nuovo"} {specieLabel(specie)}</span>
+          <span style={{fontSize:18,fontWeight:800}}>{form.id?t("Modifica"):t("Nuovo")} {specieLabel(specie)}</span>
         </div>
         {errore&&<div style={{background:C.red+"15",color:C.red,borderRadius:10,padding:"10px 14px",marginBottom:12}}>{errore}</div>}
 
-        <Sezione label="Specie"/>
-        <Field label="Specie" value={form.specie} onChange={v=>setForm(f=>({...f,specie:v,razza:"",categoria:""}))}
+        <Sezione label={t("Specie")}/>
+        <Field label={t("Specie")} value={form.specie} onChange={v=>setForm(f=>({...f,specie:v,razza:"",categoria:""}))}
           options={["bovino","suino","ovino"]} required/>
 
-        <Sezione label="Identificazione"/>
-        <Field label={specie==="bovino"?"BDN / Matricola":specie==="suino"?"Tatuaggio / Codice aziendale":"Marchio auricolare (BDN)"}
-          value={form.bdn} onChange={v=>setForm(f=>({...f,bdn:v}))} placeholder="Es. IT034BN001"/>
-        <Field label="Nome / Soprannome" value={form.nome} onChange={v=>setForm(f=>({...f,nome:v}))}/>
-        {specie==="bovino"&&<Field label="N. Passaporto" value={form.passaporto} onChange={v=>setForm(f=>({...f,passaporto:v}))}/>}
-        <Field label={specie==="ovino"?"Transponder / Bolo ruminale":"Transponder / RFID"}
+        <Sezione label={t("Identificazione")}/>
+        <Field label={specie==="bovino"?t("BDN / Matricola"):specie==="suino"?t("Tatuaggio / Codice aziendale"):t("Marchio auricolare (BDN)")}
+          value={form.bdn} onChange={v=>setForm(f=>({...f,bdn:v}))} placeholder={t("Es. IT034BN001")}/>
+        <Field label={t("Nome / Soprannome")} value={form.nome} onChange={v=>setForm(f=>({...f,nome:v}))}/>
+        {specie==="bovino"&&<Field label={t("N. Passaporto")} value={form.passaporto} onChange={v=>setForm(f=>({...f,passaporto:v}))}/>}
+        <Field label={specie==="ovino"?t("Transponder / Bolo ruminale"):t("Transponder / RFID")}
           value={form.transponder} onChange={v=>setForm(f=>({...f,transponder:v}))}/>
 
-        <Sezione label="Anagrafica"/>
-        <Field label="Sesso" value={form.sesso} onChange={v=>setForm(f=>({...f,sesso:v}))} options={SESSO_OPT(specie)} required/>
-        <Field label="Data di nascita" value={form.nascita} onChange={v=>setForm(f=>({...f,nascita:v}))} type="date"/>
-        <Field label="Data registrazione BDN" value={form.data_registrazione_bdn}
+        <Sezione label={t("Anagrafica")}/>
+        <Field label={t("Sesso")} value={form.sesso} onChange={v=>setForm(f=>({...f,sesso:v}))} options={SESSO_OPT(specie)} required/>
+        <Field label={t("Data di nascita")} value={form.nascita} onChange={v=>setForm(f=>({...f,nascita:v}))} type="date"/>
+        <Field label={t("Data registrazione BDN")} value={form.data_registrazione_bdn}
           onChange={v=>setForm(f=>({...f,data_registrazione_bdn:v}))} type="date"
-          placeholder="Data attribuzione della matricola"/>
-        <Field label="Razza" value={form.razza} onChange={v=>setForm(f=>({...f,razza:v}))}
+          placeholder={t("Data attribuzione della matricola")}/>
+        <Field label={t("Razza")} value={form.razza} onChange={v=>setForm(f=>({...f,razza:v}))}
           options={RAZZE[specie]||[]} required/>
-        <Field label="Categoria" value={form.categoria} onChange={v=>setForm(f=>({...f,categoria:v}))}
+        <Field label={t("Categoria")} value={form.categoria} onChange={v=>setForm(f=>({...f,categoria:v}))}
           options={CATEGORIE[specie]||[]}/>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-          <Field label="Peso nascita (kg)" value={form.peso_nascita} onChange={v=>setForm(f=>({...f,peso_nascita:v}))} type="number"/>
-          <Field label="Peso attuale (kg)" value={form.peso_attuale} onChange={v=>setForm(f=>({...f,peso_attuale:v}))} type="number"/>
+          <Field label={t("Peso nascita (kg)")} value={form.peso_nascita} onChange={v=>setForm(f=>({...f,peso_nascita:v}))} type="number"/>
+          <Field label={t("Peso attuale (kg)")} value={form.peso_attuale} onChange={v=>setForm(f=>({...f,peso_attuale:v}))} type="number"/>
         </div>
-        <Field label="Peso all'ingresso (kg)" value={form.peso_ingresso} onChange={v=>setForm(f=>({...f,peso_ingresso:v}))} type="number"
-          placeholder="Utile soprattutto se acquistato e il peso di nascita non è noto"/>
+        <Field label={t("Peso all'ingresso (kg)")} value={form.peso_ingresso} onChange={v=>setForm(f=>({...f,peso_ingresso:v}))} type="number"
+          placeholder={t("Utile soprattutto se acquistato e il peso di nascita non è noto")}/>
 
-        <Sezione label="Provenienza"/>
-        <Field label="Provenienza" value={form.provenienza} onChange={v=>setForm(f=>({...f,provenienza:v}))}
+        <Sezione label={t("Provenienza")}/>
+        <Field label={t("Provenienza")} value={form.provenienza} onChange={v=>setForm(f=>({...f,provenienza:v}))}
           options={["Nato in azienda","Acquistato","Trasferito"]}/>
-        <Field label="Data ingresso in azienda" value={form.data_ingresso} onChange={v=>setForm(f=>({...f,data_ingresso:v}))} type="date"/>
+        <Field label={t("Data ingresso in azienda")} value={form.data_ingresso} onChange={v=>setForm(f=>({...f,data_ingresso:v}))} type="date"/>
         {form.provenienza!=="Nato in azienda"&&<>
-          <Field label="Azienda / Allevamento di origine" value={form.origine} onChange={v=>setForm(f=>({...f,origine:v}))}/>
-          <Field label="Fornitore" value={form.fornitore} onChange={v=>setForm(f=>({...f,fornitore:v}))}/>
+          <Field label={t("Azienda / Allevamento di origine")} value={form.origine} onChange={v=>setForm(f=>({...f,origine:v}))}/>
+          <Field label={t("Fornitore")} value={form.fornitore} onChange={v=>setForm(f=>({...f,fornitore:v}))}/>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-            <Field label="Data fattura" value={form.data_fattura}
+            <Field label={t("Data fattura")} value={form.data_fattura}
               onChange={v=>setForm(f=>({...f,data_fattura:v}))} type="date"/>
-            <Field label="Numero fattura" value={form.numero_fattura}
-              onChange={v=>setForm(f=>({...f,numero_fattura:v}))} placeholder="Es. FT-2026-0042"/>
+            <Field label={t("Numero fattura")} value={form.numero_fattura}
+              onChange={v=>setForm(f=>({...f,numero_fattura:v}))} placeholder={t("Es. FT-2026-0042")}/>
           </div>
-          <Field label="Prezzo di acquisto (€)" value={form.prezzo_acquisto}
+          <Field label={t("Prezzo di acquisto (€)")} value={form.prezzo_acquisto}
             onChange={v=>setForm(f=>({...f,prezzo_acquisto:v}))} type="number"
-            placeholder="Es. 1500"/>
+            placeholder={t("Es. 1500")}/>
         </>}
         {specie==="bovino"&&
-          <Field label="Codice ASL / Veterinario" value={form.codice_asl} onChange={v=>setForm(f=>({...f,codice_asl:v}))}/>}
+          <Field label={t("Codice ASL / Veterinario")} value={form.codice_asl} onChange={v=>setForm(f=>({...f,codice_asl:v}))}/>}
 
-        <Sezione label="Genealogia"/>
+        <Sezione label={t("Genealogia")}/>
         {razzaCalcolata&&(
           <div style={{background:C.green+"15",border:`1px solid ${C.green}44`,borderRadius:10,
             padding:"8px 12px",marginBottom:12,fontSize:13}}>
-            🧬 Razza calcolata: <strong style={{color:C.green}}>{razzaCalcolata}</strong>
-            {razzaCalcolata==="METICCIA"&&<span style={{color:C.muted}}> (razze diverse)</span>}
+            {t("🧬 Razza calcolata:")} <strong style={{color:C.green}}>{razzaCalcolata}</strong>
+            {razzaCalcolata==="METICCIA"&&<span style={{color:C.muted}}> {t("(razze diverse)")}</span>}
           </div>
         )}
         {/* MADRE */}
-        <Field label="Madre (in azienda)" value={form.madre_id}
+        <Field label={t("Madre (in azienda)")} value={form.madre_id}
           onChange={v=>setForm(f=>({...f,madre_id:v,madre_ext:""}))}
           options={madri.map(a=>({value:a.id,label:`${a.nome||a.bdn} (${a.razza||"—"})`}))}/>
         {!form.madre_id&&(
           <div style={{marginTop:-8,marginBottom:12}}>
             <div style={{fontSize:11,color:C.muted,marginBottom:4}}>
-              oppure — Matricola madre esterna (non in azienda):
+              {t("oppure — Matricola madre esterna (non in azienda):")}
             </div>
             <input type="text" value={form.madre_ext}
               onChange={e=>setForm(f=>({...f,madre_ext:e.target.value,madre_id:""}))}
-              placeholder="Es. IT058000123456 — verrà creata scheda automaticamente"
+              placeholder={t("Es. IT058000123456 — verrà creata scheda automaticamente")}
               style={{width:"100%",boxSizing:"border-box",border:`1.5px solid ${form.madre_ext?C.blue:C.border}`,
                 borderRadius:10,padding:"8px 12px",fontSize:13,background:"#F0F8FF",
                 color:C.text,outline:"none"}}/>
             {form.madre_ext&&(
               <div style={{fontSize:11,color:C.blue,marginTop:3}}>
-                🧬 Al salvataggio verrà creata automaticamente una scheda per questa madre — comparirà nel Pedigree
+                {t("🧬 Al salvataggio verrà creata automaticamente una scheda per questa madre — comparirà nel Pedigree")}
               </div>
             )}
           </div>
         )}
         {/* PADRE */}
-        <Field label={`Padre (in azienda)${padriRiprod.length>0?" — riproduttori registrati":padriTutti.length>0?" — nessun riproduttore, mostro tutti i maschi":""}`} value={form.padre_id}
+        <Field label={t("Padre (in azienda){0}",{0:(padriRiprod.length>0?" — riproduttori registrati":padriTutti.length>0?" — nessun riproduttore, mostro tutti i maschi":"")})} value={form.padre_id}
           onChange={v=>setForm(f=>({...f,padre_id:v,padre_ext:""}))}
           options={padri.map(a=>({value:a.id,label:`${a.nome||a.bdn} (${a.razza||"—"})${a.riproduttore?" ♂":""}`}))}/>
         {!form.padre_id&&(
           <div style={{marginTop:-8,marginBottom:12}}>
             <div style={{fontSize:11,color:C.muted,marginBottom:4}}>
-              oppure — Matricola padre esterno (non in azienda):
+              {t("oppure — Matricola padre esterno (non in azienda):")}
             </div>
             <input type="text" value={form.padre_ext}
               onChange={e=>setForm(f=>({...f,padre_ext:e.target.value,padre_id:""}))}
-              placeholder="Es. 334966 o IT034SU123 — verrà creata scheda automaticamente"
+              placeholder={t("Es. 334966 o IT034SU123 — verrà creata scheda automaticamente")}
               style={{width:"100%",boxSizing:"border-box",border:`1.5px solid ${form.padre_ext?C.blue:C.border}`,
                 borderRadius:10,padding:"8px 12px",fontSize:13,background:"#F0F8FF",
                 color:C.text,outline:"none"}}/>
             {form.padre_ext&&(
               <div style={{fontSize:11,color:C.blue,marginTop:3}}>
-                🧬 Al salvataggio verrà creata automaticamente una scheda per questo padre — comparirà nel Pedigree
+                {t("🧬 Al salvataggio verrà creata automaticamente una scheda per questo padre — comparirà nel Pedigree")}
               </div>
             )}
           </div>
         )}
 
-        <Sezione label="Gestione"/>
-        <Field label={specie==="ovino"?"Gregge / Gruppo":specie==="suino"?"Lotto suini (ID)":"Lotto / Box / Recinto"}
+        <Sezione label={t("Gestione")}/>
+        <Field label={specie==="ovino"?t("Gregge / Gruppo"):specie==="suino"?t("Lotto suini (ID)"):t("Lotto / Box / Recinto")}
           value={form.lotto_box} onChange={v=>setForm(f=>({...f,lotto_box:v}))}/>
-        <Field label="Destinazione prevista" value={form.destinazione} onChange={v=>setForm(f=>({...f,destinazione:v}))}
+        <Field label={t("Destinazione prevista")} value={form.destinazione} onChange={v=>setForm(f=>({...f,destinazione:v}))}
           options={specie==="ovino"
             ?["Riproduzione","Ingrasso","Macello","Vendita","Carne","Latte","Lana","Non definita"]
             :["Riproduzione","Ingrasso","Vendita","Macello","Autoconsumo","Non definita"]}/>
-        <Field label="Stato" value={form.stato} onChange={v=>setForm(f=>({...f,stato:v}))} options={STATI} required/>
+        <Field label={t("Stato")} value={form.stato} onChange={v=>setForm(f=>({...f,stato:v}))} options={STATI} required/>
         {/* Toggle riproduttore/riproduttrice per maschi e femmine */}
         {(form.sesso==="M"||form.sesso==="F")&&(
           <div onClick={()=>setForm(f=>({...f,riproduttore:!f.riproduttore}))}
@@ -1001,20 +1002,20 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
             <div>
               <div style={{fontWeight:700,fontSize:14,
                 color:form.riproduttore?(form.sesso==="M"?C.blue:C.suini):C.muted}}>
-                {form.sesso==="M"?"♂ Riproduttore":"♀ Riproduttrice"}
+                {form.sesso==="M"?t("♂ Riproduttore"):t("♀ Riproduttrice")}
               </div>
               <div style={{fontSize:11,color:C.muted}}>
                 {form.riproduttore
-                  ?"Incluso nel registro riproduttori"
-                  :"Non incluso nel registro riproduttori"}
+                  ?t("Incluso nel registro riproduttori")
+                  :t("Non incluso nel registro riproduttori")}
               </div>
             </div>
           </div>
         )}
 
         {form.stato!=="attivo"&&(<>
-          <Sezione label="Dati Uscita"/>
-          <Field label="Data uscita" value={form.data_uscita}
+          <Sezione label={t("Dati Uscita")}/>
+          <Field label={t("Data uscita")} value={form.data_uscita}
             onChange={v=>setForm(f=>({...f,data_uscita:v}))} type="date"/>
           {/* Giorni permanenza calcolati */}
           {form.data_uscita&&form.data_ingresso&&(()=>{
@@ -1022,19 +1023,19 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
             return gg>0&&(
               <div style={{background:C.blue+"12",border:`1px solid ${C.blue}33`,
                 borderRadius:10,padding:"8px 12px",marginBottom:12,fontSize:13}}>
-                📅 Permanenza: <strong style={{color:C.blue}}>{gg} giorni</strong>
-                {gg>=365&&<span style={{color:C.muted}}> ({(gg/365).toFixed(1)} anni)</span>}
+                {t("📅 Permanenza:")} <strong style={{color:C.blue}}>{gg} {t("giorni")}</strong>
+                {gg>=365&&<span style={{color:C.muted}}> ({t("{0} anni",{0:(gg/365).toFixed(1)})})</span>}
               </div>
             );
           })()}
-          <Field label="Motivo uscita" value={form.motivo_uscita}
+          <Field label={t("Motivo uscita")} value={form.motivo_uscita}
             onChange={v=>setForm(f=>({...f,motivo_uscita:v}))}
             options={["Macellato","Morto (cause naturali)","Morto (malattia)","Venduto vivo","Furto","Scappato","Trasferito","Altro"]}/>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-            <Field label="Peso vivo uscita (kg)" value={form.peso_vivo_uscita}
+            <Field label={t("Peso vivo uscita (kg)")} value={form.peso_vivo_uscita}
               onChange={v=>setForm(f=>({...f,peso_vivo_uscita:v}))} type="number"/>
             {(form.motivo_uscita==="Macellato")&&
-              <Field label="Peso carcassa (kg)" value={form.peso_carcassa}
+              <Field label={t("Peso carcassa (kg)")} value={form.peso_carcassa}
                 onChange={v=>setForm(f=>({...f,peso_carcassa:v}))} type="number"/>}
           </div>
           {/* Resa calcolata automaticamente */}
@@ -1043,20 +1044,20 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
             return(
               <div style={{background:C.green+"12",border:`1px solid ${C.green}33`,
                 borderRadius:10,padding:"8px 12px",marginBottom:12,fontSize:13}}>
-                ⚖️ Resa: <strong style={{color:C.green}}>{resa}%</strong>
-                <span style={{color:C.muted,fontSize:12}}> (carcassa/peso vivo)</span>
+                {t("⚖️ Resa:")} <strong style={{color:C.green}}>{resa}%</strong>
+                <span style={{color:C.muted,fontSize:12}}> {t("(carcassa/peso vivo)")}</span>
               </div>
             );
           })()}
         </>)}
 
-        <Sezione label="Sanità e Note"/>
-        <Field label="Note sanitarie" value={form.note_sanitarie} onChange={v=>setForm(f=>({...f,note_sanitarie:v}))}/>
-        <Field label="Note generali" value={form.note} onChange={v=>setForm(f=>({...f,note:v}))}/>
+        <Sezione label={t("Sanità e Note")}/>
+        <Field label={t("Note sanitarie")} value={form.note_sanitarie} onChange={v=>setForm(f=>({...f,note_sanitarie:v}))}/>
+        <Field label={t("Note generali")} value={form.note} onChange={v=>setForm(f=>({...f,note:v}))}/>
 
         <div style={{display:"flex",gap:10,marginTop:16}}>
-          <Btn label={saving?"Salvataggio...":"Salva"} icon="✓" onClick={salva} variant="success" disabled={saving}/>
-          <Btn label="Annulla" onClick={()=>setForm(null)} variant="ghost"/>
+          <Btn label={saving?t("Salvataggio..."):t("Salva")} icon="✓" onClick={salva} variant="success" disabled={saving}/>
+          <Btn label={t("Annulla")} onClick={()=>setForm(null)} variant="ghost"/>
         </div>
       </div>
     );
@@ -1079,27 +1080,27 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
     if(a.nascita) timeline.push({
       _cat:"vita", _data:a.nascita, _icona:"🌱",
       _colore:C.green, _tipo:"Nascita",
-      _titolo: `Nascita${a.data_registrazione_bdn?" (BDN: "+a.data_registrazione_bdn+")":""}`,
-      _dettaglio: a.peso_nascita ? `Peso alla nascita: ${a.peso_nascita} kg` : "",
+      _titolo: t("Nascita")+(a.data_registrazione_bdn?" (BDN: "+a.data_registrazione_bdn+")":""),
+      _dettaglio: a.peso_nascita ? t("Peso alla nascita: {0} kg",{0:a.peso_nascita}) : "",
     });
     if(a.data_ingresso&&a.data_ingresso!==a.nascita) timeline.push({
       _cat:"vita", _data:a.data_ingresso, _icona:"📥",
       _colore:C.blue, _tipo:"Ingresso in azienda",
-      _titolo:"Ingresso in azienda",
-      _dettaglio: a.origine ? `Origine: ${a.origine}` : "",
+      _titolo:t("Ingresso in azienda"),
+      _dettaglio: a.origine ? t("Origine: {0}",{0:a.origine}) : "",
     });
     if(a.data_qualifica_riproduttore) timeline.push({
       _cat:"vita", _data:a.data_qualifica_riproduttore, _icona:"♂♀",
       _colore:C.accent, _tipo:"Qualifica riproduttore",
-      _titolo: a.sesso==="M"?"Diventato Riproduttore":"Diventata Riproduttrice",
+      _titolo: a.sesso==="M"?t("Diventato Riproduttore"):t("Diventata Riproduttrice"),
       _dettaglio:"",
     });
     // Parti (per femmine)
     partiMadre.forEach(p => timeline.push({
       _cat:"riproduzione", _data:p.data_evento, _icona:"🐣",
       _colore: p.nati_vivi>1?"#D9628F":C.accent, _tipo:"Parto",
-      _titolo: `Parto${p.tipo_parto?" ("+p.tipo_parto+")":""}`,
-      _dettaglio: `${p.nati_vivi||0} nati vivi${p.nati_morti>0?" · "+p.nati_morti+" morti":""}${p.nati_mummificati>0?" · "+p.nati_mummificati+" mummificati":""}`,
+      _titolo: t("Parto")+(p.tipo_parto?" ("+t(p.tipo_parto)+")":""),
+      _dettaglio: t("{0} nati vivi",{0:p.nati_vivi||0})+(p.nati_morti>0?" · "+t("{0} morti",{0:p.nati_morti}):"")+(p.nati_mummificati>0?" · "+t("{0} mummificati",{0:p.nati_mummificati}):""),
       _originale: p,
     }));
     // Eventi sanitari
@@ -1109,13 +1110,13 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
         : s.tipo==="vaccino"||s.tipo==="richiamo vaccinale"?C.green
         : s.tipo==="antiparassitario"?"#8B7FBA"
         : C.blue,
-      _tipo: (s.tipo||"altro").toUpperCase(),
+      _tipo: t(s.tipo||"altro").toUpperCase(),
       _titolo: s.descrizione,
       _dettaglio: [
         s.prodotto?`💊 ${s.prodotto}`:null,
         s.veterinario?`👨‍⚕️ ${s.veterinario}`:null,
         s.costo?`💰 €${s.costo}`:null,
-        s.scadenza?`⏰ Richiamo: ${s.scadenza}`:null,
+        s.scadenza?"⏰ "+t("Richiamo: {0}",{0:s.scadenza}):null,
       ].filter(Boolean).join(" · "),
       _originale: s,
     }));
@@ -1126,11 +1127,11 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
                a.motivo_uscita?.toLowerCase().includes("predaz")||
                a.motivo_uscita?.toLowerCase().includes("smarr")?C.red:C.muted,
       _tipo:"Uscita",
-      _titolo: a.motivo_uscita||"Uscita dall'azienda",
+      _titolo: t(a.motivo_uscita||"Uscita dall'azienda"),
       _dettaglio: [
-        a.peso_vivo_uscita?`⚖️ Peso vivo ${a.peso_vivo_uscita} kg`:null,
-        a.peso_carcassa?`🥩 Carcassa ${a.peso_carcassa} kg`:null,
-        a.resa_percent?`resa ${a.resa_percent}%`:null,
+        a.peso_vivo_uscita?"⚖️ "+t("Peso vivo {0} kg",{0:a.peso_vivo_uscita}):null,
+        a.peso_carcassa?"🥩 "+t("Carcassa {0} kg",{0:a.peso_carcassa}):null,
+        a.resa_percent?t("resa {0}%",{0:a.resa_percent}):null,
       ].filter(Boolean).join(" · "),
     });
     // Ordino per data DECRESCENTE (più recente in alto)
@@ -1147,7 +1148,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
           <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
             <button onClick={()=>setDettaglio(null)} style={{background:"rgba(255,255,255,0.2)",border:"none",
               borderRadius:10,padding:"6px 10px",color:"#FFF",cursor:"pointer",fontSize:18}}>←</button>
-            <span style={{fontSize:18,fontWeight:800,color:"#FFF",flex:1}}>{a.nome||a.bdn||"Animale"}</span>
+            <span style={{fontSize:18,fontWeight:800,color:"#FFF",flex:1}}>{a.nome||a.bdn||t("Animale")}</span>
             <button onClick={()=>setForm({...a})} style={{background:"rgba(255,255,255,0.2)",border:"none",
               borderRadius:10,padding:"6px 10px",color:"#FFF",cursor:"pointer"}}>✏️</button>
             <button onClick={()=>cancella(a.id)} style={{background:"rgba(255,255,255,0.2)",border:"none",
@@ -1155,7 +1156,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
           </div>
           <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
             <Badge label={specieLabel(a.specie)+" "+specieIcon(a.specie)} color="#FFFFFF"/>
-            <Badge label={a.sesso==="M"?"♂ Maschio":a.sesso==="F"?"♀ Femmina":"✂ Castrato"} color="#FFFFFF"/>
+            <Badge label={a.sesso==="M"?t("♂ Maschio"):a.sesso==="F"?t("♀ Femmina"):t("✂ Castrato")} color="#FFFFFF"/>
             {a.categoria&&<Badge label={a.categoria} color="#FFFFFF"/>}
             {a.stato!=="attivo"&&<Badge label={a.stato.toUpperCase()} color="#FFFFFF"/>}
           </div>
@@ -1181,32 +1182,32 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
               {a.provenienza==="Acquistato"&&!a.prezzo_acquisto&&(
                 <div style={{background:C.red,color:"#FFF",borderRadius:10,padding:"10px 14px",
                   marginBottom:12,fontWeight:700,fontSize:13,display:"flex",alignItems:"center",gap:8}}>
-                  ⚠️ Inserire costo di acquisto (con gli estremi della fattura)
+                  {t("⚠️ Inserire costo di acquisto (con gli estremi della fattura)")}
                 </div>
               )}
               <Card>
-                <Sezione label="Identificazione"/>
-                {a.bdn&&<Row label={a.specie==="bovino"?"BDN":"Tatuaggio/Marchio"} val={a.bdn}/>}
-                {a.passaporto&&<Row label="N. Passaporto" val={a.passaporto}/>}
-                {a.transponder&&<Row label="Transponder" val={a.transponder}/>}
-                <Row label="Specie" val={specieIcon(a.specie)+" "+specieLabel(a.specie)}/>
-                <Row label="Razza" val={(a.razza_calcolata||a.razza||"—")+(a.razza_calcolata==="METICCIA"?" 🧬":"")}/>
-                <Row label="Sesso" val={a.sesso==="M"?"♂ Maschio":a.sesso==="F"?"♀ Femmina":"✂ Castrato"}/>
-                {a.categoria&&<Row label="Categoria" val={a.categoria}/>}
+                <Sezione label={t("Identificazione")}/>
+                {a.bdn&&<Row label={a.specie==="bovino"?t("BDN"):t("Tatuaggio/Marchio")} val={a.bdn}/>}
+                {a.passaporto&&<Row label={t("N. Passaporto")} val={a.passaporto}/>}
+                {a.transponder&&<Row label={t("Transponder")} val={a.transponder}/>}
+                <Row label={t("Specie")} val={specieIcon(a.specie)+" "+specieLabel(a.specie)}/>
+                <Row label={t("Razza")} val={(a.razza_calcolata||a.razza||"—")+(a.razza_calcolata==="METICCIA"?" 🧬":"")}/>
+                <Row label={t("Sesso")} val={a.sesso==="M"?"♂ Maschio":a.sesso==="F"?"♀ Femmina":"✂ Castrato"}/>
+                {a.categoria&&<Row label={t("Categoria")} val={a.categoria}/>}
                 {a.riproduttore&&(
                   <div style={{display:"flex",justifyContent:"space-between",
                     padding:"6px 0",borderBottom:`1px solid ${C.border}`,fontSize:14}}>
-                    <span style={{color:C.muted,fontSize:13}}>Qualifica</span>
+                    <span style={{color:C.muted,fontSize:13}}>{t("Qualifica")}</span>
                     <span style={{fontWeight:700,
                       color:a.sesso==="M"?C.blue:C.suini,fontSize:13}}>
-                      {a.sesso==="M"?"♂ Riproduttore":"♀ Riproduttrice"}
+                      {a.sesso==="M"?t("♂ Riproduttore"):t("♀ Riproduttrice")}
                     </span>
                   </div>
                 )}
                 {a.data_registrazione_bdn&&(
                   <div style={{display:"flex",justifyContent:"space-between",
                     padding:"6px 0",borderBottom:`1px solid ${C.border}`,fontSize:14}}>
-                    <span style={{color:C.muted,fontSize:13}}>Data registrazione BDN</span>
+                    <span style={{color:C.muted,fontSize:13}}>{t("Data registrazione BDN")}</span>
                     <span style={{fontWeight:600}}>{a.data_registrazione_bdn}</span>
                   </div>
                 )}
@@ -1234,16 +1235,16 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
 
                 return(
                   <Card>
-                    <Sezione label="% Nati vivi sul totale nati"/>
+                    <Sezione label={t("% Nati vivi sul totale nati")}/>
                     <div style={{display:"flex",justifyContent:"space-between",
                       padding:"6px 0",borderBottom:`1px solid ${C.border}`,fontSize:14}}>
-                      <span style={{color:C.muted,fontSize:13}}>Media allevamento ({specieLabel(a.specie)})</span>
+                      <span style={{color:C.muted,fontSize:13}}>{t("Media allevamento (")}{specieLabel(a.specie)})</span>
                       <span style={{fontWeight:700,color:"#000",fontSize:14}}>
                         {allevPct!=null?allevPct+"%":"—"}
                       </span>
                     </div>
                     <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",fontSize:14}}>
-                      <span style={{color:C.muted,fontSize:13}}>Questa scrofa</span>
+                      <span style={{color:C.muted,fontSize:13}}>{t("Questa scrofa")}</span>
                       <span style={{fontWeight:700,color:coloreMia,fontSize:14}}>
                         {miaPct!=null?miaPct+"%":"—"}
                       </span>
@@ -1252,44 +1253,44 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
                 );
               })()}
               <Card>
-                <Sezione label="Dati fisici e nascita"/>
-                {a.nascita&&<Row label="Data di nascita" val={a.nascita}/>}
-                {a.peso_nascita&&<Row label="Peso nascita" val={a.peso_nascita+" kg"}/>}
-                {a.peso_ingresso&&<Row label="Peso all'ingresso" val={a.peso_ingresso+" kg"}/>}
-                {a.peso_attuale&&<Row label="Peso attuale" val={a.peso_attuale+" kg"}/>}
-                {a.provenienza&&<Row label="Provenienza" val={a.provenienza}/>}
-                {a.data_ingresso&&<Row label="Data ingresso" val={a.data_ingresso}/>}
-                {a.prezzo_acquisto&&<Row label="Prezzo acquisto" val={`€ ${a.prezzo_acquisto.toFixed(2)}`}/>}
-                {a.origine&&<Row label="Azienda origine" val={a.origine}/>}
+                <Sezione label={t("Dati fisici e nascita")}/>
+                {a.nascita&&<Row label={t("Data di nascita")} val={a.nascita}/>}
+                {a.peso_nascita&&<Row label={t("Peso nascita")} val={a.peso_nascita+" kg"}/>}
+                {a.peso_ingresso&&<Row label={t("Peso all'ingresso")} val={a.peso_ingresso+" kg"}/>}
+                {a.peso_attuale&&<Row label={t("Peso attuale")} val={a.peso_attuale+" kg"}/>}
+                {a.provenienza&&<Row label={t("Provenienza")} val={a.provenienza}/>}
+                {a.data_ingresso&&<Row label={t("Data ingresso")} val={a.data_ingresso}/>}
+                {a.prezzo_acquisto&&<Row label={t("Prezzo acquisto")} val={`€ ${a.prezzo_acquisto.toFixed(2)}`}/>}
+                {a.origine&&<Row label={t("Azienda origine")} val={a.origine}/>}
               </Card>
               <Card>
-                <Sezione label="Gestione"/>
-                {a.lotto_box&&<Row label="Lotto / Box" val={a.lotto_box}/>}
-                {a.destinazione&&<Row label="Destinazione" val={a.destinazione}/>}
-                <Row label="Stato" val={a.stato.toUpperCase()}/>
+                <Sezione label={t("Gestione")}/>
+                {a.lotto_box&&<Row label={t("Lotto / Box")} val={a.lotto_box}/>}
+                {a.destinazione&&<Row label={t("Destinazione")} val={a.destinazione}/>}
+                <Row label={t("Stato")} val={a.stato.toUpperCase()}/>
                 {a.stato!=="attivo"&&(()=>{
                   const gg=(a.data_uscita&&a.data_ingresso)
                     ?Math.round((new Date(a.data_uscita)-new Date(a.data_ingresso))/86400000)
                     :null;
                   return(<>
-                    {a.data_uscita&&<Row label="Data uscita" val={a.data_uscita}/>}
-                    {gg>0&&<Row label="Permanenza" val={`${gg} giorni${gg>=365?" ("+( gg/365).toFixed(1)+" anni)":""}`}/>}
-                    {a.motivo_uscita&&<Row label="Motivo uscita" val={a.motivo_uscita}/>}
-                    {a.peso_vivo_uscita&&<Row label="Peso vivo uscita" val={a.peso_vivo_uscita+" kg"}/>}
-                    {a.peso_carcassa&&<Row label="Peso carcassa" val={a.peso_carcassa+" kg"}/>}
+                    {a.data_uscita&&<Row label={t("Data uscita")} val={a.data_uscita}/>}
+                    {gg>0&&<Row label={t("Permanenza")} val={`${gg} giorni${gg>=365?" ("+( gg/365).toFixed(1)+" anni)":""}`}/>}
+                    {a.motivo_uscita&&<Row label={t("Motivo uscita")} val={a.motivo_uscita}/>}
+                    {a.peso_vivo_uscita&&<Row label={t("Peso vivo uscita")} val={a.peso_vivo_uscita+" kg"}/>}
+                    {a.peso_carcassa&&<Row label={t("Peso carcassa")} val={a.peso_carcassa+" kg"}/>}
                     {a.resa_percent&&(
                       <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",
                         fontSize:14,borderBottom:`1px solid ${C.border}`}}>
-                        <span style={{color:C.muted,fontSize:13}}>Resa macellazione</span>
+                        <span style={{color:C.muted,fontSize:13}}>{t("Resa macellazione")}</span>
                         <span style={{fontWeight:700,color:C.green}}>{a.resa_percent}%</span>
                       </div>
                     )}
                     {gg>0&&a.peso_vivo_uscita&&(
-                      <Row label="IPG peso vivo"
+                      <Row label={t("IPG peso vivo")}
                         val={(Math.round(a.peso_vivo_uscita/gg*1000)/1000)+" kg/giorno"}/>
                     )}
                     {gg>0&&a.peso_carcassa&&(
-                      <Row label="IPG carcassa"
+                      <Row label={t("IPG carcassa")}
                         val={(Math.round(a.peso_carcassa/gg*1000)/1000)+" kg/giorno"}/>
                     )}
                   </>);
@@ -1302,16 +1303,16 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
                 if(vacc.length===0)return null;
                 return(
                   <Card>
-                    <Sezione label={`💉 Vaccinazioni (${vacc.length})`}/>
+                    <Sezione label={t("💉 Vaccinazioni ({0})",{0:(vacc.length)})}/>
                     {vacc.map(v=>(
                       <div key={v.id} style={{display:"flex",justifyContent:"space-between",
                         alignItems:"flex-start",padding:"7px 0",
                         borderBottom:`1px solid ${C.border}`,fontSize:13}}>
                         <div>
-                          <div style={{fontWeight:600}}>{v.descrizione||v.prodotto||"Vaccino"}</div>
+                          <div style={{fontWeight:600}}>{v.descrizione||v.prodotto||t("Vaccino")}</div>
                           {v.prodotto&&v.descrizione&&<div style={{fontSize:11,color:C.muted}}>💊 {v.prodotto}</div>}
                           {v.veterinario&&<div style={{fontSize:11,color:C.muted}}>👨‍⚕️ {v.veterinario}</div>}
-                          {v.scadenza&&<div style={{fontSize:11,color:C.yellow}}>⏰ richiamo: {v.scadenza}</div>}
+                          {v.scadenza&&<div style={{fontSize:11,color:C.yellow}}>{t("⏰ richiamo:")} {v.scadenza}</div>}
                         </div>
                         <div style={{fontSize:12,color:C.muted,textAlign:"right",flexShrink:0}}>
                           <div>{v.data}</div>
@@ -1324,9 +1325,9 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
               })()}
               {(a.note_sanitarie||a.note)&&(
                 <Card>
-                  <Sezione label="Note"/>
-                  {a.note_sanitarie&&<><div style={{fontSize:11,color:C.muted,marginBottom:4}}>Sanitarie</div><div style={{fontSize:14,marginBottom:8}}>{a.note_sanitarie}</div></>}
-                  {a.note&&<><div style={{fontSize:11,color:C.muted,marginBottom:4}}>Generali</div><div style={{fontSize:14}}>{a.note}</div></>}
+                  <Sezione label={t("Note")}/>
+                  {a.note_sanitarie&&<><div style={{fontSize:11,color:C.muted,marginBottom:4}}>{t("Sanitarie")}</div><div style={{fontSize:14,marginBottom:8}}>{a.note_sanitarie}</div></>}
+                  {a.note&&<><div style={{fontSize:11,color:C.muted,marginBottom:4}}>{t("Generali")}</div><div style={{fontSize:14}}>{a.note}</div></>}
                 </Card>
               )}
             </>
@@ -1339,21 +1340,21 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
                 <>
                   {padre&&(
                     <Card>
-                      <div style={{fontSize:11,fontWeight:700,color:C.blue,marginBottom:8}}>PADRE</div>
+                      <div style={{fontSize:11,fontWeight:700,color:C.blue,marginBottom:8}}>{t("PADRE")}</div>
                       <AntenatatoMini a={padre} onClick={()=>setDettaglio(padre)}/>
                     </Card>
                   )}
                   {madre&&(
                     <Card>
                       <div style={{fontSize:11,fontWeight:700,color:"#B5547A",marginBottom:8}}>
-                        MADRE · {partiMadre.length>0?`${partiMadre.length} parti registrati`:"nessun parto"}
+                        {t("MADRE ·")} {partiMadre.length>0?t("{0} parti registrati",{0:(partiMadre.length)}):t("nessun parto")}
                       </div>
                       <AntenatatoMini a={madre} onClick={()=>setDettaglio(madre)}/>
                     </Card>
                   )}
                   {figli.length>0&&(
                     <Card>
-                      <div style={{fontSize:11,fontWeight:700,color:C.green,marginBottom:8}}>DISCENDENTI ({figli.length})</div>
+                      <div style={{fontSize:11,fontWeight:700,color:C.green,marginBottom:8}}>{t("DISCENDENTI (")}{figli.length})</div>
                       {figli.map(f=><AntenatatoMini key={f.id} a={f} onClick={()=>setDettaglio(f)}/>)}
                     </Card>
                   )}
@@ -1361,8 +1362,8 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
               ):(
                 <div style={{textAlign:"center",padding:32,color:C.muted}}>
                   <div style={{fontSize:40,marginBottom:8}}>🧬</div>
-                  <div>Nessun dato genealogico</div>
-                  <div style={{marginTop:8,fontSize:13}}>Modifica la scheda per aggiungere padre e madre</div>
+                  <div>{t("Nessun dato genealogico")}</div>
+                  <div style={{marginTop:8,fontSize:13}}>{t("Modifica la scheda per aggiungere padre e madre")}</div>
                 </div>
               )}
             </>
@@ -1376,7 +1377,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
                 formParto?(
                   <Card refEsterno={rifFormParto}>
                     <div style={{fontWeight:700,marginBottom:4}}>
-                      {formParto.id?"✏️ Modifica parto":"🐣 Registra parto"}
+                      {formParto.id?t("✏️ Modifica parto"):t("🐣 Registra parto")}
                     </div>
                     {/* Figli collegati a QUESTO parto — solo in modifica, per non sbagliare
                         parto quando la fattrice ne ha più di uno in timeline */}
@@ -1386,15 +1387,15 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
                         <div style={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:10,
                           padding:"8px 12px",marginBottom:12}}>
                           <div style={{fontSize:11,fontWeight:700,color:C.muted,marginBottom:4}}>
-                            FIGLIO/I DI QUESTO PARTO ({figliParto.length})
+                            {t("FIGLIO/I DI QUESTO PARTO (")}{figliParto.length})
                           </div>
                           {figliParto.length===0?(
                             <div style={{fontSize:13,color:C.muted,fontStyle:"italic"}}>
-                              Nessuna scheda animale trovata con questa data di nascita
+                              {t("Nessuna scheda animale trovata con questa data di nascita")}
                             </div>
                           ):figliParto.map(f=>(
                             <div key={f.id} style={{fontSize:13,fontFamily:"monospace",fontWeight:700}}>
-                              {f.bdn||"(BDN mancante)"} {f.nome?`— ${f.nome}`:""}
+                              {f.bdn||t("(BDN mancante)")} {f.nome?`— ${f.nome}`:""}
                             </div>
                           ))}
                         </div>
@@ -1416,10 +1417,10 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
                         </div>
                         <div>
                           <div style={{fontSize:13,fontWeight:700,color:formParto.storico?C.yellow:C.muted}}>
-                            Parto storico
+                            {t("Parto storico")}
                           </div>
                           <div style={{fontSize:11,color:C.muted}}>
-                            {formParto.storico?"Solo per selezione genetica — non crea schede figli":"Attiva per parti già avvenuti con figli non in azienda"}
+                            {formParto.storico?t("Solo per selezione genetica — non crea schede figli"):t("Attiva per parti già avvenuti con figli non in azienda")}
                           </div>
                         </div>
                       </div>
@@ -1438,7 +1439,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
                         <div style={{background:"#E8F5E9",border:"1.5px solid #4A7C59",
                           borderRadius:12,padding:"10px 14px",marginBottom:12}}>
                           <div style={{fontSize:11,fontWeight:700,color:"#4A7C59",marginBottom:4}}>
-                            🏷️ CODICE LOTTO GENERATO AUTOMATICAMENTE
+                            {t("🏷️ CODICE LOTTO GENERATO AUTOMATICAMENTE")}
                           </div>
                           <div style={{fontSize:28,fontWeight:900,color:"#2E5D3B",
                             letterSpacing:2,fontFamily:"monospace"}}>
@@ -1447,10 +1448,10 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
                           <div style={{fontSize:11,color:"#8B7355",marginTop:4}}>
                             {String(new Date(formParto.data_evento||new Date()).getFullYear()).slice(-2)}
                             {String(new Date(formParto.data_evento||new Date()).getMonth()+1).padStart(2,"0")}
-                            {" "}(anno+mese) ·{" "}
-                            {getRazzaLettera(a.razza_calcolata||a.razza)} (madre) ·{" "}
-                            {getRazzaLettera(padre?.razza_calcolata||padre?.razza||"")} (padre) ·{" "}
-                            {(a.bdn||"").replace(/\D/g,"").slice(-2)} (ultime 2 cifre matricola madre)
+                            {" "}{t("(anno+mese) ·")}{" "}
+                            {getRazzaLettera(a.razza_calcolata||a.razza)} {t("(madre) ·")}{" "}
+                            {getRazzaLettera(padre?.razza_calcolata||padre?.razza||"")} {t("(padre) ·")}{" "}
+                            {(a.bdn||"").replace(/\D/g,"").slice(-2)} {t("(ultime 2 cifre matricola madre)")}
                           </div>
                         </div>
                       ):null;
@@ -1460,9 +1461,9 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
                       <div style={{background:C.suini+"10",border:`1px solid ${C.suini}33`,
                         borderRadius:12,padding:"12px 14px",marginBottom:12}}>
                         <div style={{fontSize:12,fontWeight:700,color:C.suini,marginBottom:10}}>
-                          🐷 Accoppiamento (facoltativo)
+                          {t("🐷 Accoppiamento (facoltativo)")}
                         </div>
-                        <Field label="Data accoppiamento"
+                        <Field label={t("Data accoppiamento")}
                           value={formParto.data_accoppiamento}
                           onChange={v=>{
                             // Calcola data prevista parto: +3 mesi +3 settimane +3 giorni
@@ -1480,18 +1481,18 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
                           <div style={{background:C.suini+"15",borderRadius:8,
                             padding:"8px 12px",fontSize:13}}>
                             <div style={{color:C.suini,fontWeight:600}}>
-                              📅 Data prevista parto:
+                              {t("📅 Data prevista parto:")}
                               <strong style={{fontSize:16,marginLeft:8}}>{formParto._data_prevista}</strong>
                             </div>
                             <div style={{fontSize:11,color:C.muted,marginTop:2}}>
-                              3 mesi + 3 settimane + 3 giorni dopo l'accoppiamento
+                              {t("3 mesi + 3 settimane + 3 giorni dopo l'accoppiamento")}
                             </div>
                             {formParto.data_evento&&formParto.data_evento!==formParto._data_prevista&&(
                               <div style={{fontSize:11,color:C.yellow,marginTop:4}}>
-                                ⚠️ Data effettiva: {formParto.data_evento}
+                                {t("⚠️ Data effettiva:")} {formParto.data_evento}
                                 {(()=>{
                                   const diff=Math.round((new Date(formParto.data_evento)-new Date(formParto._data_prevista))/86400000);
-                                  return diff!==0?` (${diff>0?"+":""}${diff} giorni rispetto alla previsione)`:null;
+                                  return diff!==0?" "+t("({0} giorni rispetto alla previsione)",{0:(diff>0?"+":"")+diff}):null;
                                 })()}
                               </div>
                             )}
@@ -1499,14 +1500,14 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
                         )}
                       </div>
                     )}
-                    <Field label="Data parto" value={formParto.data_evento}
+                    <Field label={t("Data parto")} value={formParto.data_evento}
                       onChange={v=>setFormParto(f=>({...f,data_evento:v}))} type="date" required/>
-                    <Field label="Tipo parto" value={formParto.tipo_parto}
+                    <Field label={t("Tipo parto")} value={formParto.tipo_parto}
                       onChange={v=>setFormParto(f=>({...f,tipo_parto:v}))}
                       options={a.specie==="bovino"?["Naturale","Assistito","Cesareo"]:["Naturale","Assistito"]}/>
                     {/* Nati totali + morti → vivi calcolati */}
                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-                      <Field label="N° nati totali" value={formParto.nati_totali}
+                      <Field label={t("N° nati totali")} value={formParto.nati_totali}
                         onChange={v=>{
                           const tot=parseInt(v)||0;
                           const mort=parseInt(formParto.nati_morti)||0;
@@ -1515,7 +1516,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
                             nati:(!f.storico&&!f.id)?Array.from({length:vivi},(_,i)=>f.nati?.[i]||{bdn_nato:"",sesso:"",peso_nascita:""}):f.nati
                           }));
                         }} type="number"/>
-                      <Field label="N° nati morti" value={formParto.nati_morti}
+                      <Field label={t("N° nati morti")} value={formParto.nati_morti}
                         onChange={v=>{
                           const mort=parseInt(v)||0;
                           const tot=parseInt(formParto.nati_totali)||0;
@@ -1532,9 +1533,9 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
                         <div style={{background:C.green+"15",border:`1px solid ${C.green}33`,
                           borderRadius:10,padding:"8px 12px",marginBottom:12,
                           display:"flex",gap:16,fontSize:13}}>
-                          <span>🟢 Vivi: <strong style={{color:C.green}}>{vivi}</strong></span>
-                          <span>🔴 Morti: <strong style={{color:C.red}}>{parseInt(formParto.nati_morti)||0}</strong></span>
-                          <span>📊 Totali: <strong>{parseInt(formParto.nati_totali)||0}</strong></span>
+                          <span>{t("🟢 Vivi:")} <strong style={{color:C.green}}>{vivi}</strong></span>
+                          <span>{t("🔴 Morti:")} <strong style={{color:C.red}}>{parseInt(formParto.nati_morti)||0}</strong></span>
+                          <span>{t("📊 Totali:")} <strong>{parseInt(formParto.nati_totali)||0}</strong></span>
                         </div>
                       );
                     })()}
@@ -1544,24 +1545,24 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
                       const opzioni=(riprod.length>0?riprod:tutti).map(x=>({value:x.id,label:`${x.nome||x.bdn}${x.riproduttore?" ♂":""}`}));
                       return(
                         <div>
-                          <Field label={`Padre${riprod.length>0?" (riproduttori registrati)":"  (nessun riproduttore — mostro tutti i maschi)"}`}
+                          <Field label={t("Padre{0}",{0:(riprod.length>0?" (riproduttori registrati)":"  (nessun riproduttore — mostro tutti i maschi)")})}
                             value={formParto.padre_id}
                             onChange={v=>setFormParto(f=>({...f,padre_id:v}))}
                             options={opzioni}/>
                           {riprod.length>0&&(
                             <div style={{fontSize:11,color:C.muted,marginTop:-8,marginBottom:8}}>
-                              Solo ♂ registrati come riproduttori · {riprod.length} disponibili
+                              {t("Solo ♂ registrati come riproduttori ·")} {riprod.length} {t("disponibili")}
                             </div>
                           )}
                           {/* Padre esterno (non in azienda) */}
                           {!formParto.padre_id&&(
                             <div style={{marginTop:6,marginBottom:12}}>
                               <div style={{fontSize:11,color:C.muted,marginBottom:4}}>
-                                oppure — Matricola padre esterno (non in azienda):
+                                {t("oppure — Matricola padre esterno (non in azienda):")}
                               </div>
                               <input type="text" value={formParto.padre_ext||""}
                                 onChange={e=>setFormParto(f=>({...f,padre_ext:e.target.value,padre_id:""}))}
-                                placeholder="Es. IT058000123456"
+                                placeholder={t("Es. IT058000123456")}
                                 style={{width:"100%",boxSizing:"border-box",
                                   border:`1.5px solid ${formParto.padre_ext?C.blue:C.border}`,
                                   borderRadius:10,padding:"8px 12px",fontSize:13,
@@ -1569,7 +1570,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
                               {formParto.padre_ext&&(
                                 <>
                                   <div style={{fontSize:11,color:C.muted,marginBottom:4,marginTop:8}}>
-                                    Razza del padre esterno (per calcolo razza figli):
+                                    {t("Razza del padre esterno (per calcolo razza figli):")}
                                   </div>
                                   <select value={formParto.padre_ext_razza||""}
                                     onChange={e=>setFormParto(f=>({...f,padre_ext_razza:e.target.value}))}
@@ -1577,7 +1578,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
                                       border:`1.5px solid ${formParto.padre_ext_razza?C.blue:C.border}`,
                                       borderRadius:10,padding:"8px 12px",fontSize:13,
                                       background:"#F0F8FF",color:C.text,outline:"none"}}>
-                                    <option value="">— seleziona razza —</option>
+                                    <option value="">{t("— seleziona razza —")}</option>
                                     {(a.specie==="bovino"?
                                       ["Marchigiana","Chianina","Maremmana","Podolica","Romagnola","Piemontese","Limousine","Meticcia","Altra"]
                                      :a.specie==="ovino"?
@@ -1586,7 +1587,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
                                     ).map(r=><option key={r} value={r}>{r}</option>)}
                                   </select>
                                   <div style={{fontSize:11,color:C.blue,marginTop:6}}>
-                                    🧬 Verrà creata la scheda del padre esterno {formParto.padre_ext_razza?`(${formParto.padre_ext_razza})`:""} e collegata al parto
+                                    {t("🧬 Verrà creata la scheda del padre esterno")} {formParto.padre_ext_razza?`(${formParto.padre_ext_razza})`:""} {t("e collegata al parto")}
                                   </div>
                                 </>
                               )}
@@ -1609,28 +1610,28 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
                           color:n.bdn_nato?C.green:C.suini}}>
                           {a.specie==="suino"
                             ?(n.bdn_nato
-                              ?`🏷️ Nato ${i+1} → Registro animali (BDN: ${n.bdn_nato})`
-                              :`🐷 Nato ${i+1} → Lotto ${codLottoPreview||"?"}${!n.bdn_nato?nrLotto:""}`)
+                              ?t("🏷️ Nato {0} → Registro animali (BDN: {1})",{0:(i+1),1:(n.bdn_nato)})
+                              :t("🐷 Nato {0} → Lotto {1}{2}",{0:(i+1),1:(codLottoPreview||"?"),2:(!n.bdn_nato?nrLotto:"")}))
                             :(formParto.nati||[]).length>1
-                              ?`👥 Gemello ${i+1} di ${formParto.nati.length} — inserisci matricola`
-                              :`🐾 Nato vivo — inserisci matricola`}
+                              ?t("👥 Gemello {0} di {1} — inserisci matricola",{0:(i+1),1:(formParto.nati.length)})
+                              :t("🐾 Nato vivo — inserisci matricola")}
                         </div>
                         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-                          <Field label="Sesso" value={n.sesso}
+                          <Field label={t("Sesso")} value={n.sesso}
                             onChange={v=>setFormParto(f=>({...f,nati:f.nati.map((x,j)=>j===i?{...x,sesso:v}:x)}))}
                             options={a.specie==="suino"?["M","F","Castrato"]:SESSO_OPT(a.specie)}/>
-                          <Field label="Peso nascita (kg)" value={n.peso_nascita}
+                          <Field label={t("Peso nascita (kg)")} value={n.peso_nascita}
                             onChange={v=>setFormParto(f=>({...f,nati:f.nati.map((x,j)=>j===i?{...x,peso_nascita:v}:x)}))}
                             type="number"/>
                         </div>
                         {a.specie==="suino"
                           ?<div>
                               <div style={{fontSize:11,color:C.muted,marginBottom:3}}>
-                                BDN/ID individuale (solo se riproduttore o razza pregiata — altrimenti lascia vuoto → entra nel lotto)
+                                {t("BDN/ID individuale (solo se riproduttore o razza pregiata — altrimenti lascia vuoto → entra nel lotto)")}
                               </div>
                               <input type="text" value={n.bdn_nato||""}
                                 onChange={e=>setFormParto(f=>({...f,nati:f.nati.map((x,j)=>j===i?{...x,bdn_nato:e.target.value}:x)}))}
-                                placeholder="Vuoto = va nel lotto automaticamente"
+                                placeholder={t("Vuoto = va nel lotto automaticamente")}
                                 style={{width:"100%",boxSizing:"border-box",
                                   border:`1.5px solid ${n.bdn_nato?C.green:C.border}`,
                                   borderRadius:8,padding:"7px 10px",fontSize:13,
@@ -1638,11 +1639,11 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
                             </div>
                           :<div>
                               <div style={{fontSize:11,color:C.muted,marginBottom:3}}>
-                                BDN / Matricola *
+                                {t("BDN / Matricola *")}
                               </div>
                               <input type="text" value={n.bdn_nato||""}
                                 onChange={e=>setFormParto(f=>({...f,nati:f.nati.map((x,j)=>j===i?{...x,bdn_nato:e.target.value}:x)}))}
-                                placeholder="Es. IT058000123456"
+                                placeholder={t("Es. IT058000123456")}
                                 style={{width:"100%",boxSizing:"border-box",
                                   border:`1.5px solid ${n.bdn_nato?C.green:C.border}`,
                                   borderRadius:8,padding:"7px 10px",fontSize:13,
@@ -1655,25 +1656,25 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
                     {formParto.id&&(
                       <div style={{background:C.blue+"12",border:`1px solid ${C.blue}33`,borderRadius:10,
                         padding:"8px 12px",marginBottom:12,fontSize:12,color:C.muted}}>
-                        ℹ️ La modifica aggiorna i dati statistici del parto. Se aggiungi il padre, verrà propagato anche alle schede dei figli già registrati (con ricalcolo della razza).
+                        {t("ℹ️ La modifica aggiorna i dati statistici del parto. Se aggiungi il padre, verrà propagato anche alle schede dei figli già registrati (con ricalcolo della razza).")}
                       </div>
                     )}
-                    <Field label="Note" value={formParto.note} onChange={v=>setFormParto(f=>({...f,note:v}))}/>
+                    <Field label={t("Note")} value={formParto.note} onChange={v=>setFormParto(f=>({...f,note:v}))}/>
                     <div style={{display:"flex",gap:8,marginTop:8}}>
-                      <Btn label={savingParto?"Salvataggio...":formParto.id?"Salva modifiche":"Registra parto"} icon="✓" onClick={salvaParto}
+                      <Btn label={savingParto?t("Salvataggio..."):formParto.id?t("Salva modifiche"):t("Registra parto")} icon="✓" onClick={salvaParto}
                         variant="success" disabled={savingParto}/>
-                      <Btn label="Annulla" onClick={()=>setFormParto(null)} variant="ghost"/>
+                      <Btn label={t("Annulla")} onClick={()=>setFormParto(null)} variant="ghost"/>
                     </div>
                   </Card>
                 ):(
                   <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                    <Btn label="🐣 Nuovo parto" onClick={()=>setFormParto({
+                    <Btn label={t("🐣 Nuovo parto")} onClick={()=>setFormParto({
                       data_evento:today(),tipo_parto:"Naturale",
                       nati_totali:"",nati_morti:"0",nati_mummificati:"0",
                       padre_id:"",nati:[],note:"",storico:false,
                       data_accoppiamento:""})}
                       variant="success" small/>
-                    <Btn label="📅 Parto storico" onClick={()=>setFormParto({
+                    <Btn label={t("📅 Parto storico")} onClick={()=>setFormParto({
                       data_evento:"",tipo_parto:"Naturale",
                       nati_totali:"",nati_morti:"0",nati_mummificati:"0",
                       padre_id:"",nati:[],note:"",storico:true,
@@ -1689,28 +1690,28 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
                 <div style={{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap"}}>
                   <div style={{background:C.card,borderRadius:10,padding:"6px 10px",
                     fontSize:11,border:`1px solid ${C.border}`}}>
-                    📅 <b>{timeline.length}</b> eventi totali
+                    📅 <b>{timeline.length}</b> {t("eventi totali")}
                   </div>
                   <div style={{background:C.green+"12",borderRadius:10,padding:"6px 10px",
                     fontSize:11,border:`1px solid ${C.green}33`,color:C.green}}>
-                    💉 <b>{nSanitari}</b> sanitari
+                    💉 <b>{nSanitari}</b> {t("sanitari")}
                   </div>
                   {partiMadre.length>0&&(
                     <div style={{background:C.accent+"12",borderRadius:10,padding:"6px 10px",
                       fontSize:11,border:`1px solid ${C.accent}33`,color:C.accent}}>
-                      🐣 <b>{partiMadre.length}</b> parti
+                      🐣 <b>{partiMadre.length}</b> {t("parti")}
                     </div>
                   )}
                   {costoSanitario>0&&(
                     <div style={{background:C.yellow+"14",borderRadius:10,padding:"6px 10px",
                       fontSize:11,border:`1px solid ${C.yellow}44`,color:C.yellow}}>
-                      💰 <b>€{costoSanitario.toFixed(2)}</b> spese san.
+                      💰 <b>€{costoSanitario.toFixed(2)}</b> {t("spese san.")}
                     </div>
                   )}
                   {scadenzePendenti>0&&(
                     <div style={{background:C.red+"12",borderRadius:10,padding:"6px 10px",
                       fontSize:11,border:`1px solid ${C.red}33`,color:C.red}}>
-                      ⏰ <b>{scadenzePendenti}</b> richiami futuri
+                      ⏰ <b>{scadenzePendenti}</b> {t("richiami futuri")}
                     </div>
                   )}
                 </div>
@@ -1720,7 +1721,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
               {timeline.length===0?(
                 <div style={{textAlign:"center",padding:32,color:C.muted}}>
                   <div style={{fontSize:36,marginBottom:8}}>📅</div>
-                  <div>Nessun evento registrato</div>
+                  <div>{t("Nessun evento registrato")}</div>
                 </div>
               ):(
                 <div style={{position:"relative",paddingLeft:26}}>
@@ -1820,14 +1821,14 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
           {tabDettaglio==="costi"&&(
             <div>
               <div style={{fontSize:12,color:C.muted,marginBottom:12}}>
-                Calcolato dalla Contabilità Industriale (podereverde-contabilita-industriale) — questa app lo mostra soltanto, non lo modifica qui.
+                {t("Calcolato dalla Contabilità Industriale (podereverde-contabilita-industriale) — questa app lo mostra soltanto, non lo modifica qui.")}
               </div>
               {caricandoCosti?(
-                <div style={{textAlign:"center",padding:20,color:C.muted}}>Caricamento...</div>
+                <div style={{textAlign:"center",padding:20,color:C.muted}}>{t("Caricamento...")}</div>
               ):!costiAnimale||costiAnimale.length===0?(
                 <Card>
                   <div style={{padding:12,color:C.muted,fontSize:13}}>
-                    Nessun costo ancora calcolato per questo animale — va calcolato dalla Contabilità Industriale (Report Costi), poi salvato per l'anno di interesse.
+                    {t("Nessun costo ancora calcolato per questo animale — va calcolato dalla Contabilità Industriale (Report Costi), poi salvato per l'anno di interesse.")}
                   </div>
                 </Card>
               ):(
@@ -1836,13 +1837,13 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
                     <table style={{width:"100%",fontSize:12,borderCollapse:"collapse"}}>
                       <thead>
                         <tr style={{color:C.muted,textAlign:"left"}}>
-                          <th style={{padding:"6px 4px"}}>Anno</th>
-                          <th style={{padding:"6px 4px",textAlign:"right"}}>UBA-gg</th>
-                          <th style={{padding:"6px 4px"}}>Categoria</th>
-                          <th style={{padding:"6px 4px",textAlign:"right"}}>Mantenimento</th>
-                          <th style={{padding:"6px 4px",textAlign:"right"}}>Nascita ered.</th>
-                          <th style={{padding:"6px 4px",textAlign:"right"}}>Scaricato figli</th>
-                          <th style={{padding:"6px 4px",textAlign:"right"}}>Totale anno</th>
+                          <th style={{padding:"6px 4px"}}>{t("Anno")}</th>
+                          <th style={{padding:"6px 4px",textAlign:"right"}}>{t("UBA-gg")}</th>
+                          <th style={{padding:"6px 4px"}}>{t("Categoria")}</th>
+                          <th style={{padding:"6px 4px",textAlign:"right"}}>{t("Mantenimento")}</th>
+                          <th style={{padding:"6px 4px",textAlign:"right"}}>{t("Nascita ered.")}</th>
+                          <th style={{padding:"6px 4px",textAlign:"right"}}>{t("Scaricato figli")}</th>
+                          <th style={{padding:"6px 4px",textAlign:"right"}}>{t("Totale anno")}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1862,7 +1863,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
                   </Card>
                   <div style={{background:C.primary+"15",borderRadius:10,padding:"12px 16px",marginTop:10,
                     display:"flex",justifyContent:"space-between"}}>
-                    <span style={{fontWeight:700,color:C.primary}}>Totale cumulato (tutti gli anni, al lordo)</span>
+                    <span style={{fontWeight:700,color:C.primary}}>{t("Totale cumulato (tutti gli anni, al lordo)")}</span>
                     <span style={{fontWeight:800,fontSize:16,color:C.primary}}>
                       {costiAnimale.reduce((s,r)=>s+(r.costo_totale_anno||0),0).toFixed(2)}€
                     </span>
@@ -1870,23 +1871,23 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
 
                   {dettaglio.riproduttore&&(
                     <Card style={{marginTop:10}}>
-                      <Sezione label="Riproduttore — costo netto e figli"/>
+                      <Sezione label={t("Riproduttore — costo netto e figli")}/>
                       {!residuoRiproduttore?(
                         <div style={{padding:12,color:C.muted,fontSize:13}}>
-                          Non ancora elaborato dalla Contabilità Industriale (Report Riproduttori → "Elabora").
+                          {t("Non ancora elaborato dalla Contabilità Industriale (Report Riproduttori → \"Elabora\").")}
                         </div>
                       ):(
                         <div style={{fontSize:13}}>
-                          <RigaCosto label="Totale scaricato sui figli (tutti gli anni)"
+                          <RigaCosto label={t("Totale scaricato sui figli (tutti gli anni)")}
                             valore={(scarichiRiproduttore||[]).reduce((s,r)=>s+(r.totale_scaricato_anno||0),0)}/>
-                          <RigaCosto label="Residuo ancora da scaricare" valore={residuoRiproduttore.residuo_rimanente||0}/>
+                          <RigaCosto label={t("Residuo ancora da scaricare")} valore={residuoRiproduttore.residuo_rimanente||0}/>
                           <div style={{display:"flex",justifyContent:"space-between",padding:"8px 0",
                             borderTop:`2px solid ${C.primary}`,marginTop:4,fontWeight:800}}>
-                            <span>Costo NETTO (già scaricato sui figli)</span>
+                            <span>{t("Costo NETTO (già scaricato sui figli)")}</span>
                             <span>{((costiAnimale.reduce((s,r)=>s+(r.costo_totale_anno||0),0))-(scarichiRiproduttore||[]).reduce((s,r)=>s+(r.totale_scaricato_anno||0),0)).toFixed(2)}€</span>
                           </div>
                           <div style={{display:"flex",justifyContent:"space-between",padding:"8px 0",marginTop:6}}>
-                            <span style={{color:C.muted}}>Numero di figli avuti</span>
+                            <span style={{color:C.muted}}>{t("Numero di figli avuti")}</span>
                             <span style={{fontWeight:700}}>{(scarichiRiproduttore||[]).reduce((s,r)=>s+(r.n_figli_anno||0),0)}</span>
                           </div>
                         </div>
@@ -1902,34 +1903,34 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
           {tabDettaglio==="pesate"&&(
             <div>
               <div style={{fontSize:12,color:C.muted,marginBottom:12}}>
-                Ogni pesata si aggiunge come nuova riga — non sovrascrive le precedenti. Usata anche dalla Contabilità Industriale per stimare la crescita per fascia d'età.
+                {t("Ogni pesata si aggiunge come nuova riga — non sovrascrive le precedenti. Usata anche dalla Contabilità Industriale per stimare la crescita per fascia d'età.")}
               </div>
 
               <Card>
-                <Sezione label="Registra nuova pesata"/>
-                <Field label="Data" value={nuovaPesata.data} onChange={v=>setNuovaPesata(p=>({...p,data:v}))} type="date"/>
-                <Field label="Peso (kg)" value={nuovaPesata.peso} onChange={v=>setNuovaPesata(p=>({...p,peso:v}))} type="number"/>
-                <Field label="Tipo rilevazione" value={nuovaPesata.tipo} onChange={v=>setNuovaPesata(p=>({...p,tipo:v}))}
+                <Sezione label={t("Registra nuova pesata")}/>
+                <Field label={t("Data")} value={nuovaPesata.data} onChange={v=>setNuovaPesata(p=>({...p,data:v}))} type="date"/>
+                <Field label={t("Peso (kg)")} value={nuovaPesata.peso} onChange={v=>setNuovaPesata(p=>({...p,peso:v}))} type="number"/>
+                <Field label={t("Tipo rilevazione")} value={nuovaPesata.tipo} onChange={v=>setNuovaPesata(p=>({...p,tipo:v}))}
                   options={["nascita","ingresso","vita","uscita_vivo","uscita_carcassa"]}/>
-                <Field label="Note (facoltativo)" value={nuovaPesata.note} onChange={v=>setNuovaPesata(p=>({...p,note:v}))}/>
+                <Field label={t("Note (facoltativo)")} value={nuovaPesata.note} onChange={v=>setNuovaPesata(p=>({...p,note:v}))}/>
                 <button onClick={salvaPesata} disabled={salvandoPesata}
                   style={{marginTop:8,background:C.primary,color:"#fff",border:"none",borderRadius:8,padding:"10px 16px",fontWeight:700,cursor:"pointer",width:"100%"}}>
-                  {salvandoPesata?"Salvataggio...":"+ Registra pesata"}
+                  {salvandoPesata?t("Salvataggio..."):t("+ Registra pesata")}
                 </button>
               </Card>
 
               {caricandoPesate?(
-                <div style={{textAlign:"center",padding:20,color:C.muted}}>Caricamento...</div>
+                <div style={{textAlign:"center",padding:20,color:C.muted}}>{t("Caricamento...")}</div>
               ):!pesateAnimale||pesateAnimale.length===0?(
-                <Card><div style={{padding:12,color:C.muted,fontSize:13}}>Nessuna pesata ancora registrata per questo animale.</div></Card>
+                <Card><div style={{padding:12,color:C.muted,fontSize:13}}>{t("Nessuna pesata ancora registrata per questo animale.")}</div></Card>
               ):(
                 <Card>
                   {pesateAnimale.map(p=>(
                     <div key={p.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",
                       padding:"8px 0",borderBottom:`1px solid ${C.border}`}}>
                       <div>
-                        <strong>{p.peso_kg} kg</strong>
-                        <div style={{fontSize:11,color:C.muted}}>{p.data_rilevazione} · {p.tipo_rilevazione}{p.stimato&&" (stimato)"}{p.note&&` · ${p.note}`}</div>
+                        <strong>{p.peso_kg} {t("kg")}</strong>
+                        <div style={{fontSize:11,color:C.muted}}>{p.data_rilevazione} · {t(p.tipo_rilevazione)}{p.stimato&&t(" (stimato)")}{p.note&&` · ${p.note}`}</div>
                       </div>
                       <button onClick={()=>eliminaPesata(p.id)}
                         style={{background:"none",border:`1px solid ${C.red}`,color:C.red,borderRadius:6,padding:"4px 8px",fontSize:11,cursor:"pointer"}}>
@@ -1951,16 +1952,16 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
     <div style={{padding:"16px 16px 80px"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
         <div>
-          <span style={{fontSize:20,fontWeight:800}}>Anagrafica</span>
+          <span style={{fontSize:20,fontWeight:800}}>{t("Anagrafica")}</span>
           <button onClick={()=>setVistaRiproduttori(v=>!v)}
             style={{marginLeft:10,background:vistaRiproduttori?C.blue:C.card,
               color:vistaRiproduttori?"#FFF":C.blue,
               border:`1.5px solid ${C.blue}`,borderRadius:20,
               padding:"4px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>
-            ♂ Riproduttori
+            {t("♂ Riproduttori")}
           </button>
         </div>
-        <Btn label="Aggiungi" icon="+" onClick={()=>setForm({...empty})} small/>
+        <Btn label={t("Aggiungi")} icon="+" onClick={()=>setForm({...empty})} small/>
       </div>
 
       {/* ── VISTA RIPRODUTTORI ──────────────────────────────────────── */}
@@ -1976,26 +1977,26 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
           <div style={{marginBottom:16}}>
             <div style={{background:C.blue+"12",border:`1px solid ${C.blue}33`,
               borderRadius:12,padding:"10px 14px",marginBottom:12,fontSize:13}}>
-              <strong>{riprod.length}</strong> riproduttori attivi
-              {maschiRiprod>0&&<span> · ♂ {maschiRiprod} maschi</span>}
-              {femmineRiprod>0&&<span> · ♀ {femmineRiprod} femmine</span>}
+              <strong>{riprod.length}</strong> {t("riproduttori attivi")}
+              {maschiRiprod>0&&<span> · ♂ {maschiRiprod} {t("maschi")}</span>}
+              {femmineRiprod>0&&<span> · ♀ {femmineRiprod} {t("femmine")}</span>}
               <div style={{fontSize:11,color:C.muted,marginTop:4}}>
-                Per aggiungere: apri la scheda dell'animale → ✏️ Modifica → attiva il toggle
+                {t("Per aggiungere: apri la scheda dell'animale → ✏️ Modifica → attiva il toggle")}
               </div>
             </div>
             {perSpecie.length===0?(
               <div style={{textAlign:"center",padding:32,color:C.muted}}>
                 <div style={{fontSize:40,marginBottom:8}}>♂</div>
-                <div>Nessun riproduttore registrato</div>
+                <div>{t("Nessun riproduttore registrato")}</div>
                 <div style={{fontSize:13,marginTop:8}}>
-                  Apri la scheda di un maschio → ✏️ Modifica → attiva "♂ Riproduttore"
+                  {t("Apri la scheda di un maschio → ✏️ Modifica → attiva \"♂ Riproduttore\"")}
                 </div>
               </div>
             ):perSpecie.map(({specie,lista})=>(
               <div key={specie} style={{marginBottom:16}}>
                 <div style={{fontSize:13,fontWeight:800,color:C.muted,
                   textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>
-                  {specieIcon(specie)} {specieLabel(specie)} · {lista.length} maschi
+                  {specieIcon(specie)} {specieLabel(specie)} · {lista.length} {t("maschi")}
                 </div>
                 {lista.map(a=>{
                   const nFigli=animali.filter(x=>x.padre_id===a.id).length;
@@ -2014,10 +2015,10 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
                           </div>
                           <div style={{display:"flex",gap:6,marginTop:4,flexWrap:"wrap"}}>
                             <Badge label={a.razza_calcolata||a.razza||"—"} color={specieColor(a.specie)}/>
-                            <Badge label={a.sesso==="M"?"♂ M":"♀ F"}
+                            <Badge label={a.sesso==="M"?t("♂ M"):t("♀ F")}
                               color={a.sesso==="M"?C.blue:C.suini}/>
-                            {eta&&<Badge label={`${eta} anni`} color={C.muted}/>}
-                            {nFigli>0&&<Badge label={`${nFigli} figli reg.`} color={C.green}/>}
+                            {eta&&<Badge label={t("{0} anni",{0:(eta)})} color={C.muted}/>}
+                            {nFigli>0&&<Badge label={t("{0} figli reg.",{0:(nFigli)})} color={C.green}/>}
                           </div>
                         </div>
                         <div style={{textAlign:"right",fontSize:12,color:C.muted}}>
@@ -2027,7 +2028,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
                               background:(a.sesso==="M"?C.blue:C.suini)+"20",
                               color:a.sesso==="M"?C.blue:C.suini,
                               borderRadius:8,padding:"3px 8px",fontSize:11,fontWeight:700}}>
-                              {a.sesso==="M"?"♂ Riproduttore":"♀ Riproduttrice"}
+                              {a.sesso==="M"?t("♂ Riproduttore"):t("♀ Riproduttrice")}
                             </span>
                           </div>
                         </div>
@@ -2048,7 +2049,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
           type="text"
           value={cerca}
           onChange={e=>setCerca(e.target.value)}
-          placeholder="Cerca per BDN, ultime 4 cifre o nome..."
+          placeholder={t("Cerca per BDN, ultime 4 cifre o nome...")}
           style={{...{width:"100%",boxSizing:"border-box",border:`2px solid ${cerca?C.primary:C.border}`,
             borderRadius:12,padding:"11px 40px 11px 42px",fontSize:15,
             background:C.card,color:C.text,outline:"none",
@@ -2068,7 +2069,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
           fontWeight:600,marginBottom:8,padding:"4px 8px",
           background:lista.length>0?C.green+"12":C.red+"12",
           borderRadius:8,display:"inline-block"}}>
-          {lista.length>0?`✓ ${lista.length} animale/i trovato/i`:"Nessun animale trovato"}
+          {lista.length>0?t("✓ {0} animale/i trovato/i",{0:(lista.length)}):t("Nessun animale trovato")}
         </div>
       )}
       <div style={{display:"flex",gap:8,marginBottom:8,overflowX:"auto",paddingBottom:4}}>
@@ -2079,7 +2080,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
               border:`1.5px solid ${filtro===f?C.primary:C.border}`,
               borderRadius:20,padding:"5px 14px",fontSize:13,fontWeight:600,
               cursor:"pointer",whiteSpace:"nowrap"}}>
-            {f==="tutti"?"Tutti":specieIcon(f)+" "+specieLabel(f)}
+            {f==="tutti"?t("Tutti"):specieIcon(f)+" "+specieLabel(f)}
           </button>
         ))}
       </div>
@@ -2102,8 +2103,8 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
       {loading?<Spinner/>:lista.length===0?(
         <div style={{textAlign:"center",padding:40,color:C.muted}}>
           <div style={{fontSize:48,marginBottom:8}}>🐄</div>
-          <div>Nessun animale registrato.</div>
-          <div style={{marginTop:8}}>Tocca "Aggiungi" per iniziare!</div>
+          <div>{t("Nessun animale registrato.")}</div>
+          <div style={{marginTop:8}}>{t("Tocca \"Aggiungi\" per iniziare!")}</div>
         </div>
       ):lista.map(a=>(
         <Card key={a.id} style={{borderLeft:`4px solid ${specieColor(a.specie)}`}}>
@@ -2120,34 +2121,34 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
                 <div style={{display:"flex",gap:6,marginTop:4,flexWrap:"wrap"}}>
                   <Badge label={specieLabel(a.specie)} color={specieColor(a.specie)}/>
                   {a.categoria&&<Badge label={a.categoria} color={C.muted}/>}
-                  <Badge label={a.sesso==="M"?"♂ M":"♀ F"} color={a.sesso==="M"?C.blue:"#B5547A"}/>
+                  <Badge label={a.sesso==="M"?t("♂ M"):t("♀ F")} color={a.sesso==="M"?C.blue:"#B5547A"}/>
                   {a.stato!=="attivo"&&<Badge label={a.stato.toUpperCase()} color={C.red}/>}
                   {a.riproduttore&&<Badge
-                    label={a.sesso==="M"?"♂ Riproduttore":"♀ Riproduttrice"}
+                    label={a.sesso==="M"?t("♂ Riproduttore"):t("♀ Riproduttrice")}
                     color={a.sesso==="M"?C.blue:C.suini}/>}
                   {a.provenienza==="Acquistato"&&!a.prezzo_acquisto&&
-                    <Badge label="⚠️ Manca costo acquisto" color={C.red}/>}
+                    <Badge label={t("⚠️ Manca costo acquisto")} color={C.red}/>}
                 </div>
               </div>
             </div>
             <div style={{fontSize:12,color:C.muted,textAlign:"right",flexShrink:0}}>
               {a.nascita&&<div>🎂 {a.nascita}</div>}
               {a.data_ingresso&&<div>📥 {a.data_ingresso}</div>}
-              {a.peso_attuale&&<div>⚖️ {a.peso_attuale}kg</div>}
+              {a.peso_attuale&&<div>⚖️ {a.peso_attuale}{t("kg")}</div>}
             </div>
           </div>
           {(a.origine||a.prezzo_acquisto||a.madre_id||totalePerAnimale(a.id)>0||(a.riproduttore&&residuiTuttiRiproduttori.has(a.id)))&&(
             <div style={{display:"flex",gap:12,fontSize:12,color:C.muted,
               padding:"6px 0",borderTop:`1px solid ${C.border}`,marginBottom:8,flexWrap:"wrap"}}>
               {a.origine&&<span>🏠 {a.origine}</span>}
-              {a.prezzo_acquisto&&<span>💰 Acquisto: €{a.prezzo_acquisto}</span>}
+              {a.prezzo_acquisto&&<span>{t("💰 Acquisto: €")}{a.prezzo_acquisto}</span>}
               {(!a.prezzo_acquisto&&totalePerAnimale(a.id)>0)&&
-                <span>🌱 Costo nascita: €{totalePerAnimale(a.id).toFixed(0)}</span>}
+                <span>{t("🌱 Costo nascita: €")}{totalePerAnimale(a.id).toFixed(0)}</span>}
               {a.riproduttore&&residuiTuttiRiproduttori.has(a.id)&&
-                <span style={{fontWeight:700}}>🧮 Costo netto (riproduttore, dopo scarico sui figli): €{residuiTuttiRiproduttori.get(a.id).toFixed(0)}</span>}
+                <span style={{fontWeight:700}}>{t("🧮 Costo netto (riproduttore, dopo scarico sui figli): €")}{residuiTuttiRiproduttori.get(a.id).toFixed(0)}</span>}
               {a.data_registrazione_bdn&&
-                <span>🏷️ BDN: {a.data_registrazione_bdn}</span>}
-              {a.madre_id&&<span>🧬 pedigree ✓</span>}
+                <span>{t("🏷️ BDN:")} {a.data_registrazione_bdn}</span>}
+              {a.madre_id&&<span>{t("🧬 pedigree ✓")}</span>}
             </div>
           )}
           <button onClick={()=>setDettaglio(a)}
@@ -2155,7 +2156,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
               border:"none",borderRadius:10,padding:"9px 0",fontSize:14,
               fontWeight:700,cursor:"pointer",display:"flex",
               alignItems:"center",justifyContent:"center",gap:8}}>
-            <span>📋</span> Apri scheda completa
+            <span>📋</span> {t("Apri scheda completa")}
           </button>
         </Card>
       ))}
@@ -2168,8 +2169,8 @@ function Row({label,val}){
   return(
     <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",
       borderBottom:`1px solid ${C.border}`,fontSize:14}}>
-      <span style={{color:C.muted,fontSize:13}}>{label}</span>
-      <span style={{fontWeight:600,textAlign:"right",maxWidth:"60%"}}>{val||"—"}</span>
+      <span style={{color:C.muted,fontSize:13}}>{t(label)}</span>
+      <span style={{fontWeight:600,textAlign:"right",maxWidth:"60%"}}>{(typeof val==="string"?t(val):val)||"—"}</span>
     </div>
   );
 }
@@ -2222,10 +2223,10 @@ function Sanitario({animali,eventi,loading,aggiungi,elimina}){
     <div style={{padding:"16px 16px 80px"}}>
       <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
         <button onClick={()=>setForm(null)} style={{background:"none",border:"none",cursor:"pointer",fontSize:22}}>←</button>
-        <span style={{fontSize:18,fontWeight:800}}>Nuovo evento sanitario</span>
+        <span style={{fontSize:18,fontWeight:800}}>{t("Nuovo evento sanitario")}</span>
       </div>
       {/* Filtri specie per singolo */}
-      <div style={{fontSize:12,color:C.muted,marginBottom:4,marginTop:6,fontWeight:600}}>Filtra per specie:</div>
+      <div style={{fontSize:12,color:C.muted,marginBottom:4,marginTop:6,fontWeight:600}}>{t("Filtra per specie:")}</div>
       <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:10}}>
         {[
           {v:"tutti",l:"🐾 Tutti",c:C.primary},
@@ -2242,20 +2243,20 @@ function Sanitario({animali,eventi,loading,aggiungi,elimina}){
           </button>
         ))}
       </div>
-      <Field label="Animale" value={form.animale_id} onChange={v=>setForm(f=>({...f,animale_id:v}))}
+      <Field label={t("Animale")} value={form.animale_id} onChange={v=>setForm(f=>({...f,animale_id:v}))}
         options={animali.filter(a=>a.stato==="attivo"&&(filtroSpecieSingolo==="tutti"||a.specie===filtroSpecieSingolo))
           .map(a=>({value:a.id,label:`${a.nome||a.bdn} (${specieLabel(a.specie)})`}))} required/>
-      <Field label="Tipo" value={form.tipo} onChange={v=>setForm(f=>({...f,tipo:v}))}
+      <Field label={t("Tipo")} value={form.tipo} onChange={v=>setForm(f=>({...f,tipo:v}))}
         options={["vaccino","richiamo vaccinale","farmaco","antiparassitario","visita","intervento chirurgico","diagnostica","gravidanza","malattia","cura","altro"]}/>
-      <Field label="Descrizione" value={form.descrizione} onChange={v=>setForm(f=>({...f,descrizione:v}))} required/>
-      <Field label="Data" value={form.data} onChange={v=>setForm(f=>({...f,data:v}))} type="date"/>
-      <Field label="Veterinario" value={form.veterinario} onChange={v=>setForm(f=>({...f,veterinario:v}))}/>
-      <Field label="Prodotto / Farmaco" value={form.prodotto} onChange={v=>setForm(f=>({...f,prodotto:v}))}/>
-      <Field label="Data scadenza richiamo" value={form.scadenza} onChange={v=>setForm(f=>({...f,scadenza:v}))} type="date"/>
-      <Field label="Costo (€)" value={form.costo} onChange={v=>setForm(f=>({...f,costo:v}))} type="number"/>
+      <Field label={t("Descrizione")} value={form.descrizione} onChange={v=>setForm(f=>({...f,descrizione:v}))} required/>
+      <Field label={t("Data")} value={form.data} onChange={v=>setForm(f=>({...f,data:v}))} type="date"/>
+      <Field label={t("Veterinario")} value={form.veterinario} onChange={v=>setForm(f=>({...f,veterinario:v}))}/>
+      <Field label={t("Prodotto / Farmaco")} value={form.prodotto} onChange={v=>setForm(f=>({...f,prodotto:v}))}/>
+      <Field label={t("Data scadenza richiamo")} value={form.scadenza} onChange={v=>setForm(f=>({...f,scadenza:v}))} type="date"/>
+      <Field label={t("Costo (€)")} value={form.costo} onChange={v=>setForm(f=>({...f,costo:v}))} type="number"/>
       <div style={{display:"flex",gap:10,marginTop:8}}>
-        <Btn label={saving?"...":"Salva"} icon="✓" onClick={salva} variant="success"/>
-        <Btn label="Annulla" onClick={()=>setForm(null)} variant="ghost"/>
+        <Btn label={saving?"...":t("Salva")} icon="✓" onClick={salva} variant="success"/>
+        <Btn label={t("Annulla")} onClick={()=>setForm(null)} variant="ghost"/>
       </div>
     </div>
   );
@@ -2358,20 +2359,20 @@ function Sanitario({animali,eventi,loading,aggiungi,elimina}){
   return(
     <div style={{padding:"16px 16px 80px"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-        <span style={{fontSize:20,fontWeight:800}}>Registro Sanitario</span>
+        <span style={{fontSize:20,fontWeight:800}}>{t("Registro Sanitario")}</span>
         <div style={{display:"flex",gap:8}}>
-          <Btn label="🌾 Tutti" onClick={()=>{
+          <Btn label={t("🌾 Tutti")} onClick={()=>{
               setModGruppo(true);
               setFiltroSpecieGruppo("tutti");
               setSelezionati(animali.filter(a=>a.stato==="attivo").map(a=>a.id));
               setFormGruppo({tipo:"vaccino",descrizione:"",data:today(),
                 veterinario:"",prodotto:"",scadenza:"",costo:""});}}
             variant="outline" small/>
-          <Btn label="💉 Gruppo" onClick={()=>{setModGruppo(true);setSelezionati([]);setFormGruppo({
+          <Btn label={t("💉 Gruppo")} onClick={()=>{setModGruppo(true);setSelezionati([]);setFormGruppo({
             tipo:"vaccino",descrizione:"",data:today(),
             veterinario:"",prodotto:"",scadenza:"",costo:""});}}
             variant="outline" small/>
-          <Btn label="🐷 Lotto suini" onClick={()=>{
+          <Btn label={t("🐷 Lotto suini")} onClick={()=>{
             setModLotto(true);
             setUnitaSel([]);
             setLottoSel(null);
@@ -2379,7 +2380,7 @@ function Sanitario({animali,eventi,loading,aggiungi,elimina}){
               veterinario:"",prodotto:"",scadenza:"",costo:""});
             caricaLotti();}}
             variant="outline" small/>
-          <Btn label="+ Singolo" icon="+" onClick={()=>setForm({animale_id:"",tipo:"vaccino",
+          <Btn label={t("+ Singolo")} icon="+" onClick={()=>setForm({animale_id:"",tipo:"vaccino",
             descrizione:"",data:today(),veterinario:"",prodotto:"",scadenza:"",costo:""})} small/>
         </div>
       </div>
@@ -2406,7 +2407,7 @@ function Sanitario({animali,eventi,loading,aggiungi,elimina}){
                 <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
                   <span style={{fontSize:20}}>⚠️</span>
                   <span style={{fontWeight:700,color:C.red,fontSize:14}}>
-                    Richiami SCADUTI ({scaduti.length})
+                    {t("Richiami SCADUTI (")}{scaduti.length})
                   </span>
                 </div>
                 {scaduti.map(e=>{
@@ -2419,7 +2420,7 @@ function Sanitario({animali,eventi,loading,aggiungi,elimina}){
                       <div style={{flex:1,minWidth:0}}>
                         <b>{e.descrizione}</b>
                         <div style={{fontSize:11,color:C.muted}}>
-                          {a?(a.nome||a.bdn):"Lotto"} · <span style={{color:C.red,fontWeight:700}}>scaduto da {gg} giorni</span>
+                          {a?(a.nome||a.bdn):t("Lotto")} · <span style={{color:C.red,fontWeight:700}}>{t("scaduto da {0} giorni",{0:gg})}</span>
                         </div>
                       </div>
                       <button onClick={()=>{
@@ -2440,7 +2441,7 @@ function Sanitario({animali,eventi,loading,aggiungi,elimina}){
                         style={{background:C.red,color:"#FFF",border:"none",
                           borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:600,
                           cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>
-                        ✓ Registra
+                        {t("✓ Registra")}
                       </button>
                     </div>
                   );
@@ -2452,7 +2453,7 @@ function Sanitario({animali,eventi,loading,aggiungi,elimina}){
                 <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
                   <span style={{fontSize:20}}>⏰</span>
                   <span style={{fontWeight:700,color:C.yellow,fontSize:14}}>
-                    Richiami in scadenza nei prossimi 30 giorni ({imminenti.length})
+                    {t("Richiami in scadenza nei prossimi 30 giorni (")}{imminenti.length})
                   </span>
                 </div>
                 {imminenti.slice(0,6).map(e=>{
@@ -2466,8 +2467,8 @@ function Sanitario({animali,eventi,loading,aggiungi,elimina}){
                       <div style={{flex:1,minWidth:0}}>
                         <b>{e.descrizione}</b>
                         <div style={{fontSize:11,color:C.muted}}>
-                          {a?(a.nome||a.bdn):"Lotto"} · <span style={{color:urgColor,fontWeight:700}}>
-                            tra {gg} {gg===1?"giorno":"giorni"} ({e.scadenza})
+                          {a?(a.nome||a.bdn):t("Lotto")} · <span style={{color:urgColor,fontWeight:700}}>
+                            {gg===1?t("tra 1 giorno"):t("tra {0} giorni",{0:gg})} ({e.scadenza})
                           </span>
                         </div>
                       </div>
@@ -2488,14 +2489,14 @@ function Sanitario({animali,eventi,loading,aggiungi,elimina}){
                         style={{background:urgColor,color:"#FFF",border:"none",
                           borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:600,
                           cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>
-                        ✓ Registra
+                        {t("✓ Registra")}
                       </button>
                     </div>
                   );
                 })}
                 {imminenti.length>6&&(
                   <div style={{fontSize:11,color:C.muted,marginTop:6,fontStyle:"italic"}}>
-                    ... e altri {imminenti.length-6} richiami
+                    {t("... e altri {0} richiami",{0:imminenti.length-6})}
                   </div>
                 )}
               </Card>
@@ -2513,10 +2514,10 @@ function Sanitario({animali,eventi,loading,aggiungi,elimina}){
             overflowY:"auto",padding:"20px 16px 40px"}}>
             <div style={{display:"flex",justifyContent:"space-between",
               alignItems:"center",marginBottom:16}}>
-              <span style={{fontSize:18,fontWeight:800}}>🐷 Trattamento su lotto</span>
+              <span style={{fontSize:18,fontWeight:800}}>{t("🐷 Trattamento su lotto")}</span>
               <button onClick={()=>{setModLotto(false);setLottoSel(null);setUnitaSel([]);}}
                 style={{background:C.border,border:"none",borderRadius:20,
-                  padding:"6px 12px",cursor:"pointer",fontSize:13}}>✕ Chiudi</button>
+                  padding:"6px 12px",cursor:"pointer",fontSize:13}}>{t("✕ Chiudi")}</button>
             </div>
 
             {/* STEP 1: Scegli lotto */}
@@ -2524,11 +2525,11 @@ function Sanitario({animali,eventi,loading,aggiungi,elimina}){
               <div style={{background:C.card,borderRadius:14,padding:14,marginBottom:12,
                 border:`1px solid ${C.border}`}}>
                 <div style={{fontSize:13,fontWeight:700,color:C.primary,marginBottom:8}}>
-                  STEP 1 — Seleziona il lotto
+                  {t("STEP 1 — Seleziona il lotto")}
                 </div>
                 <div style={{position:"relative",marginBottom:10}}>
                   <input type="text" value={cercaLotto} onChange={e=>setCercaLotto(e.target.value)}
-                    placeholder="Cerca per codice lotto (es. 2304CC19)..."
+                    placeholder={t("Cerca per codice lotto (es. 2304CC19)...")}
                     style={{...{width:"100%",boxSizing:"border-box",border:`1.5px solid ${C.border}`,
                       borderRadius:10,padding:"8px 10px",fontSize:14,background:"#FAFAF8",outline:"none"}}}/>
                 </div>
@@ -2545,11 +2546,11 @@ function Sanitario({animali,eventi,loading,aggiungi,elimina}){
                       <div>
                         <div style={{fontWeight:800,fontSize:15,fontFamily:"monospace",
                           color:C.primary,letterSpacing:1}}>{l.codice_lotto||l.codice}</div>
-                        <div style={{fontSize:12,color:C.muted}}>Parto {l.data_parto}</div>
+                        <div style={{fontSize:12,color:C.muted}}>{t("Parto")} {l.data_parto}</div>
                       </div>
                       <div style={{textAlign:"right"}}>
-                        <div style={{fontWeight:700,color:C.green}}>{us.length} vivi</div>
-                        <div style={{fontSize:11,color:C.muted}}>tocca per selezionare</div>
+                        <div style={{fontWeight:700,color:C.green}}>{us.length} {t("vivi")}</div>
+                        <div style={{fontSize:11,color:C.muted}}>{t("tocca per selezionare")}</div>
                       </div>
                     </div>
                   );
@@ -2563,21 +2564,21 @@ function Sanitario({animali,eventi,loading,aggiungi,elimina}){
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
                     <div>
                       <div style={{fontSize:13,fontWeight:700,color:C.primary}}>
-                        STEP 1 — Lotto selezionato
+                        {t("STEP 1 — Lotto selezionato")}
                       </div>
                       <div style={{fontWeight:900,fontSize:18,fontFamily:"monospace",
                         color:C.suini,letterSpacing:1}}>{lottoSel.codice_lotto||lottoSel.codice}</div>
                     </div>
                     <button onClick={()=>{setLottoSel(null);setUnitaSel([]);}}
                       style={{background:C.border,border:"none",borderRadius:8,
-                        padding:"5px 10px",cursor:"pointer",fontSize:12}}>Cambia</button>
+                        padding:"5px 10px",cursor:"pointer",fontSize:12}}>{t("Cambia")}</button>
                   </div>
                   <div style={{fontSize:12,fontWeight:700,color:C.muted,marginBottom:8}}>
-                    Seleziona le unità da trattare ({unitaSel.length} selezionate)
+                    {t("Seleziona le unità da trattare ({0} selezionate)",{0:unitaSel.length})}
                   </div>
                   <div style={{position:"relative",marginBottom:8}}>
                     <input type="text" value={cercaUnita} onChange={e=>setCercaUnita(e.target.value)}
-                      placeholder="Filtra per tatuaggio..." style={{...{width:"100%",
+                      placeholder={t("Filtra per tatuaggio...")} style={{...{width:"100%",
                         boxSizing:"border-box",border:`1.5px solid ${C.border}`,borderRadius:10,
                         padding:"7px 10px",fontSize:13,background:"#FAFAF8",outline:"none"}}}/>
                   </div>
@@ -2588,7 +2589,7 @@ function Sanitario({animali,eventi,loading,aggiungi,elimina}){
                     borderRadius:8,padding:"4px 12px",fontSize:12,fontWeight:600,
                     color:C.primary,cursor:"pointer",marginBottom:10}}>
                     {unitaSel.length===suiniLotto.filter(s=>s.lotto_id===lottoSel.id&&s.vivo!==false&&s.stato==="attivo").length
-                      ?"☐ Deseleziona tutte":"☑ Seleziona tutte le vive"}
+                      ?t("☐ Deseleziona tutte"):t("☑ Seleziona tutte le vive")}
                   </button>
                   <div style={{maxHeight:200,overflowY:"auto"}}>
                     {suiniLotto.filter(s=>{
@@ -2625,7 +2626,7 @@ function Sanitario({animali,eventi,loading,aggiungi,elimina}){
                 <div style={{background:C.card,borderRadius:14,padding:14,
                   border:`1px solid ${C.border}`,marginBottom:12}}>
                   <div style={{fontSize:13,fontWeight:700,color:C.primary,marginBottom:12}}>
-                    STEP 2 — Dati del trattamento
+                    {t("STEP 2 — Dati del trattamento")}
                   </div>
                   {[
                     ["Tipo",formGruppo.tipo,v=>setFormGruppo(f=>({...f,tipo:v})),
@@ -2652,7 +2653,7 @@ function Sanitario({animali,eventi,loading,aggiungi,elimina}){
                   ))}
                   {formGruppo.costo&&unitaSel.length>0&&(
                     <div style={{background:C.blue+"12",borderRadius:8,padding:"6px 10px",fontSize:12,color:C.blue}}>
-                      €{(parseFloat(formGruppo.costo)/unitaSel.length).toFixed(2)} per unità · {unitaSel.length} selezionate
+                      €{(parseFloat(formGruppo.costo)/unitaSel.length).toFixed(2)} {t("per unità ·")} {unitaSel.length} {t("selezionate")}
                     </div>
                   )}
                 </div>
@@ -2663,9 +2664,9 @@ function Sanitario({animali,eventi,loading,aggiungi,elimina}){
                     color:"#FFF",border:"none",borderRadius:12,padding:"14px",
                     fontSize:16,fontWeight:700,cursor:"pointer"}}>
                   {savingLotto
-                    ?`Salvataggio... (${unitaSel.length} unità)`
-                    :unitaSel.length===0?"Seleziona almeno un'unità"
-                    :`✓ Registra trattamento su ${unitaSel.length} unità`}
+                    ?t("Salvataggio... ({0} unità)",{0:(unitaSel.length)})
+                    :unitaSel.length===0?t("Seleziona almeno un'unità")
+                    :t("✓ Registra trattamento su {0} unità",{0:(unitaSel.length)})}
                 </button>
               </>
             )}
@@ -2683,20 +2684,20 @@ function Sanitario({animali,eventi,loading,aggiungi,elimina}){
             {/* Header */}
             <div style={{display:"flex",justifyContent:"space-between",
               alignItems:"center",marginBottom:16}}>
-              <span style={{fontSize:18,fontWeight:800}}>💉 Evento di gruppo</span>
+              <span style={{fontSize:18,fontWeight:800}}>{t("💉 Evento di gruppo")}</span>
               <button onClick={()=>{setModGruppo(false);setSelezionati([]);}}
                 style={{background:C.border,border:"none",borderRadius:20,
-                  padding:"6px 12px",cursor:"pointer",fontSize:13}}>✕ Chiudi</button>
+                  padding:"6px 12px",cursor:"pointer",fontSize:13}}>{t("✕ Chiudi")}</button>
             </div>
 
             {/* STEP 1: Seleziona animali */}
             <div style={{background:C.card,borderRadius:14,padding:14,marginBottom:12,
               border:`1px solid ${C.border}`}}>
               <div style={{fontSize:13,fontWeight:700,color:C.primary,marginBottom:8}}>
-                STEP 1 — Seleziona gli animali ({selezionati.length} selezionati)
+                {t("STEP 1 — Seleziona gli animali ({0} selezionati)",{0:selezionati.length})}
               </div>
               {/* Filtro specie */}
-              <div style={{fontSize:11,color:C.muted,marginBottom:4,fontWeight:600}}>Filtra per specie:</div>
+              <div style={{fontSize:11,color:C.muted,marginBottom:4,fontWeight:600}}>{t("Filtra per specie:")}</div>
               <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>
                 {[
                   {v:"tutti",l:"🐾 Tutti",c:C.primary},
@@ -2726,7 +2727,7 @@ function Sanitario({animali,eventi,loading,aggiungi,elimina}){
                   transform:"translateY(-50%)",fontSize:16,color:C.muted}}>🔍</span>
                 <input type="text" value={cercaGruppo}
                   onChange={e=>setCercaGruppo(e.target.value)}
-                  placeholder="Filtra per BDN o nome..."
+                  placeholder={t("Filtra per BDN o nome...")}
                   style={{width:"100%",boxSizing:"border-box",border:`1.5px solid ${C.border}`,
                     borderRadius:10,padding:"8px 10px 8px 34px",fontSize:14,
                     background:"#FAFAF8",outline:"none"}}/>
@@ -2741,7 +2742,7 @@ function Sanitario({animali,eventi,loading,aggiungi,elimina}){
                 style={{background:C.primary+"15",border:`1px solid ${C.primary}33`,
                   borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:600,
                   color:C.primary,cursor:"pointer",marginBottom:10}}>
-                {selezionati.length===animaliGruppo.length?"☐ Deseleziona tutti":"☑ Seleziona tutti"}
+                {selezionati.length===animaliGruppo.length?t("☐ Deseleziona tutti"):t("☑ Seleziona tutti")}
               </button>
               {/* Lista animali */}
               <div style={{maxHeight:220,overflowY:"auto"}}>
@@ -2778,32 +2779,31 @@ function Sanitario({animali,eventi,loading,aggiungi,elimina}){
             <div style={{background:C.card,borderRadius:14,padding:14,
               border:`1px solid ${C.border}`,marginBottom:12}}>
               <div style={{fontSize:13,fontWeight:700,color:C.primary,marginBottom:12}}>
-                STEP 2 — Dati dell'evento (vale per tutti gli animali selezionati)
+                {t("STEP 2 — Dati dell'evento (vale per tutti gli animali selezionati)")}
               </div>
-              <Field label="Tipo evento" value={formGruppo.tipo}
+              <Field label={t("Tipo evento")} value={formGruppo.tipo}
                 onChange={v=>setFormGruppo(f=>({...f,tipo:v}))}
                 options={["vaccino","richiamo vaccinale","farmaco","antiparassitario","visita","intervento chirurgico","diagnostica","gravidanza","malattia","cura","altro"]}/>
-              <Field label="Descrizione *" value={formGruppo.descrizione}
+              <Field label={t("Descrizione *")} value={formGruppo.descrizione}
                 onChange={v=>setFormGruppo(f=>({...f,descrizione:v}))}
-                placeholder="Es. Vaccino IBR, Antiparassitario..." required/>
-              <Field label="Data" value={formGruppo.data}
+                placeholder={t("Es. Vaccino IBR, Antiparassitario...")} required/>
+              <Field label={t("Data")} value={formGruppo.data}
                 onChange={v=>setFormGruppo(f=>({...f,data:v}))} type="date"/>
-              <Field label="Prodotto / Farmaco" value={formGruppo.prodotto}
+              <Field label={t("Prodotto / Farmaco")} value={formGruppo.prodotto}
                 onChange={v=>setFormGruppo(f=>({...f,prodotto:v}))}
-                placeholder="Es. Bovilis IBR"/>
-              <Field label="Veterinario" value={formGruppo.veterinario}
+                placeholder={t("Es. Bovilis IBR")}/>
+              <Field label={t("Veterinario")} value={formGruppo.veterinario}
                 onChange={v=>setFormGruppo(f=>({...f,veterinario:v}))}/>
-              <Field label="Data scadenza richiamo" value={formGruppo.scadenza}
+              <Field label={t("Data scadenza richiamo")} value={formGruppo.scadenza}
                 onChange={v=>setFormGruppo(f=>({...f,scadenza:v}))} type="date"/>
-              <Field label="Costo totale (€) — suddiviso automaticamente"
+              <Field label={t("Costo totale (€) — suddiviso automaticamente")}
                 value={formGruppo.costo}
                 onChange={v=>setFormGruppo(f=>({...f,costo:v}))} type="number"
-                placeholder="Verrà diviso per il numero di animali"/>
+                placeholder={t("Verrà diviso per il numero di animali")}/>
               {formGruppo.costo&&selezionati.length>0&&(
                 <div style={{background:C.blue+"12",borderRadius:8,padding:"6px 10px",
                   fontSize:12,color:C.blue,marginBottom:8}}>
-                  €{(parseFloat(formGruppo.costo)/selezionati.length).toFixed(2)} per animale
-                  · {selezionati.length} animali
+                  €{(parseFloat(formGruppo.costo)/selezionati.length).toFixed(2)} {t("per animale ·")} {selezionati.length} {t("animali")}
                 </div>
               )}
             </div>
@@ -2816,10 +2816,10 @@ function Sanitario({animali,eventi,loading,aggiungi,elimina}){
                 color:"#FFF",border:"none",borderRadius:12,padding:"14px",
                 fontSize:16,fontWeight:700,cursor:selezionati.length>0?"pointer":"default"}}>
               {savingGruppo
-                ?`Salvataggio... (${selezionati.length} animali)`
+                ?t("Salvataggio... ({0} animali)",{0:(selezionati.length)})
                 :selezionati.length===0
-                  ?"Seleziona almeno un animale"
-                  :`✓ Registra evento su ${selezionati.length} animali`}
+                  ?t("Seleziona almeno un animale")
+                  :t("✓ Registra evento su {0} animali",{0:(selezionati.length)})}
             </button>
           </div>
         </div>
@@ -2829,7 +2829,7 @@ function Sanitario({animali,eventi,loading,aggiungi,elimina}){
         <span style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",
           fontSize:18,color:C.muted,pointerEvents:"none"}}>🔍</span>
         <input type="text" value={cerca} onChange={e=>setCerca(e.target.value)}
-          placeholder="Cerca per BDN, ultime 4 cifre, nome o tipo evento..."
+          placeholder={t("Cerca per BDN, ultime 4 cifre, nome o tipo evento...")}
           style={{width:"100%",boxSizing:"border-box",
             border:`2px solid ${cerca?C.primary:C.border}`,borderRadius:12,
             padding:"11px 40px 11px 42px",fontSize:15,background:C.card,
@@ -2846,15 +2846,15 @@ function Sanitario({animali,eventi,loading,aggiungi,elimina}){
           fontWeight:600,marginBottom:8,padding:"4px 8px",
           background:eventiFiltrati.length>0?C.green+"12":C.red+"12",
           borderRadius:8,display:"inline-block"}}>
-          {eventiFiltrati.length>0?`✓ ${eventiFiltrati.length} evento/i trovato/i`:"Nessun evento trovato"}
+          {eventiFiltrati.length>0?t("✓ {0} evento/i trovato/i",{0:(eventiFiltrati.length)}):t("Nessun evento trovato")}
         </div>
       )}
       {loading?<Spinner/>:eventiFiltrati.length===0&&!cerca?(
-        <div style={{textAlign:"center",padding:40,color:C.muted}}>Nessun evento registrato.</div>
+        <div style={{textAlign:"center",padding:40,color:C.muted}}>{t("Nessun evento registrato.")}</div>
       ):eventiFiltrati.length===0?(
         <div style={{textAlign:"center",padding:32,color:C.muted}}>
           <div style={{fontSize:32,marginBottom:8}}>🔍</div>
-          <div>Nessun risultato per "{cerca}"</div>
+          <div>{t("Nessun risultato per \"")}{cerca}"</div>
         </div>
       ):eventiFiltrati.map(e=>{
         const a=e.animale_id?animali.find(x=>x.id===e.animale_id):null;
@@ -2868,7 +2868,7 @@ function Sanitario({animali,eventi,loading,aggiungi,elimina}){
                 <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:6}}>
                   <Badge label={e.tipo?.toUpperCase()} color={col}/>
                   {a&&<span style={{fontSize:13,color:specieColor(a.specie),fontWeight:600}}>{a.nome||a.bdn}</span>}
-                {isLotto&&<span style={{fontSize:13,color:C.suini,fontWeight:600}}>🐷 Lotto (ID unità: {e.suini_lotto_id})</span>}
+                {isLotto&&<span style={{fontSize:13,color:C.suini,fontWeight:600}}>{t("🐷 Lotto (ID unità:")} {e.suini_lotto_id})</span>}
                 </div>
                 <div style={{fontWeight:600,fontSize:15}}>{e.descrizione}</div>
                 {e.prodotto&&<div style={{fontSize:13,color:C.muted}}>💊 {e.prodotto}</div>}
@@ -2880,9 +2880,9 @@ function Sanitario({animali,eventi,loading,aggiungi,elimina}){
                 {e.scadenza&&<div style={{fontSize:12,background:C.yellow+"22",color:C.yellow,
                   borderRadius:8,padding:"2px 8px",marginTop:4}}>⏰ {e.scadenza}</div>}
                 <button onClick={async()=>{
-                    if(!window.confirm("Eliminare questo evento sanitario?"))return;
+                    if(!window.confirm(t("Eliminare questo evento sanitario?")))return;
                     const {error} = await elimina(e.id);
-                    if(error) alert(`⚠️ Errore nell'eliminazione:\n\n${error.message}`);
+                    if(error) alert(t("⚠️ Errore nell'eliminazione:\n\n{0}",{0:(error.message)}));
                   }}
                   style={{background:"none",border:"none",cursor:"pointer",fontSize:16,
                     marginTop:6,opacity:0.6}}>
@@ -2959,19 +2959,19 @@ function Alimentazione({voci,loading,aggiungi,animali}){
     <div style={{padding:"16px 16px 80px"}}>
       <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
         <button onClick={()=>setForm(null)} style={{background:"none",border:"none",cursor:"pointer",fontSize:22}}>←</button>
-        <span style={{fontSize:18,fontWeight:800}}>Nuova somministrazione</span>
+        <span style={{fontSize:18,fontWeight:800}}>{t("Nuova somministrazione")}</span>
       </div>
-      <Field label="Data" value={form.data} onChange={v=>setForm(f=>({...f,data:v}))} type="date"/>
-      <Field label="Specie" value={form.specie} onChange={v=>setForm(f=>({...f,specie:v}))}
+      <Field label={t("Data")} value={form.data} onChange={v=>setForm(f=>({...f,data:v}))} type="date"/>
+      <Field label={t("Specie")} value={form.specie} onChange={v=>setForm(f=>({...f,specie:v}))}
         options={[{value:"",label:"Tutte"},"bovino","suino","ovino"]}/>
-      <Field label="Tipo mangime / foraggio" value={form.tipo} onChange={v=>setForm(f=>({...f,tipo:v}))} required/>
-      <Field label="Quantità" value={form.quantita} onChange={v=>setForm(f=>({...f,quantita:v}))} type="number" required/>
-      <Field label="Unità" value={form.unita} onChange={v=>setForm(f=>({...f,unita:v}))} options={["kg","litri","balle","sacchi"]}/>
-      <Field label="Costo (€)" value={form.costo} onChange={v=>setForm(f=>({...f,costo:v}))} type="number"/>
-      <Field label="Note" value={form.note} onChange={v=>setForm(f=>({...f,note:v}))}/>
+      <Field label={t("Tipo mangime / foraggio")} value={form.tipo} onChange={v=>setForm(f=>({...f,tipo:v}))} required/>
+      <Field label={t("Quantità")} value={form.quantita} onChange={v=>setForm(f=>({...f,quantita:v}))} type="number" required/>
+      <Field label={t("Unità")} value={form.unita} onChange={v=>setForm(f=>({...f,unita:v}))} options={["kg","litri","balle","sacchi"]}/>
+      <Field label={t("Costo (€)")} value={form.costo} onChange={v=>setForm(f=>({...f,costo:v}))} type="number"/>
+      <Field label={t("Note")} value={form.note} onChange={v=>setForm(f=>({...f,note:v}))}/>
       <div style={{display:"flex",gap:10,marginTop:8}}>
-        <Btn label={saving?"...":"Salva"} icon="✓" onClick={salva} variant="success"/>
-        <Btn label="Annulla" onClick={()=>setForm(null)} variant="ghost"/>
+        <Btn label={saving?"...":t("Salva")} icon="✓" onClick={salva} variant="success"/>
+        <Btn label={t("Annulla")} onClick={()=>setForm(null)} variant="ghost"/>
       </div>
     </div>
   );
@@ -2979,23 +2979,23 @@ function Alimentazione({voci,loading,aggiungi,animali}){
   return(
     <div style={{padding:"16px 16px 80px"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-        <span style={{fontSize:20,fontWeight:800}}>Alimentazione</span>
-        <Btn label="Aggiungi" icon="+" onClick={()=>setForm({data:today(),specie:"",tipo:"",quantita:"",unita:"kg",costo:"",note:""})} small/>
+        <span style={{fontSize:20,fontWeight:800}}>{t("Alimentazione")}</span>
+        <Btn label={t("Aggiungi")} icon="+" onClick={()=>setForm({data:today(),specie:"",tipo:"",quantita:"",unita:"kg",costo:"",note:""})} small/>
       </div>
       <Card style={{background:`linear-gradient(135deg,${C.primary}15,${C.accent}10)`}}>
-        <div style={{fontSize:13,color:C.muted}}>Costo totale registrato</div>
+        <div style={{fontSize:13,color:C.muted}}>{t("Costo totale registrato")}</div>
         <div style={{fontSize:28,fontWeight:800,color:C.primary}}>€{costoTotale.toFixed(2)}</div>
       </Card>
       {loading?<Spinner/>:voci.map(e=>(
         <Card key={e.id}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div>
-              <div style={{fontWeight:600,fontSize:15}}>{e.specie?specieIcon(e.specie):"🐾"} {e.tipo}</div>
+              <div style={{fontWeight:600,fontSize:15}}>{e.specie?specieIcon(e.specie):"🐾"} {t(e.tipo)}</div>
               <div style={{fontSize:13,color:C.muted}}>{e.data}{e.specie?" · "+e.specie:""}</div>
               {e.note&&<div style={{fontSize:12,color:C.muted,fontStyle:"italic"}}>{e.note}</div>}
             </div>
             <div style={{textAlign:"right"}}>
-              <div style={{fontWeight:700,fontSize:16}}>{e.quantita} {e.unita}</div>
+              <div style={{fontWeight:700,fontSize:16}}>{e.quantita} {t(e.unita)}</div>
               {e.costo>0&&<div style={{color:C.accent,fontWeight:600}}>€{e.costo}</div>}
             </div>
           </div>
@@ -3026,27 +3026,27 @@ function Magazzino({scorte,loading,aggiungi,aggiorna}){
     <div style={{padding:"16px 16px 80px"}}>
       <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
         <button onClick={()=>setForm(null)} style={{background:"none",border:"none",cursor:"pointer",fontSize:22}}>←</button>
-        <span style={{fontSize:18,fontWeight:800}}>{form.id?"Modifica":"Nuova"} scorta</span>
+        <span style={{fontSize:18,fontWeight:800}}>{form.id?t("Modifica"):t("Nuova")} {t("scorta")}</span>
       </div>
-      <Field label="Nome prodotto" value={form.nome} onChange={v=>setForm(f=>({...f,nome:v}))} required/>
-      <Field label="Categoria" value={form.categoria} onChange={v=>setForm(f=>({...f,categoria:v}))}
+      <Field label={t("Nome prodotto")} value={form.nome} onChange={v=>setForm(f=>({...f,nome:v}))} required/>
+      <Field label={t("Categoria")} value={form.categoria} onChange={v=>setForm(f=>({...f,categoria:v}))}
         options={["mangime","farmaco","igiene","attrezzatura","altro"]}/>
-      <Field label="Quantità attuale" value={form.quantita} onChange={v=>setForm(f=>({...f,quantita:v}))} type="number"/>
-      <Field label="Unità" value={form.unita} onChange={v=>setForm(f=>({...f,unita:v}))} options={["kg","litri","sacchi","balle","flaconi","pezzi"]}/>
-      <Field label="Scorta minima" value={form.minimo} onChange={v=>setForm(f=>({...f,minimo:v}))} type="number"/>
-      <Field label="Costo unitario (€)" value={form.costo} onChange={v=>setForm(f=>({...f,costo:v}))} type="number"/>
-      <Field label="Fornitore" value={form.fornitore} onChange={v=>setForm(f=>({...f,fornitore:v}))}/>
+      <Field label={t("Quantità attuale")} value={form.quantita} onChange={v=>setForm(f=>({...f,quantita:v}))} type="number"/>
+      <Field label={t("Unità")} value={form.unita} onChange={v=>setForm(f=>({...f,unita:v}))} options={["kg","litri","sacchi","balle","flaconi","pezzi"]}/>
+      <Field label={t("Scorta minima")} value={form.minimo} onChange={v=>setForm(f=>({...f,minimo:v}))} type="number"/>
+      <Field label={t("Costo unitario (€)")} value={form.costo} onChange={v=>setForm(f=>({...f,costo:v}))} type="number"/>
+      <Field label={t("Fornitore")} value={form.fornitore} onChange={v=>setForm(f=>({...f,fornitore:v}))}/>
       <div style={{display:"flex",gap:10,marginTop:8}}>
-        <Btn label={saving?"...":"Salva"} icon="✓" onClick={salva} variant="success"/>
-        <Btn label="Annulla" onClick={()=>setForm(null)} variant="ghost"/>
+        <Btn label={saving?"...":t("Salva")} icon="✓" onClick={salva} variant="success"/>
+        <Btn label={t("Annulla")} onClick={()=>setForm(null)} variant="ghost"/>
       </div>
     </div>
   );
   return(
     <div style={{padding:"16px 16px 80px"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-        <span style={{fontSize:20,fontWeight:800}}>Magazzino</span>
-        <Btn label="Aggiungi" icon="+" onClick={()=>setForm({nome:"",categoria:"mangime",quantita:"",unita:"kg",minimo:"",costo:"",fornitore:""})} small/>
+        <span style={{fontSize:20,fontWeight:800}}>{t("Magazzino")}</span>
+        <Btn label={t("Aggiungi")} icon="+" onClick={()=>setForm({nome:"",categoria:"mangime",quantita:"",unita:"kg",minimo:"",costo:"",fornitore:""})} small/>
       </div>
       {loading?<Spinner/>:scorte.map(m=>{
         const alert=m.quantita<=m.minimo;
@@ -3055,8 +3055,8 @@ function Magazzino({scorte,loading,aggiungi,aggiorna}){
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
               <div>
                 <div style={{fontWeight:700,fontSize:15}}>{m.nome}</div>
-                <Badge label={m.categoria} color={alert?C.red:C.green}/>
-                {alert&&<Badge label="⚠ SCORTA BASSA" color={C.red}/>}
+                <Badge label={t(m.categoria)} color={alert?C.red:C.green}/>
+                {alert&&<Badge label={t("⚠ SCORTA BASSA")} color={C.red}/>}
                 {m.fornitore&&<div style={{fontSize:12,color:C.muted,marginTop:4}}>📦 {m.fornitore}</div>}
               </div>
               <button onClick={()=>setForm({...m})} style={{background:C.blue+"20",border:"none",borderRadius:8,padding:"6px 8px",cursor:"pointer"}}>✏️</button>
@@ -3066,7 +3066,7 @@ function Magazzino({scorte,loading,aggiungi,aggiorna}){
                 width:34,height:34,fontSize:20,cursor:"pointer",color:C.red,fontWeight:700}}>−</button>
               <div style={{textAlign:"center",flex:1}}>
                 <div style={{fontSize:22,fontWeight:800,color:alert?C.red:C.text}}>{m.quantita}</div>
-                <div style={{fontSize:12,color:C.muted}}>{m.unita} · min {m.minimo}</div>
+                <div style={{fontSize:12,color:C.muted}}>{m.unita} {t("· min")} {m.minimo}</div>
               </div>
               <button onClick={()=>aggiornaQta(m,1)} style={{background:C.green+"20",border:"none",borderRadius:8,
                 width:34,height:34,fontSize:20,cursor:"pointer",color:C.green,fontWeight:700}}>+</button>
@@ -3106,28 +3106,28 @@ function Report({animali,eventi_sanitari,voci_alimentazione,eventiRiproduttivi})
 
   return(
     <div style={{padding:"16px 16px 80px"}}>
-      <span style={{fontSize:20,fontWeight:800,display:"block",marginBottom:16}}>Report</span>
+      <span style={{fontSize:20,fontWeight:800,display:"block",marginBottom:16}}>{t("Report")}</span>
       <Card>
-        <div style={{fontSize:14,fontWeight:700,color:C.muted,marginBottom:12}}>CONSISTENZA</div>
+        <div style={{fontSize:14,fontWeight:700,color:C.muted,marginBottom:12}}>{t("CONSISTENZA")}</div>
         {["bovino","suino","ovino"].map(s=>{
           const n=attivi.filter(a=>a.specie===s).length;
           return(
             <div key={s} style={{display:"flex",justifyContent:"space-between",
               padding:"8px 0",borderBottom:`1px solid ${C.border}`}}>
               <span>{specieIcon(s)} {specieLabel(s)}</span>
-              <span style={{fontWeight:700,color:specieColor(s)}}>{n} capi</span>
+              <span style={{fontWeight:700,color:specieColor(s)}}>{n} {t("capi")}</span>
             </div>
           );
         })}
         <div style={{display:"flex",justifyContent:"space-between",padding:"8px 0",fontWeight:700}}>
-          <span>Totale attivi</span>
-          <span style={{color:C.primary}}>{attivi.length} capi</span>
+          <span>{t("Totale attivi")}</span>
+          <span style={{color:C.primary}}>{attivi.length} {t("capi")}</span>
         </div>
       </Card>
       {scrofe.length>0&&(
         <Card>
           <div style={{fontSize:14,fontWeight:700,color:C.muted,marginBottom:12}}>
-            🏆 CLASSIFICA SCROFE (per prolificità)
+            {t("🏆 CLASSIFICA SCROFE (per prolificità)")}
           </div>
           {scrofe.map((s,i)=>(
             <div key={s.id} style={{display:"flex",alignItems:"center",gap:8,
@@ -3138,7 +3138,7 @@ function Report({animali,eventi_sanitari,voci_alimentazione,eventiRiproduttivi})
               <div style={{flex:1}}>
                 <div style={{fontWeight:700,fontSize:14}}>{s.nome||s.bdn}</div>
                 <div style={{fontSize:11,color:C.muted}}>
-                  {s.n_parti} part{s.n_parti===1?"o":"i"} · {s.nati_medi_parto} nati/parto · {s.pct_vivi}% vivi
+                  {s.n_parti===1?t("1 parto"):t("{0} parti",{0:s.n_parti})} · {t("{0} nati per parto",{0:s.nati_medi_parto})} · {s.pct_vivi}{t("% vivi")}
                 </div>
               </div>
               <div style={{fontWeight:800,fontSize:16,color:C.suini}}>{s.prolificita}</div>
@@ -3147,7 +3147,7 @@ function Report({animali,eventi_sanitari,voci_alimentazione,eventiRiproduttivi})
         </Card>
       )}
       <Card>
-        <div style={{fontSize:14,fontWeight:700,color:C.muted,marginBottom:12}}>COSTI REGISTRATI</div>
+        <div style={{fontSize:14,fontWeight:700,color:C.muted,marginBottom:12}}>{t("COSTI REGISTRATI")}</div>
         <div style={{display:"flex",gap:10}}>
           {[[C.red,"Sanitari",costoSan],[C.bovini,"Alimentari",costoAli],[C.primary,"Totale",costoSan+costoAli]].map(([col,label,val])=>(
             <div key={label} style={{flex:1,background:col+"15",borderRadius:12,padding:12,textAlign:"center"}}>
@@ -3220,24 +3220,24 @@ export default function AllevamentoApp(){
         maxWidth:480,background:"#FFF",borderTop:`1.5px solid ${C.border}`,
         display:"flex",justifyContent:"space-around",padding:"8px 0 10px",
         zIndex:100,boxShadow:"0 -4px 20px rgba(0,0,0,0.1)"}}>
-        {TABS.map(t=>(
-          <button key={t.id} onClick={()=>setTab(t.id)}
+        {TABS.map(tx=>(
+          <button key={tx.id} onClick={()=>setTab(tx.id)}
             style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,
               background:"none",border:"none",cursor:"pointer",padding:"4px 6px",minWidth:50}}>
-            <div style={{background:tab===t.id?C.primary+"18":"transparent",borderRadius:10,padding:"6px 8px",position:"relative"}}>
-              <span style={{fontSize:18}}>{t.icon}</span>
-              {t.badge>0&&(
+            <div style={{background:tab===tx.id?C.primary+"18":"transparent",borderRadius:10,padding:"6px 8px",position:"relative"}}>
+              <span style={{fontSize:18}}>{tx.icon}</span>
+              {tx.badge>0&&(
                 <span style={{position:"absolute",top:-2,right:-4,
-                  background:t.badgeUrgente?C.red:C.yellow,color:"#FFF",
+                  background:tx.badgeUrgente?C.red:C.yellow,color:"#FFF",
                   fontSize:9,fontWeight:800,borderRadius:10,
                   minWidth:16,height:16,display:"flex",alignItems:"center",justifyContent:"center",
                   padding:"0 4px",border:"2px solid #FFF"}}>
-                  {t.badge}
+                  {tx.badge}
                 </span>
               )}
             </div>
-            <span style={{fontSize:10,fontWeight:tab===t.id?700:500,
-              color:tab===t.id?C.primary:C.muted}}>{t.label}</span>
+            <span style={{fontSize:10,fontWeight:tab===tx.id?700:500,
+              color:tab===tx.id?C.primary:C.muted}}>{t(tx.label)}</span>
           </button>
         ))}
       </div>

@@ -18,6 +18,7 @@
 //  - il sorgo dopo il pascolo e' seconda coltura: i suoi ettari non si sommano.
 // ============================================================================
 import { useState, useEffect } from "react";
+import { t } from "./i18n";   // v119 — lingue
 import { supabase } from "./supabase";
 
 const C = {
@@ -33,8 +34,8 @@ const n2 = v => Number(v).toLocaleString("it-IT",{minimumFractionDigits:2,maximu
 const eur = v => n0(v)+" €";
 const eur2 = v => n2(v)+" €";
 const sg = v => (v>=0?"+":"−")+n0(Math.abs(v))+" €";
-const perUnita = u => u==="balloni"?"a ballone":u==="rotoballe"?"a rotoballa":"al quintale";
-const unitaHa = u => u==="balloni"?"balloni per ettaro":u==="rotoballe"?"rotoballe per ettaro":"quintali per ettaro";
+const perUnita = u => t(u==="balloni"?"a ballone":u==="rotoballe"?"a rotoballa":"al quintale");
+const unitaHa = u => t(u==="balloni"?"balloni per ettaro":u==="rotoballe"?"rotoballe per ettaro":"quintali per ettaro");
 
 // colore per coltura (come nel report Excel)
 const COL_COLTURA = {"Erba medica":"#C6E0B4","Erbaio misto":"#E2EFDA","Orzo":"#F8CBAD","Avena":"#FFE699",
@@ -46,9 +47,9 @@ const PRINCIPALE = {"Orzo":["Granella di orzo"],"Erba medica":["Fieno di erba me
 const COLTURE_ORDINE = ["Erba medica","Erbaio misto","Orzo","Trifoglio","Avena","Favino","Sulla"];
 
 const normColtura = s => {
-  if(!s) return s; const t = s.trim().toLowerCase();
-  if(t.startsWith("sorgo")) return "Sorgo";
-  return t.charAt(0).toUpperCase()+t.slice(1);
+  if(!s) return s; const tx = s.trim().toLowerCase();
+  if(tx.startsWith("sorgo")) return "Sorgo";
+  return tx.charAt(0).toUpperCase()+tx.slice(1);
 };
 const nomeCampo = s => (s||"").split(" — ")[0];
 const normConcime = d => {
@@ -72,10 +73,10 @@ const normConcime = d => {
 
 // gradazione verde → giallo → rosso secondo la posizione
 const gradazione = (i,n) => {
-  const t = n<=1 ? 0 : i/(n-1);
+  const tx = n<=1 ? 0 : i/(n-1);
   const S=[[0,[0x57,0xBB,0x8A]],[0.5,[0xFF,0xD6,0x66]],[1,[0xE6,0x7C,0x73]]];
   for(let k=0;k<S.length-1;k++){ const [t0,c0]=S[k],[t1,c1]=S[k+1];
-    if(t<=t1){ const f=(t-t0)/(t1-t0||1); return "rgb("+c0.map((c,m)=>Math.round(c+(c1[m]-c)*f)).join(",")+")"; } }
+    if(tx<=t1){ const f=(tx-t0)/(t1-t0||1); return "rgb("+c0.map((c,m)=>Math.round(c+(c1[m]-c)*f)).join(",")+")"; } }
   return "rgb(230,124,115)";
 };
 const coloreIndice = v => v>=100 ? C.green : C.red;
@@ -164,13 +165,13 @@ export default function StoricoColtivazione(){
         .eq("coltivazione_voci_costo.tipo","Concime").range(0,9999),
       supabase.from("coltivazione_parametri").select("campagna,peso_ballone_kg"),
     ]);
-    if(r.error){ setErr("Errore nel caricamento dello storico: "+r.error.message); return; }
+    if(r.error){ setErr(t("Errore nel caricamento dello storico: ")+r.error.message); return; }
     setDati(costruisci(r.data||[], k.data||[], p.data||[]));
   })(); },[]);
 
   if(err) return <div style={{...card,color:C.red,fontWeight:600}}>⚠️ {err}</div>;
-  if(!dati) return <div style={{...card,textAlign:"center",color:C.muted}}>Caricamento dello storico…</div>;
-  if(!dati.colture.length) return <div style={{...card,textAlign:"center",color:C.muted}}>Nessuna stagione con i costi caricati.</div>;
+  if(!dati) return <div style={{...card,textAlign:"center",color:C.muted}}>{t("Caricamento dello storico…")}</div>;
+  if(!dati.colture.length) return <div style={{...card,textAlign:"center",color:C.muted}}>{t("Nessuna stagione con i costi caricati.")}</div>;
 
   const VISTE=[{id:"coltura",l:"🌱 Per coltura"},{id:"campo",l:"🗺️ Per campo"},{id:"stagione",l:"🏅 Ranking stagione"},{id:"resa",l:"🏆 Ranking resa"},{id:"rcoltura",l:"🥇 Ranking per coltura"}];
   return (<>
@@ -183,11 +184,11 @@ export default function StoricoColtivazione(){
       ))}
     </div>
     <Nota>
-      {vista==="coltura" && <><b>🌱 Per coltura</b> · Scegli una coltura: per ogni stagione ettari, resa, costo e quanto è costata ogni unità di prodotto contro il prezzo di mercato. In rosso i costi sopra il mercato.</>}
-      {vista==="campo" && <><b>🗺️ Per campo</b> · Scegli un campo: stagione per stagione coltura, produzione, costi, concimi usati con la dose per ettaro, e il risultato contro il mercato.</>}
-      {vista==="stagione" && <><b>🏅 Ranking per stagione</b> · I campi dal migliore al peggiore per costo unitario dei prodotti, rapportato al prezzo di mercato (i prodotti sono diversi). Il colore del campo è la coltura; la casella del costo va dal verde al rosso; numero rosso = sopra il mercato.</>}
-      {vista==="resa" && <><b>🏆 Ranking per resa</b> · I campi su tutte le stagioni. Ogni campo è confrontato con gli altri della stessa coltura nella stessa stagione: 100 = media dell'azienda, 150 = una volta e mezza. La sulla, unica, è confrontata con la medica.</>}
-      {vista==="rcoltura" && <><b>🥇 Ranking per coltura</b> · Scegli una coltura: i campi che l'hanno avuta, dal migliore al peggiore, sommando tutte le stagioni. Conta quanto è costato il prodotto rispetto al suo valore di mercato; costo e mercato sono al quintale del prodotto principale. Numero rosso = sopra il mercato.</>}
+      {vista==="coltura" && <><b>{t("🌱 Per coltura")}</b> {t("· Scegli una coltura: per ogni stagione ettari, resa, costo e quanto è costata ogni unità di prodotto contro il prezzo di mercato. In rosso i costi sopra il mercato.")}</>}
+      {vista==="campo" && <><b>{t("🗺️ Per campo")}</b> {t("· Scegli un campo: stagione per stagione coltura, produzione, costi, concimi usati con la dose per ettaro, e il risultato contro il mercato.")}</>}
+      {vista==="stagione" && <><b>{t("🏅 Ranking per stagione")}</b> {t("· I campi dal migliore al peggiore per costo unitario dei prodotti, rapportato al prezzo di mercato (i prodotti sono diversi). Il colore del campo è la coltura; la casella del costo va dal verde al rosso; numero rosso = sopra il mercato.")}</>}
+      {vista==="resa" && <><b>{t("🏆 Ranking per resa")}</b> {t("· I campi su tutte le stagioni. Ogni campo è confrontato con gli altri della stessa coltura nella stessa stagione: 100 = media dell'azienda, 150 = una volta e mezza. La sulla, unica, è confrontata con la medica.")}</>}
+      {vista==="rcoltura" && <><b>{t("🥇 Ranking per coltura")}</b> {t("· Scegli una coltura: i campi che l'hanno avuta, dal migliore al peggiore, sommando tutte le stagioni. Conta quanto è costato il prodotto rispetto al suo valore di mercato; costo e mercato sono al quintale del prodotto principale. Numero rosso = sopra il mercato.")}</>}
     </Nota>
     {vista==="coltura" && <PerColtura d={dati}/>}
     {vista==="campo" && <PerCampo d={dati}/>}
@@ -207,17 +208,17 @@ const Chips = ({voci,valore,onScegli,colori}) => (
       <button key={v.id} onClick={()=>onScegli(v.id)}
         style={{flexShrink:0,background:valore===v.id?C.primary:(colori?.[v.id]||"#FFF"),color:valore===v.id?"#FFF":C.text,
           border:`1.5px solid ${valore===v.id?C.primary:C.border}`,borderRadius:20,padding:"6px 12px",fontSize:13,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap"}}>
-        {v.l}</button>))}
+        {typeof v.l==="string"?t(v.l):v.l}</button>))}
   </div>
 );
 const Riga = ({l,v,forte,colore,piccolo}) => (
   <div style={{display:"flex",justifyContent:"space-between",gap:10,padding:"4px 0",borderTop:`1px solid ${C.border}44`,fontSize:piccolo?12:13}}>
-    <span style={{color:C.muted}}>{l}</span>
-    <span style={{fontWeight:forte?700:500,color:colore||C.text,textAlign:"right"}}>{v}</span>
+    <span style={{color:C.muted}}>{typeof l==="string"?t(l):l}</span>
+    <span style={{fontWeight:forte?700:500,color:colore||C.text,textAlign:"right"}}>{typeof v==="string"?t(v):v}</span>
   </div>
 );
 const NonCaricata = ({cp}) => (
-  <div style={{...card,padding:10,background:"#EEE",color:C.muted,fontSize:13,textAlign:"center"}}>{cp} · stagione non caricata</div>
+  <div style={{...card,padding:10,background:"#EEE",color:C.muted,fontSize:13,textAlign:"center"}}>{cp} {t("· stagione non caricata")}</div>
 );
 
 // ---------------------------------------------------------------------------
@@ -239,15 +240,15 @@ function PerColtura({d}){
         <div key={cp} style={{...card,borderLeft:`6px solid ${COL_COLTURA[col]||C.border}`}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline"}}>
             <b style={{color:C.primary,fontSize:15}}>{cp}</b>
-            <span style={{fontSize:12,color:C.muted}}>{n2(ha)} ettari · {cs.length} {cs.length===1?"campo":"campi"}</span>
+            <span style={{fontSize:12,color:C.muted}}>{n2(ha)} {t("ettari ·")} {cs.length} {cs.length===1?t("campo"):t("campi")}</span>
           </div>
           {prodotti.map(p=>(
             <div key={p.prodotto+p.unita} style={{marginTop:8,padding:"6px 8px",background:C.bg,borderRadius:8}}>
-              <div style={{fontWeight:600,fontSize:13}}>{p.prodotto}: {n1(p.q)} {p.unita}</div>
-              <div style={{fontSize:12,color:C.muted}}>resa {n1(p.q/ha)} {unitaHa(p.unita)}</div>
+              <div style={{fontWeight:600,fontSize:13}}>{t(p.prodotto)}: {n1(p.q)} {t(p.unita)}</div>
+              <div style={{fontSize:12,color:C.muted}}>{t("resa")} {n1(p.q/ha)} {unitaHa(p.unita)}</div>
               <div style={{display:"flex",justifyContent:"space-between",fontSize:13,marginTop:3}}>
-                <span>costo <b style={{color:p.costo/p.q>p.valore/p.q?C.red:C.green}}>{eur2(p.costo/p.q)}</b> {perUnita(p.unita)}</span>
-                <span style={{color:C.muted}}>mercato {eur2(p.valore/p.q)}</span>
+                <span>{t("costo")} <b style={{color:p.costo/p.q>p.valore/p.q?C.red:C.green}}>{eur2(p.costo/p.q)}</b> {perUnita(p.unita)}</span>
+                <span style={{color:C.muted}}>{t("mercato")} {eur2(p.valore/p.q)}</span>
               </div>
             </div>))}
           <div style={{marginTop:8}}>
@@ -268,8 +269,8 @@ function PerCampo({d}){
   return (<>
     <select value={n} onChange={e=>setN(Number(e.target.value))}
       style={{width:"100%",padding:"10px 12px",borderRadius:10,border:`1.5px solid ${C.border}`,fontSize:15,marginBottom:12,background:"#FFF"}}>
-      <optgroup label="Campi coltivati oggi">{d.attivi.map(x=><option key={x} value={x}>{x} — {d.campi[x]}</option>)}</optgroup>
-      {vecchi.length>0 && <optgroup label="Campi coltivati solo fino al 2021/2022">{vecchi.map(x=><option key={x} value={x}>{x} — {d.campi[x]}</option>)}</optgroup>}
+      <optgroup label={t("Campi coltivati oggi")}>{d.attivi.map(x=><option key={x} value={x}>{x} — {d.campi[x]}</option>)}</optgroup>
+      {vecchi.length>0 && <optgroup label={t("Campi coltivati solo fino al 2021/2022")}>{vecchi.map(x=><option key={x} value={x}>{x} — {d.campi[x]}</option>)}</optgroup>}
     </select>
     {d.stagioni.map(cp=>{
       if(!d.caricate.includes(cp)) return <NonCaricata key={cp} cp={cp}/>;
@@ -286,29 +287,29 @@ function PerCampo({d}){
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
             <b style={{color:C.primary,fontSize:15}}>{cp}</b>
             <div style={{display:"flex",gap:4,flexWrap:"wrap",justifyContent:"flex-end"}}>
-              {coltureNomi.map(k=><span key={k} style={{background:COL_COLTURA[k]||"#EEE",borderRadius:10,padding:"2px 8px",fontSize:12,fontWeight:600}}>{k}</span>)}
+              {coltureNomi.map(k=><span key={k} style={{background:COL_COLTURA[k]||"#EEE",borderRadius:10,padding:"2px 8px",fontSize:12,fontWeight:600}}>{t(k)}</span>)}
             </div>
           </div>
           <Riga l="Ettari coltivati" v={n2(ha)}/>
           {prod.length ? prod.sort((a,b)=>b.valore-a.valore).map(p=>(
-            <Riga key={p.prodotto+p.coltura} l={p.prodotto+(coltureNomi.length>1?` (${p.coltura.toLowerCase()})`:"")}
-              v={<>{n1(p.q)} {p.unita} · {n1(p.q/p.ha)} per ettaro<br/>
-                <span style={{fontSize:12}}>costo <b style={{color:p.cu>p.pu?C.red:C.green}}>{eur2(p.cu)}</b> {perUnita(p.unita)} · mercato {eur2(p.pu)}</span></>} piccolo/>
+            <Riga key={p.prodotto+p.coltura} l={t(p.prodotto)+(coltureNomi.length>1?" ("+t(p.coltura).toLowerCase()+")":"")}
+              v={<>{n1(p.q)} {t(p.unita)} · {n1(p.q/p.ha)} {t("per ettaro")}<br/>
+                <span style={{fontSize:12}}>{t("costo")} <b style={{color:p.cu>p.pu?C.red:C.green}}>{eur2(p.cu)}</b> {perUnita(p.unita)} {t("· mercato")} {eur2(p.pu)}</span></>} piccolo/>
           )) : <Riga l="Produzione" v="pascolato: nessuna resa misurata" colore={C.muted}/>}
           {prod.length>0 && <Riga l="Resa in quintali per ettaro" v={n1(qq/ha)} forte/>}
-          <div style={{marginTop:6,fontSize:12,fontWeight:700,color:C.accent}}>Concimazione</div>
+          <div style={{marginTop:6,fontSize:12,fontWeight:700,color:C.accent}}>{t("Concimazione")}</div>
           {cs.some(c=>c.concimi_lista.length) ? cs.flatMap(c=>c.concimi_lista.map(k=>(
-            <Riga key={c.id+k.nome} l={k.nome+(coltureNomi.length>1?` (su ${c.coltura.toLowerCase()})`:"")} v={`${n2(k.q/c.ettari)} quintali per ettaro`} piccolo/>
+            <Riga key={c.id+k.nome} l={k.nome+(coltureNomi.length>1?" ("+t("su {0}",{0:t(c.coltura).toLowerCase()})+")":"")} v={n2(k.q/c.ettari)+" "+t("quintali per ettaro")} piccolo/>
           ))) : <Riga l="Concimi" v="nessuna concimazione" colore={C.muted} piccolo/>}
           <Riga l="Costo della concimazione per ettaro" v={eur(cs.reduce((s,c)=>s+c.costo_concimazione,0)/(ha||1))} piccolo/>
-          <div style={{marginTop:6,fontSize:12,fontWeight:700,color:C.accent}}>Costi</div>
+          <div style={{marginTop:6,fontSize:12,fontWeight:700,color:C.accent}}>{t("Costi")}</div>
           <Riga l="Semi" v={eur(cs.reduce((s,c)=>s+c.semi,0))} piccolo/>
           <Riga l="Concimi e fitosanitari" v={eur(cs.reduce((s,c)=>s+c.concimi,0))} piccolo/>
           <Riga l="Lavorazioni (compresa la rete)" v={eur(cs.reduce((s,c)=>s+c.lavorazioni,0))} piccolo/>
           <Riga l="Costo complessivo" v={eur(tot)} forte/>
           <Riga l="Costo ad ettaro" v={eur(tot/(ha||1))}/>
           {prod.length>0 && <Riga l="Valore di mercato ad ettaro" v={eur(val/(ha||1))}/>}
-          <Riga l="Perdita o guadagno contro il mercato" v={saldo==null?"—":`${sg(saldo)} · ${sg(saldo/(ha||1))} per ettaro`} forte colore={saldo==null?C.muted:saldo<0?C.red:C.green}/>
+          <Riga l="Perdita o guadagno contro il mercato" v={saldo==null?"—":sg(saldo)+" · "+sg(saldo/(ha||1))+" "+t("per ettaro")} forte colore={saldo==null?C.muted:saldo<0?C.red:C.green}/>
         </div>);
     })}
   </>);
@@ -348,12 +349,12 @@ function RankingStagione({d}){
           <div style={{fontSize:10}}>{perUnita(x.unita)}</div>
         </div>
         <div style={{width:80,padding:"6px 6px",textAlign:"center",display:"flex",flexDirection:"column",justifyContent:"center",borderLeft:`1px solid ${C.border}`}}>
-          <div style={{fontSize:10,color:C.muted}}>mercato</div>
+          <div style={{fontSize:10,color:C.muted}}>{t("mercato")}</div>
           <div style={{fontSize:12,fontWeight:600}}>{eur2(x.pm)}</div>
         </div>
       </div>))}
     <div style={{fontSize:11.5,color:C.muted,lineHeight:1.4,marginTop:6}}>
-      Costo e mercato sono del prodotto principale della coltura. La posizione tiene conto di tutti i prodotti del campo, paglia e seme compresi. Esclusi i pascoli.
+      {t("Costo e mercato sono del prodotto principale della coltura. La posizione tiene conto di tutti i prodotti del campo, paglia e seme compresi. Esclusi i pascoli.")}
     </div>
   </>);
 }
@@ -376,7 +377,7 @@ function RankingResa({d}){
           <div style={{fontWeight:800,fontSize:15,color:C.primary,width:30}}>{i+1}°</div>
           <div style={{flex:1}}>
             <div style={{fontWeight:700,fontSize:14}}>{x.n} — {d.campi[x.n]}</div>
-            <div style={{fontSize:12,color:C.muted}}>{x.sopra} stagioni sopra la media su {x.na}</div>
+            <div style={{fontSize:12,color:C.muted}}>{t("{0} stagioni sopra la media su {1}",{0:x.sopra,1:x.na})}</div>
           </div>
           <div style={{background:gradazione(i,lista.length),borderRadius:10,padding:"6px 10px",fontWeight:800,fontSize:16,minWidth:48,textAlign:"center"}}>{n0(x.indice)}</div>
         </div>
@@ -385,13 +386,13 @@ function RankingResa({d}){
             <div key={cp} style={{flexShrink:0,background:COL_COLTURA[x.per[cp].c[0]]||"#EEE",borderRadius:8,padding:"3px 7px",textAlign:"center"}}>
               <div style={{fontSize:10,color:C.text}}>{cp}</div>
               <div style={{fontSize:13,fontWeight:800,color:coloreIndice(x.per[cp].i)}}>{n0(x.per[cp].i)}</div>
-              <div style={{fontSize:9.5,color:C.text}}>{x.per[cp].c.join(" + ").toLowerCase()}{x.per[cp].c.includes("Sulla")?" (contro la medica)":""}</div>
+              <div style={{fontSize:9.5,color:C.text}}>{x.per[cp].c.join(" + ").toLowerCase()}{x.per[cp].c.includes("Sulla")?t(" (contro la medica)"):""}</div>
             </div>))}
         </div>
       </div>))}
     <div style={{fontSize:11.5,color:C.muted,lineHeight:1.4,marginTop:6}}>
-      Non contano le stagioni in cui un campo era l'unico con la sua coltura.
-      {fuori.length>0 && <> Fuori classifica (pascoli o nessuna resa confrontabile): {fuori.map(n=>`${n} — ${d.campi[n]}`).join("; ")}.</>}
+      {t("Non contano le stagioni in cui un campo era l'unico con la sua coltura.")}
+      {fuori.length>0 && <> {t("Fuori classifica (pascoli o nessuna resa confrontabile):")} {fuori.map(n=>`${n} — ${d.campi[n]}`).join("; ")}.</>}
     </div>
   </>);
 }
@@ -426,20 +427,20 @@ function RankingColtura({d}){
         <div style={{width:44,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,fontSize:15,color:C.primary,background:"#FAF7F2"}}>{i+1}°</div>
         <div style={{flex:1,padding:"8px 10px",background:COL_COLTURA[col]||"#EEE"}}>
           <div style={{fontWeight:700,fontSize:14,color:d.attivi.includes(x.n)?C.text:"#666"}}>{x.n} — {d.campi[x.n]}</div>
-          <div style={{fontSize:11.5,color:C.text}}>{x.stagioni.length===1?"1 stagione":x.stagioni.length+" stagioni"}: {x.stagioni.map(breve).join(" · ")}</div>
+          <div style={{fontSize:11.5,color:C.text}}>{x.stagioni.length===1?t("1 stagione"):x.stagioni.length+t(" stagioni")}: {x.stagioni.map(breve).join(" · ")}</div>
         </div>
         <div style={{width:92,padding:"6px 6px",background:gradazione(i,lista.length),textAlign:"center",display:"flex",flexDirection:"column",justifyContent:"center"}}>
           <div style={{fontSize:13,fontWeight:800,color:x.cu!=null&&x.cu>x.pm?"#9C0006":"#10381F"}}>{x.cu!=null?eur2(x.cu):"—"}</div>
-          <div style={{fontSize:10}}>al quintale</div>
+          <div style={{fontSize:10}}>{t("al quintale")}</div>
         </div>
         <div style={{width:80,padding:"6px 6px",textAlign:"center",display:"flex",flexDirection:"column",justifyContent:"center",borderLeft:`1px solid ${C.border}`}}>
-          <div style={{fontSize:10,color:C.muted}}>mercato</div>
+          <div style={{fontSize:10,color:C.muted}}>{t("mercato")}</div>
           <div style={{fontSize:12,fontWeight:600}}>{x.pm!=null?eur2(x.pm):"—"}</div>
         </div>
       </div>))}
-    {lista.length===1 && <div style={{fontSize:12,color:C.muted,marginBottom:6}}>Un solo campo ha avuto questa coltura: non c'è confronto.</div>}
+    {lista.length===1 && <div style={{fontSize:12,color:C.muted,marginBottom:6}}>{t("Un solo campo ha avuto questa coltura: non c'è confronto.")}</div>}
     <div style={{fontSize:11.5,color:C.muted,lineHeight:1.4,marginTop:6}}>
-      La posizione tiene conto di tutti i prodotti della coltura (paglia e seme compresi) in tutte le stagioni; i campi in grigio non sono più coltivati. Esclusi i pascoli.
+      {t("La posizione tiene conto di tutti i prodotti della coltura (paglia e seme compresi) in tutte le stagioni; i campi in grigio non sono più coltivati. Esclusi i pascoli.")}
     </div>
   </>);
 }

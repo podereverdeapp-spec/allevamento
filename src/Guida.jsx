@@ -24,6 +24,8 @@ const SEZIONI = [
         "iPhone — Safari: icona 📤 → 'Aggiungi a schermata Home'",
       ]},
       {tipo:"nota",testo:"Tutti i dati vengono salvati automaticamente nel database condiviso. Ogni operatore vede gli stessi dati in tempo reale da qualsiasi dispositivo. ⚠️ Usa sempre il browser in modalità normale (non in incognito) per restare connesso."},
+      {tipo:"h3",testo:"🌐 Lingua dell'app"},
+      {tipo:"p",testo:"Nella pagina di accesso e nel menu utente (il tuo nome in alto a destra) ci sono le bandiere: italiano, inglese e punjabi. Tocca la bandiera: tutta l'app, guida compresa, passa a quella lingua. La scelta resta salvata nel tuo profilo e vale su ogni dispositivo. I dati registrati (nomi, note, descrizioni) restano come sono stati scritti."},
     ]
   },
   {

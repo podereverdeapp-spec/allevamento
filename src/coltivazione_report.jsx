@@ -11,6 +11,7 @@
 // e si modificano da "⚙️ Prezzi e rese" (solo admin, lo impone anche la RLS).
 // ============================================================================
 import { useState, useEffect, useCallback } from "react";
+import { t } from "./i18n";   // v119 — lingue
 import * as XLSX from "xlsx-js-style";
 import { supabase } from "./supabase";
 
@@ -25,7 +26,7 @@ const n0 = v => Math.round(v).toLocaleString("it-IT");
 const n2 = v => Number(v).toLocaleString("it-IT",{minimumFractionDigits:2,maximumFractionDigits:2});
 const n1 = v => Number(v).toLocaleString("it-IT",{maximumFractionDigits:1});
 const sg = v => (v>=0?"+":"−")+n0(Math.abs(v))+" €";
-const um = u => u==="balloni" ? "ballone" : u==="quintali" ? "q" : u;
+const um = u => t(u==="balloni" ? "ballone" : u==="quintali" ? "q" : u);
 const qt = v => Number(v).toLocaleString("it-IT",{maximumFractionDigits:2});
 
 // Semaforo sul costo: verde sotto il mercato, giallo fino alla soglia, rosso oltre
@@ -61,7 +62,7 @@ export default function ReportColtivazione({campagna}){
       supabase.from("coltivazione_prezzi_mercato").select("*").eq("campagna",campagna).order("prodotto"),
       supabase.from("coltivazione_benchmark_rese").select("*").eq("campagna",campagna).order("coltura"),
     ]);
-    if(r.error){ setErrore("Errore nel caricamento del report: "+r.error.message); setLoading(false); return; }
+    if(r.error){ setErrore(t("Errore nel caricamento del report: ")+r.error.message); setLoading(false); return; }
     setRighe(r.data||[]); setPar(p.data||null); setPrezzi(pm.data||[]); setBench(b.data||[]);
     const {data:{user}} = await supabase.auth.getUser();
     if(user){
@@ -72,7 +73,7 @@ export default function ReportColtivazione({campagna}){
   },[campagna]);
   useEffect(()=>{ carica(); },[carica]);
 
-  if(loading) return <div style={{...card,textAlign:"center",color:C.muted}}>Caricamento report…</div>;
+  if(loading) return <div style={{...card,textAlign:"center",color:C.muted}}>{t("Caricamento report…")}</div>;
   if(errore)  return <div style={{...card,color:C.red,fontWeight:600}}>⚠️ {errore}</div>;
   if(confronto) return <ConfrontoStagioni onChiudi={()=>setConfronto(false)}/>;
   if(editor)  return <PrezziRese campagna={campagna} par={par} prezzi={prezzi} bench={bench} righe={righe}
@@ -80,7 +81,7 @@ export default function ReportColtivazione({campagna}){
 
   if(righe.length===0) return (
     <div style={{...card,textAlign:"center",color:C.muted,padding:30}}>
-      Nessuna coltura registrata nella campagna {campagna}.
+      {t("Nessuna coltura registrata nella campagna")} {campagna}.
     </div>
   );
 
@@ -100,7 +101,7 @@ export default function ReportColtivazione({campagna}){
   // --- prodotti raccolti, aggregati per coltura+prodotto+unita' --------------
   const prodMap = {};
   righe.filter(r=>r.prodotto).forEach(r=>{
-    const k = `${r.coltura}|${r.prodotto}|${r.unita}`;
+    const k = `${t(r.coltura)}|${t(r.prodotto)}|${t(r.unita)}`;
     if(!prodMap[k]) prodMap[k] = {coltura:r.coltura,prodotto:r.prodotto,unita:r.unita,quantita:0,quantita_q:0,
       costo:0,ettari:0,prezzo_unita:r.prezzo_unita==null?null:Number(r.prezzo_unita),prezzo_q:r.prezzo_q==null?null:Number(r.prezzo_q),
       bench:r.benchmark_resa_q_ha==null?null:Number(r.benchmark_resa_q_ha)};
@@ -155,26 +156,26 @@ export default function ReportColtivazione({campagna}){
       <div style={{...card,borderLeft:`5px solid ${c}`,padding:12}}>
         <div style={{display:"flex",justifyContent:"space-between",gap:8,alignItems:"baseline"}}>
           <div style={{fontWeight:700,fontSize:14,color:C.text,display:"flex",alignItems:"baseline"}}>
-            <Dot c={c}/><span>{a.coltura} · {a.prodotto.toLowerCase()}: {a.sc>0
-              ? `costa ${n1(a.cu/a.prezzo_unita)} volte il mercato`
-              : `costa il ${Math.round(-a.sc*100)}% in meno del mercato`}</span>
+            <Dot c={c}/><span>{t(a.coltura)} · {t(a.prodotto).toLowerCase()}: {a.sc>0
+              ? t("costa {0} volte il mercato",{0:(n1(a.cu/a.prezzo_unita))})
+              : t("costa il {0}% in meno del mercato",{0:(Math.round(-a.sc*100))})}</span>
           </div>
           <div style={{fontWeight:800,fontSize:17,color:c,whiteSpace:"nowrap"}}>{sg(a.euro)}</div>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginTop:8}}>
           <div style={{background:c+"1F",borderRadius:10,padding:"6px 10px"}}>
-            <div style={{fontSize:10,fontWeight:700,color:c,textTransform:"uppercase"}}>Tuo costo</div>
+            <div style={{fontSize:10,fontWeight:700,color:c,textTransform:"uppercase"}}>{t("Tuo costo")}</div>
             <div style={{fontSize:20,fontWeight:800,color:c}}>{n2(a.cu)} €</div>
-            <div style={{fontSize:11,color:C.muted}}>per {um(a.unita)}</div>
+            <div style={{fontSize:11,color:C.muted}}>{t("per")} {um(a.unita)}</div>
           </div>
           <div style={{background:C.bg,borderRadius:10,padding:"6px 10px"}}>
-            <div style={{fontSize:10,fontWeight:700,color:C.muted,textTransform:"uppercase"}}>Mercato</div>
+            <div style={{fontSize:10,fontWeight:700,color:C.muted,textTransform:"uppercase"}}>{t("Mercato")}</div>
             <div style={{fontSize:20,fontWeight:800,color:C.text}}>{n2(a.prezzo_unita)} €</div>
-            <div style={{fontSize:11,color:C.muted}}>per {um(a.unita)}</div>
+            <div style={{fontSize:11,color:C.muted}}>{t("per")} {um(a.unita)}</div>
           </div>
         </div>
         <div style={{fontSize:12,color:C.muted,marginTop:6}}>
-          {qt(a.quantita)} {a.unita} · resa {n1(a.quantita/a.ettari)} {a.unita}/ha
+          {qt(a.quantita)} {t(a.unita)} {t("· resa")} {n1(a.quantita/a.ettari)} {t(a.unita)}{t("/ha")}
         </div>
       </div>
     );
@@ -183,13 +184,13 @@ export default function ReportColtivazione({campagna}){
   return (<>
     {/* numeri chiave */}
     <div style={{...card,background:C.primary,color:"#FFF",border:"none"}}>
-      <div style={{fontSize:12,opacity:0.85,marginBottom:8}}>Campagna {campagna}</div>
+      <div style={{fontSize:12,opacity:0.85,marginBottom:8}}>{t("Campagna")} {campagna}</div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px 0",textAlign:"center"}}>
         {[[`${n2(superficie)} ha`,"superficie"],[`${n0(costoTot)} €`,"costo totale"],
           [`${n0(costoTot/(superficie||1))} €/ha`,"costo per ettaro"],[sg(saldo),"saldo contro il mercato"]].map(([v,l],i)=>(
           <div key={l}>
             <div style={{fontSize:20,fontWeight:800,color:i===3?(saldo<0?"#FFB4A8":"#B8F0C0"):"#FFF"}}>{v}</div>
-            <div style={{fontSize:11,opacity:0.85}}>{l}</div>
+            <div style={{fontSize:11,opacity:0.85}}>{t(l)}</div>
           </div>
         ))}
       </div>
@@ -198,71 +199,71 @@ export default function ReportColtivazione({campagna}){
     <div style={{background:(saldo<0?C.red:C.green)+"14",borderLeft:`4px solid ${saldo<0?C.red:C.green}`,
       borderRadius:10,padding:"10px 12px",fontSize:13,fontWeight:600,color:saldo<0?C.red:C.green,marginBottom:4}}>
       {saldo<0
-        ? `Produrre ti è costato ${n0(-saldo)} € più che comprare al mercato: ${n0(-totPerso)} € persi su ${perdite.length} prodotti, ${n0(totGuad)} € guadagnati su ${guadagni.length}.`
-        : `Produrre ti è costato ${n0(saldo)} € meno che comprare al mercato.`}
-      {perdite[0] && ` Danno maggiore: ${perdite[0].coltura.toLowerCase()} (${sg(perdite[0].euro)}).`}
+        ? t("Produrre ti è costato {0} € più che comprare al mercato: {1} € persi su {2} prodotti, {3} € guadagnati su {4}.",{0:(n0(-saldo)),1:(n0(-totPerso)),2:(perdite.length),3:(n0(totGuad)),4:(guadagni.length)})
+        : t("Produrre ti è costato {0} € meno che comprare al mercato.",{0:(n0(saldo))})}
+      {perdite[0] && t(" Danno maggiore: {0} ({1}).",{0:(perdite[0].coltura.toLowerCase()),1:(sg(perdite[0].euro))})}
     </div>
 
-    {perdite.length>0 && <><Titolo>🔴 Dove perdi</Titolo>{perdite.map(a=><CardProdotto key={a.coltura+a.prodotto+a.unita} a={a}/>)}</>}
-    {guadagni.length>0 && <><Titolo>🟢 Dove guadagni</Titolo>{guadagni.map(a=><CardProdotto key={a.coltura+a.prodotto+a.unita} a={a}/>)}</>}
+    {perdite.length>0 && <><Titolo>{t("🔴 Dove perdi")}</Titolo>{perdite.map(a=><CardProdotto key={a.coltura+a.prodotto+a.unita} a={a}/>)}</>}
+    {guadagni.length>0 && <><Titolo>{t("🟢 Dove guadagni")}</Titolo>{guadagni.map(a=><CardProdotto key={a.coltura+a.prodotto+a.unita} a={a}/>)}</>}
     {senzaPrezzo.length>0 && (
       <div style={{...card,fontSize:12,color:C.muted}}>
-        Senza prezzo di mercato (non entrano nel saldo): {senzaPrezzo.map(a=>`${a.prodotto} (${a.unita})`).join(", ")}.
-        {admin && " Aggiungili da ⚙️ Prezzi e rese."}
+        {t("Senza prezzo di mercato (non entrano nel saldo):")} {senzaPrezzo.map(a=>`${t(a.prodotto)} (${t(a.unita)})`).join(", ")}.
+        {admin && t(" Aggiungili da ⚙️ Prezzi e rese.")}
       </div>
     )}
 
     {rese.length>0 && <>
-      <Titolo>📏 Rese contro il benchmark</Titolo>
-      <div style={{fontSize:12,color:C.muted,margin:"-4px 0 8px"}}>Valore del prodotto mancato (−) o in più (+) rispetto alla resa di riferimento.</div>
+      <Titolo>{t("📏 Rese contro il benchmark")}</Titolo>
+      <div style={{fontSize:12,color:C.muted,margin:"-4px 0 8px"}}>{t("Valore del prodotto mancato (−) o in più (+) rispetto alla resa di riferimento.")}</div>
       <div style={{...card,padding:"4px 14px"}}>
         {rese.map(a=>{
           const c = a.sospetto ? C.muted : colResa(a.scR,soglia);
           return (
             <div key={a.coltura+a.prodotto} style={{display:"flex",justifyContent:"space-between",gap:10,padding:"9px 0",borderTop:`1px solid ${C.border}55`,fontSize:13}}>
               <div style={{display:"flex",alignItems:"baseline"}}><Dot c={c}/>
-                <div><div style={{fontWeight:600}}>{a.coltura} · {a.prodotto.toLowerCase()}</div>
-                  <div style={{fontSize:12,color:C.muted}}>{n1(a.resa)} contro {n1(a.bench)} q/ha{a.sospetto?" — dato da verificare (unità?)":""}</div></div>
+                <div><div style={{fontWeight:600}}>{t(a.coltura)} · {t(a.prodotto).toLowerCase()}</div>
+                  <div style={{fontSize:12,color:C.muted}}>{n1(a.resa)} {t("contro")} {n1(a.bench)} {t("q/ha")}{a.sospetto?t(" — dato da verificare (unità?)"):""}</div></div>
               </div>
               <div style={{fontWeight:800,color:c,whiteSpace:"nowrap"}}>{a.sospetto ? "⚠" : a.val!=null ? sg(a.val) : "—"}</div>
             </div>
           );
         })}
         <div style={{display:"flex",justifyContent:"space-between",padding:"9px 0",borderTop:`1.5px solid ${C.border}`,fontWeight:700,fontSize:13}}>
-          <span>Totale{rese.some(a=>a.sospetto)?" (esclusi i dati da verificare)":""}</span><span style={{color:totRese<0?C.red:C.green}}>{sg(totRese)}</span>
+          <span>{t("Totale")}{rese.some(a=>a.sospetto)?t(" (esclusi i dati da verificare)"):""}</span><span style={{color:totRese<0?C.red:C.green}}>{sg(totRese)}</span>
         </div>
       </div>
     </>}
 
     {pascoli.length>0 && <>
-      <Titolo>🐑 Pascoli</Titolo>
+      <Titolo>{t("🐑 Pascoli")}</Titolo>
       <div style={{...card,padding:"4px 14px"}}>
         {pascoli.map(p=>(
           <div key={p.coltura} style={{display:"flex",justifyContent:"space-between",padding:"9px 0",borderTop:`1px solid ${C.border}55`,fontSize:13}}>
-            <span><b>{p.coltura}</b> · {p.campi} camp{p.campi===1?"o":"i"} · {n2(p.ettari)} ha</span>
-            <span style={{fontWeight:700}}>{n0(p.costo/p.ettari)} €/ha</span>
+            <span><b>{t(p.coltura)}</b> · {p.campi===1?t("1 campo"):t("{0} campi",{0:p.campi})} · {n2(p.ettari)} {t("ha")}</span>
+            <span style={{fontWeight:700}}>{n0(p.costo/p.ettari)} {t("€/ha")}</span>
           </div>
         ))}
       </div>
     </>}
 
-    <Titolo>🌱 Colture e campi</Titolo>
-    <div style={{fontSize:12,color:C.muted,margin:"-4px 0 8px"}}>Tocca una coltura per vedere i campi.</div>
+    <Titolo>{t("🌱 Colture e campi")}</Titolo>
+    <div style={{fontSize:12,color:C.muted,margin:"-4px 0 8px"}}>{t("Tocca una coltura per vedere i campi.")}</div>
     {colturePerCosto.map(g=>{
       const open = aperta===g.coltura;
       return (
         <div key={g.coltura} style={{...card,padding:12}}>
           <div onClick={()=>setAperta(open?null:g.coltura)} style={{display:"flex",justifyContent:"space-between",cursor:"pointer",fontWeight:700,color:C.primary,fontSize:14}}>
-            <span>{open?"▾":"▸"} {g.coltura} · {n2(g.ettari)} ha</span><span>{n0(g.costo/g.ettari)} €/ha</span>
+            <span>{open?"▾":"▸"} {t(g.coltura)} · {n2(g.ettari)} {t("ha")}</span><span>{n0(g.costo/g.ettari)} {t("€/ha")}</span>
           </div>
           {open && <div style={{marginTop:8,fontSize:13}}>
-            <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderTop:`1px solid ${C.border}55`}}><span>Costo totale</span><b>{n0(g.costo)} €</b></div>
-            <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderTop:`1px solid ${C.border}55`}}><span>Semi · concimi · lavorazioni</span><b>{n0(g.semi/g.ettari)} · {n0(g.concimi/g.ettari)} · {n0(g.lav/g.ettari)} €/ha</b></div>
+            <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderTop:`1px solid ${C.border}55`}}><span>{t("Costo totale")}</span><b>{n0(g.costo)} €</b></div>
+            <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderTop:`1px solid ${C.border}55`}}><span>{t("Semi · concimi · lavorazioni")}</span><b>{n0(g.semi/g.ettari)} · {n0(g.concimi/g.ettari)} · {n0(g.lav/g.ettari)} {t("€/ha")}</b></div>
             {g.campi.map(k=>(
               <div key={k.coltura_campo_id} style={{padding:"8px 0",borderTop:`1px solid ${C.border}55`}}>
-                <div style={{fontWeight:700}}>N. {k.campo_numero} · {k.campo}{k.ordine>1?" (2ª coltura)":""}</div>
-                <div style={{fontSize:12,color:C.muted}}>{n2(k.ettari)} ha · {n0(k.costo_totale)} € · {n0(k.costo_totale/k.ettari)} €/ha</div>
-                {k.prodotti.length===0 && <div style={{fontSize:12,marginTop:3}}>Pascolato, nessuna raccolta</div>}
+                <div style={{fontWeight:700}}>{t("N.")} {k.campo_numero} · {k.campo}{k.ordine>1?t(" (2ª coltura)"):""}</div>
+                <div style={{fontSize:12,color:C.muted}}>{n2(k.ettari)} {t("ha ·")} {n0(k.costo_totale)} € · {n0(k.costo_totale/k.ettari)} {t("€/ha")}</div>
+                {k.prodotti.length===0 && <div style={{fontSize:12,marginTop:3}}>{t("Pascolato, nessuna raccolta")}</div>}
                 {k.prodotti.map(p=>{
                   const conP = p.prezzo_unita!=null && Number(p.prezzo_unita)>0;
                   const sc = conP ? (p.costo_unitario-p.prezzo_unita)/p.prezzo_unita : null;
@@ -270,8 +271,8 @@ export default function ReportColtivazione({campagna}){
                   return (
                     <div key={p.prodotto+p.unita} style={{fontSize:12.5,marginTop:4,display:"flex",alignItems:"baseline"}}>
                       <Dot c={c}/>
-                      <span>{p.prodotto}: {qt(p.quantita)} {p.unita} a <b style={{color:c}}>{n2(p.costo_unitario)} €/{um(p.unita)}</b>
-                        {conP && <span style={{color:C.muted}}> (mercato {n2(p.prezzo_unita)})</span>}</span>
+                      <span>{t(p.prodotto)}: {qt(p.quantita)} {t(p.unita)} {t("a")} <b style={{color:c}}>{n2(p.costo_unitario)} €/{um(p.unita)}</b>
+                        {conP && <span style={{color:C.muted}}> ({t("mercato")} {n2(p.prezzo_unita)})</span>}</span>
                     </div>
                   );
                 })}
@@ -285,24 +286,24 @@ export default function ReportColtivazione({campagna}){
     <div style={{display:"flex",flexDirection:"column",gap:8,marginTop:16}}>
       <button onClick={()=>esportaExcel({campagna,righe,prodotti,perdite,guadagni,rese,pascoli,colturePerCosto,superficie,costoTot,saldo,prezzi,bench,peso,soglia})}
         style={{background:C.green,color:"#FFF",border:"none",borderRadius:12,padding:"12px",fontSize:14,fontWeight:700,cursor:"pointer"}}>
-        📥 Esporta Excel
+        {t("📥 Esporta Excel")}
       </button>
       <button onClick={()=>setEditor(true)}
         style={{background:"#FFF",color:C.primary,border:`1.5px solid ${C.primary}`,borderRadius:12,padding:"12px",fontSize:14,fontWeight:700,cursor:"pointer"}}>
-        ⚙️ Prezzi e rese
+        {t("⚙️ Prezzi e rese")}
       </button>
       <button onClick={()=>setConfronto(true)}
         style={{background:"#FFF",color:C.blue,border:`1.5px solid ${C.blue}`,borderRadius:12,padding:"12px",fontSize:14,fontWeight:700,cursor:"pointer"}}>
-        📅 Confronto tra stagioni
+        {t("📅 Confronto tra stagioni")}
       </button>
     </div>
 
     <details style={{...card,marginTop:12,fontSize:12,color:C.muted}}>
-      <summary style={{cursor:"pointer",fontWeight:700,color:C.primary}}>Metodo e fonti</summary>
-      <p>Costo di ogni coltura = semi + concimi + lavorazioni + altro, dalle schede campo.</p>
-      <p>Il costo si divide tra tutti i prodotti raccolti (paglia e seme compresi) in proporzione al valore di mercato: quantità × prezzo. Ballone = {n0(peso)} kg.</p>
-      <p>Semaforo: verde sotto il mercato, giallo fino al {Math.round(soglia*100)}% sopra, rosso oltre. I pascoli non hanno un prezzo di mercato e non entrano nel saldo.</p>
-      {prezzi.map(p=><div key={p.id}>• {p.prodotto} ({p.unita_raccolta}): {n2(p.prezzo_q)} €/q — {p.fonte}</div>)}
+      <summary style={{cursor:"pointer",fontWeight:700,color:C.primary}}>{t("Metodo e fonti")}</summary>
+      <p>{t("Costo di ogni coltura = semi + concimi + lavorazioni + altro, dalle schede campo.")}</p>
+      <p>{t("Il costo si divide tra tutti i prodotti raccolti (paglia e seme compresi) in proporzione al valore di mercato: quantità × prezzo. Ballone = {0} kg.",{0:n0(peso)})}</p>
+      <p>{t("Semaforo: verde sotto il mercato, giallo fino al {0}% sopra, rosso oltre. I pascoli non hanno un prezzo di mercato e non entrano nel saldo.",{0:Math.round(soglia*100)})}</p>
+      {prezzi.map(p=><div key={p.id}>• {t(p.prodotto)} ({t(p.unita_raccolta)}): {n2(p.prezzo_q)} {t("€/q —")} {p.fonte}</div>)}
     </details>
   </>);
 }
@@ -321,7 +322,7 @@ function ConfrontoStagioni({onChiudi}){
     if(error) setErr(error.message); else setRighe(data||[]);
   })(); },[]);
   if(err) return <div style={{...card,color:C.red}}>⚠️ {err}</div>;
-  if(!righe) return <div style={{...card,textAlign:"center",color:C.muted}}>Caricamento…</div>;
+  if(!righe) return <div style={{...card,textAlign:"center",color:C.muted}}>{t("Caricamento…")}</div>;
 
   const stag = campagneDa2019().map(cp=>{
     const rr = righe.filter(r=>r.campagna===cp);
@@ -338,7 +339,7 @@ function ConfrontoStagioni({onChiudi}){
   // produzione per prodotto e stagione
   const prodotti = {};
   righe.filter(r=>r.prodotto).forEach(r=>{
-    const k=`${r.prodotto}|${r.unita}`; if(!prodotti[k]) prodotti[k]={prodotto:r.prodotto,unita:r.unita,per:{}};
+    const k=`${t(r.prodotto)}|${t(r.unita)}`; if(!prodotti[k]) prodotti[k]={prodotto:r.prodotto,unita:r.unita,per:{}};
     const p=prodotti[k].per[r.campagna] || (prodotti[k].per[r.campagna]={q:0,costo:0,ha:0});
     p.q+=Number(r.quantita||0); p.costo+=Number(r.costo_attribuito||0); p.ha+=Number(r.ettari||0);
   });
@@ -347,23 +348,23 @@ function ConfrontoStagioni({onChiudi}){
   const td = {padding:"7px 5px",borderTop:`1px solid ${C.border}55`,fontSize:12,textAlign:"right"};
 
   return (<>
-    <button onClick={onChiudi} style={{background:"none",border:"none",color:C.primary,fontWeight:700,fontSize:14,cursor:"pointer",padding:"4px 0",marginBottom:8}}>← Torna al report</button>
-    <div style={{fontSize:16,fontWeight:700,color:C.primary,marginBottom:8}}>📅 Confronto tra stagioni</div>
+    <button onClick={onChiudi} style={{background:"none",border:"none",color:C.primary,fontWeight:700,fontSize:14,cursor:"pointer",padding:"4px 0",marginBottom:8}}>{t("← Torna al report")}</button>
+    <div style={{fontSize:16,fontWeight:700,color:C.primary,marginBottom:8}}>{t("📅 Confronto tra stagioni")}</div>
     <div style={{margin:"0 0 12px",padding:"8px 10px",borderRadius:8,background:C.blue+"14",borderLeft:`4px solid ${C.blue}`,fontSize:12.5,lineHeight:1.4}}>
-      <b style={{color:C.blue}}>📅 Confronto</b> · Tutte le stagioni caricate, affiancate: superficie, costo per ettaro, saldo contro il mercato e produzione dei prodotti.
+      <b style={{color:C.blue}}>{t("📅 Confronto")}</b> {t("· Tutte le stagioni caricate, affiancate: superficie, costo per ettaro, saldo contro il mercato e produzione dei prodotti.")}
     </div>
     <div style={{...card,padding:8,overflowX:"auto"}}>
       <table style={{width:"100%",borderCollapse:"collapse"}}>
-        <thead><tr><th style={{...th,textAlign:"left"}}>Stagione</th><th style={th}>Ha</th><th style={th}>Costo</th><th style={th}>€/ha</th><th style={th}>Saldo</th></tr></thead>
+        <thead><tr><th style={{...th,textAlign:"left"}}>{t("Stagione")}</th><th style={th}>{t("Ha")}</th><th style={th}>{t("Costo")}</th><th style={th}>{t("€/ha")}</th><th style={th}>{t("Saldo")}</th></tr></thead>
         <tbody>{stag.map(s=>(
           <tr key={s.cp}>
             <td style={{...td,textAlign:"left",fontWeight:700}}>{s.cp}</td>
-            {!s.caricata ? <td colSpan={4} style={{...td,color:C.muted}}>non caricata</td> : <>
+            {!s.caricata ? <td colSpan={4} style={{...td,color:C.muted}}>{t("non caricata")}</td> : <>
               <td style={td}>{n2(s.ha)}</td>
               {s.costo>0 ? <><td style={td}>{n0(s.costo)} €</td><td style={{...td,fontWeight:700}}>{n0(s.eha)}</td></>
-                         : <td colSpan={2} style={{...td,color:C.muted}}>costi non caricati</td>}
+                         : <td colSpan={2} style={{...td,color:C.muted}}>{t("costi non caricati")}</td>}
               <td style={{...td,fontWeight:700,color:s.saldo==null?C.muted:s.saldo<0?C.red:C.green}}>
-                {s.saldo==null ? (s.costo>0?"prezzi da inserire":"—") : sg(s.saldo)}</td>
+                {s.saldo==null ? (s.costo>0?t("prezzi da inserire"):"—") : sg(s.saldo)}</td>
             </>}
           </tr>))}</tbody>
       </table>
@@ -373,7 +374,7 @@ function ConfrontoStagioni({onChiudi}){
       const max = Math.max(...anni.map(cp=>p.per[cp].q));
       return (
         <div key={p.prodotto+p.unita} style={{...card,padding:12}}>
-          <div style={{fontWeight:700,color:C.primary,fontSize:13,marginBottom:6}}>{p.prodotto} · {p.unita} raccolti</div>
+          <div style={{fontWeight:700,color:C.primary,fontSize:13,marginBottom:6}}>{t(p.prodotto)} · {t(p.unita)} {t("raccolti")}</div>
           {anni.map(cp=>{ const x=p.per[cp]; return (
             <div key={cp} style={{display:"grid",gridTemplateColumns:"70px 1fr 64px 86px",gap:6,alignItems:"center",fontSize:12,marginBottom:3}}>
               <span>{cp}</span>
@@ -424,7 +425,7 @@ function PrezziRese({campagna,par,prezzi,bench,righe,admin,onChiudi}){
     const e3 = rb.length ? await supabase.from("coltivazione_benchmark_rese").upsert(rb,{onConflict:"campagna,coltura,prodotto"}) : {};
     const err = e1.error||e2.error||e3.error;
     setSalvo(false);
-    if(err) setMsg("⚠️ Non salvato: "+err.message); else onChiudi();
+    if(err) setMsg(t("⚠️ Non salvato: ")+err.message); else onChiudi();
   };
 
   const inp = {border:`1.5px solid ${C.border}`,borderRadius:8,padding:"6px 8px",fontSize:14,width:78,textAlign:"right",
@@ -432,39 +433,39 @@ function PrezziRese({campagna,par,prezzi,bench,righe,admin,onChiudi}){
   const riga = {display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,padding:"8px 0",borderTop:`1px solid ${C.border}55`,fontSize:13};
 
   return (<>
-    <button onClick={onChiudi} style={{background:"none",border:"none",color:C.primary,fontWeight:700,fontSize:14,cursor:"pointer",padding:"4px 0",marginBottom:8}}>← Torna al report</button>
+    <button onClick={onChiudi} style={{background:"none",border:"none",color:C.primary,fontWeight:700,fontSize:14,cursor:"pointer",padding:"4px 0",marginBottom:8}}>{t("← Torna al report")}</button>
     <div style={card}>
-      <div style={{fontSize:16,fontWeight:700,color:C.primary,marginBottom:4}}>⚙️ Prezzi e rese · {campagna}</div>
-      {!admin && <div style={{fontSize:12,color:C.muted,marginBottom:6}}>Solo un utente admin può modificare questi valori.</div>}
-      <div style={riga}><span>Peso di un ballone</span><span><input id="peso-ballone" style={inp} disabled={!admin} value={peso} onChange={e=>setPeso(e.target.value)}/> kg</span></div>
-      <div style={riga}><span>Soglia del semaforo</span><span><input id="soglia" style={inp} disabled={!admin} value={soglia} onChange={e=>setSoglia(e.target.value)}/> %</span></div>
+      <div style={{fontSize:16,fontWeight:700,color:C.primary,marginBottom:4}}>{t("⚙️ Prezzi e rese ·")} {campagna}</div>
+      {!admin && <div style={{fontSize:12,color:C.muted,marginBottom:6}}>{t("Solo un utente admin può modificare questi valori.")}</div>}
+      <div style={riga}><span>{t("Peso di un ballone")}</span><span><input id="peso-ballone" style={inp} disabled={!admin} value={peso} onChange={e=>setPeso(e.target.value)}/> {t("kg")}</span></div>
+      <div style={riga}><span>{t("Soglia del semaforo")}</span><span><input id="soglia" style={inp} disabled={!admin} value={soglia} onChange={e=>setSoglia(e.target.value)}/> %</span></div>
     </div>
     <div style={card}>
-      <div style={{fontSize:14,fontWeight:700,color:C.primary}}>Prezzi di mercato (€/q)</div>
-      <div style={{fontSize:11,color:C.muted,marginBottom:4}}>Per i prodotti in balloni il report calcola il prezzo a ballone con il peso qui sopra.</div>
+      <div style={{fontSize:14,fontWeight:700,color:C.primary}}>{t("Prezzi di mercato (€/q)")}</div>
+      <div style={{fontSize:11,color:C.muted,marginBottom:4}}>{t("Per i prodotti in balloni il report calcola il prezzo a ballone con il peso qui sopra.")}</div>
       {pz.map((p,i)=>(
         <div key={p.prodotto+p.unita} style={{...riga,flexDirection:"column",alignItems:"stretch"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <span>{p.prodotto} <span style={{color:C.muted}}>({p.unita})</span></span>
+            <span>{t(p.prodotto)} <span style={{color:C.muted}}>({t(p.unita)})</span></span>
             <span><input id={`prezzo-${i}`} style={inp} disabled={!admin} value={p.prezzo}
-              onChange={e=>setPz(pz.map((x,j)=>j===i?{...x,prezzo:e.target.value.replace(",",".")}:x))}/> €/q</span>
+              onChange={e=>setPz(pz.map((x,j)=>j===i?{...x,prezzo:e.target.value.replace(",",".")}:x))}/> {t("€/q")}</span>
           </div>
-          <input id={`fonte-${i}`} disabled={!admin} placeholder="Fonte" value={p.fonte}
+          <input id={`fonte-${i}`} disabled={!admin} placeholder={t("Fonte")} value={p.fonte}
             onChange={e=>setPz(pz.map((x,j)=>j===i?{...x,fonte:e.target.value}:x))}
             style={{marginTop:4,border:`1px solid ${C.border}`,borderRadius:6,padding:"4px 6px",fontSize:11,color:C.muted}}/>
         </div>
       ))}
     </div>
     <div style={card}>
-      <div style={{fontSize:14,fontWeight:700,color:C.primary,marginBottom:4}}>Rese di riferimento (q/ha)</div>
+      <div style={{fontSize:14,fontWeight:700,color:C.primary,marginBottom:4}}>{t("Rese di riferimento (q/ha)")}</div>
       {bm.map((p,i)=>(
         <div key={p.coltura+p.prodotto} style={{...riga,flexDirection:"column",alignItems:"stretch"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <span>{p.coltura} · {p.prodotto.toLowerCase()}</span>
+            <span>{t(p.coltura)} · {t(p.prodotto).toLowerCase()}</span>
             <span><input id={`resa-${i}`} style={inp} disabled={!admin} value={p.resa}
-              onChange={e=>setBm(bm.map((x,j)=>j===i?{...x,resa:e.target.value.replace(",",".")}:x))}/> q/ha</span>
+              onChange={e=>setBm(bm.map((x,j)=>j===i?{...x,resa:e.target.value.replace(",",".")}:x))}/> {t("q/ha")}</span>
           </div>
-          <input id={`fonte-resa-${i}`} disabled={!admin} placeholder="Fonte" value={p.fonte}
+          <input id={`fonte-resa-${i}`} disabled={!admin} placeholder={t("Fonte")} value={p.fonte}
             onChange={e=>setBm(bm.map((x,j)=>j===i?{...x,fonte:e.target.value}:x))}
             style={{marginTop:4,border:`1px solid ${C.border}`,borderRadius:6,padding:"4px 6px",fontSize:11,color:C.muted}}/>
         </div>
@@ -473,7 +474,7 @@ function PrezziRese({campagna,par,prezzi,bench,righe,admin,onChiudi}){
     {msg && <div style={{...card,color:C.red,fontWeight:600}}>{msg}</div>}
     {admin && <button onClick={salva} disabled={salvo}
       style={{width:"100%",background:C.green,color:"#FFF",border:"none",borderRadius:12,padding:12,fontSize:14,fontWeight:700,cursor:"pointer"}}>
-      {salvo?"Salvataggio…":"💾 Salva e ricalcola"}</button>}
+      {salvo?t("Salvataggio…"):t("💾 Salva e ricalcola")}</button>}
   </>);
 }
 

@@ -6,6 +6,7 @@
 // di logica e' stata toccata. Una pulizia vera si puo' fare con calma, un file
 // alla volta, verificando ogni rimozione.
 import { useState, useEffect, useMemo } from "react";
+import { t } from "./i18n";   // v119 — lingue
 import * as XLSX from "xlsx-js-style";
 import { supabase } from "./supabase";
 
@@ -126,12 +127,12 @@ const Card = ({children,style={}}) => (
 );
 const Badge = ({label,color}) => (
   <span style={{background:color+"22",color,border:`1px solid ${color}44`,
-    borderRadius:20,padding:"2px 9px",fontSize:11,fontWeight:700}}>{label}</span>
+    borderRadius:20,padding:"2px 9px",fontSize:11,fontWeight:700}}>{t(label)}</span>
 );
 const Spinner = () => (
   <div style={{textAlign:"center",padding:60,color:C.muted}}>
     <div style={{fontSize:36,marginBottom:12}}>⏳</div>
-    <div>Calcolo UBA in corso...</div>
+    <div>{t("Calcolo UBA in corso...")}</div>
   </div>
 );
 
@@ -568,15 +569,15 @@ export default function UBAReport() {
       {/* Header */}
       <div style={{background:`linear-gradient(135deg,${C.primary},${C.accent})`,
         borderRadius:"0 0 28px 28px",padding:"24px 16px 20px"}}>
-        <div style={{fontSize:22,fontWeight:800,color:"#FFF"}}>🐾 Report UBA</div>
+        <div style={{fontSize:22,fontWeight:800,color:"#FFF"}}>{t("🐾 Report UBA")}</div>
         <div style={{fontSize:13,color:"rgba(255,255,255,0.8)",marginTop:2}}>
-          Interfaccia con Prima App per ripartizione costi
+          {t("Interfaccia con Prima App per ripartizione costi")}
         </div>
 
         {/* Selettore anno */}
         <div style={{display:"flex",alignItems:"center",gap:10,marginTop:12,
           background:"rgba(255,255,255,0.15)",borderRadius:10,padding:"8px 12px"}}>
-          <span style={{color:"rgba(255,255,255,0.85)",fontSize:13}}>📅 Anno:</span>
+          <span style={{color:"rgba(255,255,255,0.85)",fontSize:13}}>{t("📅 Anno:")}</span>
           <select value={annoRif} onChange={e=>setAnnoRif(parseInt(e.target.value))}
             style={{background:"transparent",border:"none",color:"#FFF",
               fontSize:16,fontWeight:700,outline:"none",cursor:"pointer"}}>
@@ -593,13 +594,13 @@ export default function UBAReport() {
             {/* Totale UBA-giorni */}
             <Card style={{background:`linear-gradient(135deg,${C.primary}18,${C.card})`}}>
               <div style={{fontSize:11,fontWeight:700,color:C.muted,marginBottom:4}}>
-                TOTALE UBA-GIORNI · Anno {annoRif}
+                {t("TOTALE UBA-GIORNI · Anno")} {annoRif}
               </div>
               <div style={{fontSize:36,fontWeight:900,color:C.primary}}>
                 {totUBAGiorni.toFixed(2)}
               </div>
               <div style={{fontSize:13,color:C.muted}}>
-                {righeAnno.length} capi presenti nel {annoRif}
+                {righeAnno.length} {t("capi presenti nel")} {annoRif}
               </div>
             </Card>
 
@@ -612,26 +613,26 @@ export default function UBAReport() {
                     border:`1.5px solid ${filtroSpecie===s?specieColor(s)||C.primary:C.border}`,
                     borderRadius:20,padding:"5px 12px",fontSize:12,fontWeight:600,
                     cursor:"pointer"}}>
-                  {s==="tutti"?"🐾 Tutti":specieIcon(s)+" "+s.charAt(0).toUpperCase()+s.slice(1)}
+                  {s==="tutti"?t("🐾 Tutti"):specieIcon(s)+" "+s.charAt(0).toUpperCase()+s.slice(1)}
                 </button>
               ))}
               <button onClick={()=>esportaUBA(animali,lotti,suiniLotto,[annoRif],prezzi,filtroSpecie)}
                 style={{background:C.green,color:"#FFF",border:"none",borderRadius:20,
                   padding:"5px 14px",fontSize:12,fontWeight:700,cursor:"pointer",marginLeft:"auto"}}>
-                📊 Excel {annoRif}
+                {t("📊 Excel")} {annoRif}
               </button>
             </div>
             <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
               <button onClick={()=>esportaUBA(animali,lotti,suiniLotto,anniDisponibili,prezzi,filtroSpecie)}
                 style={{background:C.blue,color:"#FFF",border:"none",borderRadius:20,
                   padding:"5px 14px",fontSize:11,fontWeight:600,cursor:"pointer"}}>
-                📊 Excel tutti gli anni
+                {t("📊 Excel tutti gli anni")}
               </button>
             </div>
 
             {/* Ripartizione per categoria contabile */}
             <div style={{fontSize:12,fontWeight:700,color:C.muted,marginBottom:8}}>
-              RIPARTIZIONE PER CATEGORIA CONTABILE
+              {t("RIPARTIZIONE PER CATEGORIA CONTABILE")}
             </div>
             {perCategoria.map(c => (
               <div key={c.cat} style={{background:C.card,borderRadius:12,padding:"10px 14px",
@@ -642,11 +643,11 @@ export default function UBAReport() {
                     <div style={{fontSize:13,fontWeight:700,color:catColor(c.cat)}}>
                       {catIcon(c.cat)} {catLabel(c.cat)}
                     </div>
-                    <div style={{fontSize:11,color:C.muted}}>{c.n} capi</div>
+                    <div style={{fontSize:11,color:C.muted}}>{c.n} {t("capi")}</div>
                   </div>
                   <div style={{textAlign:"right"}}>
                     <div style={{fontSize:20,fontWeight:900,color:C.primary}}>{c.uba.toFixed(3)}</div>
-                    <div style={{fontSize:10,color:C.muted}}>UBA-giorni</div>
+                    <div style={{fontSize:10,color:C.muted}}>{t("UBA-giorni")}</div>
                   </div>
                 </div>
               </div>
@@ -654,7 +655,7 @@ export default function UBAReport() {
 
             {/* Ripartizione per specie */}
             <div style={{fontSize:12,fontWeight:700,color:C.muted,margin:"16px 0 8px"}}>
-              RIPARTIZIONE PER SPECIE
+              {t("RIPARTIZIONE PER SPECIE")}
             </div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
               {perSpecie.map(s => (
@@ -666,7 +667,7 @@ export default function UBAReport() {
                     {s.uba.toFixed(2)}
                   </div>
                   <div style={{fontSize:10,color:C.muted,fontWeight:600}}>
-                    {s.n} capi
+                    {s.n} {t("capi")}
                   </div>
                 </div>
               ))}

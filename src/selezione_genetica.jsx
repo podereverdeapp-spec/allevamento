@@ -6,6 +6,7 @@
 // di logica e' stata toccata. Una pulizia vera si puo' fare con calma, un file
 // alla volta, verificando ogni rimozione.
 import { useState, useEffect, useMemo } from "react";
+import { t } from "./i18n";   // v119 — lingue
 import { supabase } from "./supabase";
 
 const C = {
@@ -29,12 +30,12 @@ const Card=({children,style={}})=>(
 );
 const Badge=({label,color})=>(
   <span style={{background:color+"22",color,border:`1px solid ${color}44`,
-    borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:700}}>{label}</span>
+    borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:700}}>{t(label)}</span>
 );
 const Spinner=()=>(
   <div style={{textAlign:"center",padding:60,color:C.muted}}>
     <div style={{fontSize:40,marginBottom:12}}>⏳</div>
-    <div>Caricamento KPI...</div>
+    <div>{t("Caricamento KPI...")}</div>
   </div>
 );
 
@@ -195,17 +196,17 @@ function CardRiproduttore({rip, kpi, score, rank, animali, onClick}) {
           </div>
           <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:4}}>
             <Badge label={specieLabel(rip.specie)} color={specieColor(rip.specie)}/>
-            <Badge label={rip.sesso==="M"?"♂ Maschio":"♀ Femmina"}
+            <Badge label={rip.sesso==="M"?t("♂ Maschio"):t("♀ Femmina")}
               color={rip.sesso==="M"?C.blue:"#B5547A"}/>
-            {!vivo&&<Badge label="uscito" color={C.muted}/>}
+            {!vivo&&<Badge label={t("uscito")} color={C.muted}/>}
           </div>
           {kpi&&(
             <div style={{display:"flex",gap:12,marginTop:8,flexWrap:"wrap"}}>
-              <Stat label="Parti" val={kpi.nParti}/>
-              {kpi.prolificita&&<Stat label="Nati/parto" val={kpi.prolificita}/>}
-              {kpi.pctNatiVivi&&<Stat label="Vivi %" val={kpi.pctNatiVivi+"%"}/>}
-              {kpi.iipMedio&&<Stat label="IIP" val={`${(kpi.iipMedio/30.4).toFixed(1)} mesi`}/>}
-              {kpi.resaMediaFigli&&<Stat label="Resa figli" val={`${kpi.resaMediaFigli}%`}/>}
+              <Stat label={t("Parti")} val={kpi.nParti}/>
+              {kpi.prolificita&&<Stat label={t("Nati/parto")} val={kpi.prolificita}/>}
+              {kpi.pctNatiVivi&&<Stat label={t("Vivi %")} val={kpi.pctNatiVivi+"%"}/>}
+              {kpi.iipMedio&&<Stat label={t("IIP")} val={`${(kpi.iipMedio/30.4).toFixed(1)} mesi`}/>}
+              {kpi.resaMediaFigli&&<Stat label={t("Resa figli")} val={`${kpi.resaMediaFigli}%`}/>}
             </div>
           )}
         </div>
@@ -220,7 +221,7 @@ function CardRiproduttore({rip, kpi, score, rank, animali, onClick}) {
 const Stat=({label,val})=>(
   <div style={{textAlign:"center"}}>
     <div style={{fontSize:13,fontWeight:700,color:C.text}}>{val}</div>
-    <div style={{fontSize:10,color:C.muted}}>{label}</div>
+    <div style={{fontSize:10,color:C.muted}}>{t(label)}</div>
   </div>
 );
 const specieLabel=s=>({bovino:"Bovino",suino:"Suino",ovino:"Ovino"}[s]||s);
@@ -249,7 +250,7 @@ function DettaglioKPI({rip, kpi, score, animali, parti, onBack}) {
     <div style={{padding:"16px 16px 80px"}}>
       <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
         <button onClick={onBack} style={{background:"none",border:"none",cursor:"pointer",fontSize:22}}>←</button>
-        <span style={{fontSize:18,fontWeight:800}}>KPI Riproduttivi</span>
+        <span style={{fontSize:18,fontWeight:800}}>{t("KPI Riproduttivi")}</span>
       </div>
 
       {/* Header */}
@@ -265,45 +266,45 @@ function DettaglioKPI({rip, kpi, score, animali, parti, onBack}) {
           </div>
           <div style={{textAlign:"center"}}>
             <div style={{fontSize:36,fontWeight:900,color:scoreColor}}>{score}</div>
-            <div style={{fontSize:11,color:C.muted}}>INDICE</div>
+            <div style={{fontSize:11,color:C.muted}}>{t("INDICE")}</div>
           </div>
         </div>
       </Card>
 
       {/* KPI Fertilità */}
       <Card>
-        <div style={{fontSize:13,fontWeight:700,color:C.muted,marginBottom:8}}>📊 FERTILITÀ</div>
-        <KPIRow label="N° parti totali" val={kpi.nParti}/>
-        <KPIRow label="Età al primo parto" val={kpi.etaPrimoParto} unit=" mesi"
+        <div style={{fontSize:13,fontWeight:700,color:C.muted,marginBottom:8}}>{t("📊 FERTILITÀ")}</div>
+        <KPIRow label={t("N° parti totali")} val={kpi.nParti}/>
+        <KPIRow label={t("Età al primo parto")} val={kpi.etaPrimoParto} unit=" mesi"
           note="dalla nascita al 1° parto"/>
-        <KPIRow label="IIP medio" 
+        <KPIRow label={t("IIP medio")} 
           val={kpi.iipMedio?`${kpi.iipMedio} gg  (${(kpi.iipMedio/30.4).toFixed(1)} mesi)`:null}
           unit=""
           col={kpi.iipMedio&&kpi.iipMedio<350?C.green:C.yellow}
           note="intervallo inter-parto"/>
-        {kpi.iipMin&&<KPIRow label="IIP minimo" val={`${kpi.iipMin} gg (${(kpi.iipMin/30.4).toFixed(1)} mesi)`} unit=""/>}
-        {kpi.iipMax&&<KPIRow label="IIP massimo" val={`${kpi.iipMax} gg (${(kpi.iipMax/30.4).toFixed(1)} mesi)`} unit=""/>}
-        {kpi.etaPrimoParto&&<KPIRow label="Età al primo parto" val={`${kpi.etaPrimoParto} mesi`} unit=""/>}
+        {kpi.iipMin&&<KPIRow label={t("IIP minimo")} val={`${kpi.iipMin} gg (${(kpi.iipMin/30.4).toFixed(1)} mesi)`} unit=""/>}
+        {kpi.iipMax&&<KPIRow label={t("IIP massimo")} val={`${kpi.iipMax} gg (${(kpi.iipMax/30.4).toFixed(1)} mesi)`} unit=""/>}
+        {kpi.etaPrimoParto&&<KPIRow label={t("Età al primo parto")} val={`${kpi.etaPrimoParto} mesi`} unit=""/>}
         {kpi.prodAnnua!==null&&kpi.prodAnnua!==undefined&&
-          <KPIRow label="Produttività annua stimata"
+          <KPIRow label={t("Produttività annua stimata")}
             val={`${kpi.prodAnnua} figli/anno`} unit=""/>}
         {/* Statistiche macellazione figli */}
         {kpi.nFigliMacellati>0&&(
           <>
             <div style={{fontSize:11,fontWeight:700,color:C.muted,
               marginTop:12,marginBottom:6,textTransform:"uppercase",letterSpacing:1}}>
-              🥩 Statistiche figli macellati ({kpi.nFigliMacellati})
+              {t("🥩 Statistiche figli macellati (")}{kpi.nFigliMacellati})
             </div>
-            <KPIRow label="Resa carcassa media figli" val={`${kpi.resaMediaFigli}%`} unit=""/>
+            <KPIRow label={t("Resa carcassa media figli")} val={`${kpi.resaMediaFigli}%`} unit=""/>
             {kpi.resaMinFigli!==kpi.resaMaxFigli&&(
-              <KPIRow label="Range resa figli"
+              <KPIRow label={t("Range resa figli")}
                 val={`${kpi.resaMinFigli}% — ${kpi.resaMaxFigli}%`} unit=""/>
             )}
             {kpi.pesoCarcMedio&&
-              <KPIRow label="Peso carcassa medio figli"
+              <KPIRow label={t("Peso carcassa medio figli")}
                 val={`${kpi.pesoCarcMedio} kg`} unit=""/>}
             {kpi.ipgCarcMedioFigli&&
-              <KPIRow label="IPG carcassa medio figli"
+              <KPIRow label={t("IPG carcassa medio figli")}
                 val={`${kpi.ipgCarcMedioFigli} kg/gg`} unit=""/>}
           </>
         )}
@@ -311,21 +312,21 @@ function DettaglioKPI({rip, kpi, score, animali, parti, onBack}) {
 
       {/* KPI Prolificità */}
       <Card>
-        <div style={{fontSize:13,fontWeight:700,color:C.muted,marginBottom:8}}>🐣 PROLIFICITÀ</div>
-        <KPIRow label="Nati vivi totali" val={kpi.totNatiVivi} col={C.green}/>
-        <KPIRow label="Nati morti totali" val={kpi.totNatiMorti} col={kpi.totNatiMorti>0?C.red:C.green}/>
-        <KPIRow label="% nati vivi" val={kpi.pctNatiVivi} unit="%"
+        <div style={{fontSize:13,fontWeight:700,color:C.muted,marginBottom:8}}>{t("🐣 PROLIFICITÀ")}</div>
+        <KPIRow label={t("Nati vivi totali")} val={kpi.totNatiVivi} col={C.green}/>
+        <KPIRow label={t("Nati morti totali")} val={kpi.totNatiMorti} col={kpi.totNatiMorti>0?C.red:C.green}/>
+        <KPIRow label={t("% nati vivi")} val={kpi.pctNatiVivi} unit="%"
           col={kpi.pctNatiVivi&&kpi.pctNatiVivi>=90?C.green:C.yellow}/>
-        <KPIRow label="Media nati vivi/parto" val={kpi.prolificita}
+        <KPIRow label={t("Media nati vivi/parto")} val={kpi.prolificita}
           col={C.primary} note="prolificità media"/>
-        {kpi.pesoMedioNati&&<KPIRow label="Peso medio nati" val={kpi.pesoMedioNati} unit=" kg"/>}
+        {kpi.pesoMedioNati&&<KPIRow label={t("Peso medio nati")} val={kpi.pesoMedioNati} unit=" kg"/>}
       </Card>
 
       {/* Figli */}
       {figliDiretti.length>0&&(
         <Card>
           <div style={{fontSize:13,fontWeight:700,color:C.muted,marginBottom:8}}>
-            👶 DISCENDENTI ({figliDiretti.length})
+            {t("👶 DISCENDENTI (")}{figliDiretti.length})
           </div>
           {figliDiretti.slice(0,5).map(f=>(
             <div key={f.id} style={{display:"flex",justifyContent:"space-between",
@@ -338,7 +339,7 @@ function DettaglioKPI({rip, kpi, score, animali, parti, onBack}) {
           ))}
           {figliDiretti.length>5&&(
             <div style={{fontSize:12,color:C.muted,marginTop:6,fontStyle:"italic"}}>
-              e altri {figliDiretti.length-5}...
+              {t("e altri")} {figliDiretti.length-5}...
             </div>
           )}
         </Card>
@@ -348,7 +349,7 @@ function DettaglioKPI({rip, kpi, score, animali, parti, onBack}) {
       {mieiParti.length>0&&(
         <Card>
           <div style={{fontSize:13,fontWeight:700,color:C.muted,marginBottom:8}}>
-            📅 STORICO PARTI
+            {t("📅 STORICO PARTI")}
           </div>
           {mieiParti.map((p,i)=>(
             <div key={p.id} style={{display:"flex",justifyContent:"space-between",
@@ -356,8 +357,8 @@ function DettaglioKPI({rip, kpi, score, animali, parti, onBack}) {
               borderBottom:`1px solid ${C.border}`,fontSize:13}}>
               <span style={{fontWeight:600}}>#{mieiParti.length-i} · {p.data_evento}</span>
               <div style={{display:"flex",gap:6}}>
-                {p.nati_vivi>0&&<Badge label={`${p.nati_vivi}V`} color={C.green}/>}
-                {p.nati_morti>0&&<Badge label={`${p.nati_morti}M`} color={C.red}/>}
+                {p.nati_vivi>0&&<Badge label={t("{0}V",{0:(p.nati_vivi)})} color={C.green}/>}
+                {p.nati_morti>0&&<Badge label={t("{0}M",{0:(p.nati_morti)})} color={C.red}/>}
               </div>
             </div>
           ))}
@@ -453,9 +454,9 @@ export default function SelezioneGenetica() {
       {/* Header */}
       <div style={{background:`linear-gradient(135deg,${C.primary},${C.accent})`,
         borderRadius:"0 0 28px 28px",padding:"28px 20px 24px",marginBottom:16}}>
-        <div style={{fontSize:22,fontWeight:800,color:"#FFF"}}>🏆 Selezione Genetica</div>
+        <div style={{fontSize:22,fontWeight:800,color:"#FFF"}}>{t("🏆 Selezione Genetica")}</div>
         <div style={{fontSize:14,color:"rgba(255,255,255,0.75)",marginTop:4}}>
-          Ranking basato su dati reali · {stats.totParti} parti registrati
+          {t("Ranking basato su dati reali ·")} {stats.totParti} {t("parti registrati")}
         </div>
       </div>
 
@@ -472,7 +473,7 @@ export default function SelezioneGenetica() {
               <div key={s.label} style={{background:C.card,borderRadius:12,padding:"10px 8px",
                 textAlign:"center",boxShadow:"0 1px 4px rgba(0,0,0,0.06)"}}>
                 <div style={{fontSize:18,fontWeight:800,color:s.col}}>{s.val}</div>
-                <div style={{fontSize:10,color:C.muted,fontWeight:600}}>{s.label}</div>
+                <div style={{fontSize:10,color:C.muted,fontWeight:600}}>{t(s.label)}</div>
               </div>
             ))}
           </div>
@@ -489,7 +490,7 @@ export default function SelezioneGenetica() {
                 border:`1.5px solid ${filtroSpecie===s?C.primary:C.border}`,
                 borderRadius:20,padding:"5px 14px",fontSize:12,fontWeight:600,
                 cursor:"pointer",whiteSpace:"nowrap"}}>
-              {s==="tutti"?"Tutte":specieIcon(s)+" "+s.charAt(0).toUpperCase()+s.slice(1)}
+              {s==="tutti"?t("Tutte"):specieIcon(s)+" "+s.charAt(0).toUpperCase()+s.slice(1)}
             </button>
           ))}
           {["tutti","F","M"].map(s=>(
@@ -498,7 +499,7 @@ export default function SelezioneGenetica() {
                 color:filtroSesso===s?"#FFF":C.muted,
                 border:`1.5px solid ${filtroSesso===s?C.blue:C.border}`,
                 borderRadius:20,padding:"5px 12px",fontSize:12,fontWeight:600,cursor:"pointer"}}>
-              {s==="tutti"?"Tutti":s==="F"?"♀ Femmine":"♂ Maschi"}
+              {s==="tutti"?t("Tutti"):s==="F"?t("♀ Femmine"):t("♂ Maschi")}
             </button>
           ))}
           {[
@@ -519,9 +520,9 @@ export default function SelezioneGenetica() {
         {ranking.length===0?(
           <div style={{textAlign:"center",padding:48,color:C.muted}}>
             <div style={{fontSize:48,marginBottom:12}}>🏆</div>
-            <div style={{fontWeight:700,fontSize:16,marginBottom:8}}>Nessun dato disponibile</div>
+            <div style={{fontWeight:700,fontSize:16,marginBottom:8}}>{t("Nessun dato disponibile")}</div>
             <div style={{fontSize:14}}>
-              Registra eventi parto nella scheda animale per calcolare il ranking.
+              {t("Registra eventi parto nella scheda animale per calcolare il ranking.")}
             </div>
           </div>
         ):ranking.map(({animale,kpi,score,rank})=>(

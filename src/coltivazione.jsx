@@ -16,6 +16,7 @@
 //  3. Le poliennali (medica, sulla) non richiedono la semina ogni campagna.
 // ============================================================================
 import { useState, useEffect, useCallback } from "react";
+import { t } from "./i18n";   // v119 — lingue
 import { supabase } from "./supabase";
 import ReportColtivazione from "./coltivazione_report"; // v115
 import StoricoColtivazione from "./coltivazione_storico"; // v116
@@ -111,7 +112,7 @@ const Card = ({children,style={},onClick}) => (
 );
 const Badge = ({label,color}) => (
   <span style={{background:color+"22",color,border:`1px solid ${color}44`,
-    borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:700,whiteSpace:"nowrap"}}>{label}</span>
+    borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:700,whiteSpace:"nowrap"}}>{t(label)}</span>
 );
 const Btn = ({label,icon,onClick,variant="primary",small=false,disabled=false,style={}}) => {
   const bg = {primary:C.primary,danger:C.red,success:C.green,ghost:"transparent"}[variant]||C.primary;
@@ -122,33 +123,33 @@ const Btn = ({label,icon,onClick,variant="primary",small=false,disabled=false,st
         border:variant==="ghost"?`1.5px solid ${C.border}`:"none",
         borderRadius:10,padding:small?"7px 12px":"11px 18px",fontSize:small?13:15,
         fontWeight:600,cursor:disabled?"default":"pointer",opacity:disabled?0.5:1,...style}}>
-      {icon&&<span>{icon}</span>}{label}
+      {icon&&<span>{icon}</span>}{t(label)}
     </button>
   );
 };
 const Field = ({label,value,onChange,type="text",options,required,placeholder,inputMode}) => (
   <div style={{marginBottom:12}}>
     <div style={{fontSize:12,fontWeight:600,color:C.muted,marginBottom:4}}>
-      {label}{required&&<span style={{color:C.red}}> *</span>}
+      {t(label)}{required&&<span style={{color:C.red}}> *</span>}
     </div>
     {options
       ? <select value={value??""} onChange={e=>onChange(e.target.value)} style={inputStyle}>
-          <option value="">— seleziona —</option>
-          {options.map(o=><option key={o.value??o} value={o.value??o}>{o.label??o}</option>)}
+          <option value="">{t("— seleziona —")}</option>
+          {options.map(o=><option key={o.value??o} value={o.value??o}>{t(o.label??o)}</option>)}
         </select>
-      : <input type={type} inputMode={inputMode} placeholder={placeholder} value={value??""}
+      : <input type={type} inputMode={inputMode} placeholder={t(placeholder)} value={value??""}
           onChange={e=>onChange(e.target.value)} style={inputStyle}/>}
   </div>
 );
 const Spinner = () => (
   <div style={{textAlign:"center",padding:60,color:C.muted}}>
-    <div style={{fontSize:36,marginBottom:12}}>⏳</div><div>Caricamento...</div>
+    <div style={{fontSize:36,marginBottom:12}}>⏳</div><div>{t("Caricamento...")}</div>
   </div>
 );
 const Vuoto = ({icona,testo}) => (
   <div style={{textAlign:"center",padding:"32px 16px",color:C.muted}}>
     <div style={{fontSize:32,marginBottom:8}}>{icona}</div>
-    <div style={{fontSize:13}}>{testo}</div>
+    <div style={{fontSize:13}}>{t(testo)}</div>
   </div>
 );
 
@@ -175,7 +176,7 @@ const oreRimaste = (riga) => Math.max(0,Math.ceil(
 const ERR_CORREZIONE = "Non puoi piu' correggere questa riga: sono passate piu' di 48 ore "+
   "dall'inserimento, oppure non l'hai inserita tu. Chiedi all'amministratore.";
 const Corretto = ({riga}) => riga.modificato_at ? (
-  <div style={{fontSize:11,color:C.accent,marginTop:2}}>✏️ Corretto il {dataIt(riga.modificato_at)}</div>
+  <div style={{fontSize:11,color:C.accent,marginTop:2}}>{t("✏️ Corretto il")} {dataIt(riga.modificato_at)}</div>
 ) : null;
 
 // ============================================================================
@@ -197,7 +198,7 @@ export default function Coltivazione() {
   const caricaCampi = useCallback(async()=>{
     const {data,error} = await supabase.from("campi").select("*")
       .eq("attivo",true).order("numero");
-    if(error){ setErrore("Errore nel caricamento dei campi: "+error.message); return; }
+    if(error){ setErrore(t("Errore nel caricamento dei campi: ")+error.message); return; }
     setCampi(data||[]);
   },[]);
 
@@ -205,7 +206,7 @@ export default function Coltivazione() {
     setLoading(true); setErrore("");
     const {data:col,error} = await supabase.from("colture_campo").select("*")
       .eq("campagna",campagna).order("campo_id").order("ordine");
-    if(error){ setErrore("Errore nel caricamento delle colture: "+error.message); setLoading(false); return; }
+    if(error){ setErrore(t("Errore nel caricamento delle colture: ")+error.message); setLoading(false); return; }
     const colture = col||[];
     setColture(colture);
     const ids = colture.map(c=>c.id);
@@ -259,24 +260,22 @@ export default function Coltivazione() {
 
         <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
           <span style={{fontSize:24}}>🌾</span>
-          <h2 style={{margin:0,fontSize:20,color:C.primary}}>Coltivazione</h2>
+          <h2 style={{margin:0,fontSize:20,color:C.primary}}>{t("Coltivazione")}</h2>
         </div>
 
         {/* selettore campagna — governa tutta la sezione */}
         <Card style={{padding:12,marginBottom:12}}>
-          <div style={{fontSize:12,fontWeight:600,color:C.muted,marginBottom:4}}>Campagna agraria</div>
+          <div style={{fontSize:12,fontWeight:600,color:C.muted,marginBottom:4}}>{t("Campagna agraria")}</div>
           <select value={campagna} onChange={e=>setCampagna(e.target.value)} style={inputStyle}>
             {campagne.map(c=>(
-              <option key={c} value={c}>{c}{c===corrente?"  (in corso)":""}</option>
+              <option key={c} value={c}>{c}{c===corrente?t("  (in corso)"):""}</option>
             ))}
           </select>
           <div style={{marginTop:8,padding:"8px 10px",borderRadius:8,
             background:C.yellow+"22",borderLeft:`4px solid ${C.yellow}`,
             fontSize:12,lineHeight:1.4,color:C.text}}>
-            <b>📅 La campagna va dal 1° settembre al 31 agosto.</b><br/>
-            La semina d'autunno e la trebbiatura dell'estate dopo stanno nella stessa campagna.
-            Anche le semine di primavera-estate (pascoli, erbai in irriguo) appartengono alla
-            campagna iniziata il settembre precedente. Vale sia per le schede sia per i costi.
+            <b>{t("📅 La campagna va dal 1° settembre al 31 agosto.")}</b><br/>
+            {t("La semina d'autunno e la trebbiatura dell'estate dopo stanno nella stessa campagna. Anche le semine di primavera-estate (pascoli, erbai in irriguo) appartengono alla campagna iniziata il settembre precedente. Vale sia per le schede sia per i costi.")}
           </div>
         </Card>
 
@@ -287,12 +286,12 @@ export default function Coltivazione() {
         )}
 
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
-          {[{id:"campi",label:"🗺️ Campi"},{id:"riepilogo",label:"📊 Riepilogo"},{id:"programma",label:"🗓️ Programma"},{id:"report",label:"📈 Report"},{id:"storico",label:"📚 Storico"}].map(t=>(
-            <button key={t.id} onClick={()=>setSubTab(t.id)}
-              style={{gridColumn:t.id==="storico"?"1 / span 2":"auto",background:subTab===t.id?C.primary:"#FFF",
-                color:subTab===t.id?"#FFF":C.text,border:`1.5px solid ${subTab===t.id?C.primary:C.border}`,
+          {[{id:"campi",label:"🗺️ Campi"},{id:"riepilogo",label:"📊 Riepilogo"},{id:"programma",label:"🗓️ Programma"},{id:"report",label:"📈 Report"},{id:"storico",label:"📚 Storico"}].map(tx=>(
+            <button key={tx.id} onClick={()=>setSubTab(tx.id)}
+              style={{gridColumn:tx.id==="storico"?"1 / span 2":"auto",background:subTab===tx.id?C.primary:"#FFF",
+                color:subTab===tx.id?"#FFF":C.text,border:`1.5px solid ${subTab===tx.id?C.primary:C.border}`,
                 borderRadius:12,padding:"10px 8px",fontSize:14,fontWeight:600,cursor:"pointer"}}>
-              {t.label}
+              {t(tx.label)}
             </button>
           ))}
         </div>
@@ -300,11 +299,11 @@ export default function Coltivazione() {
         {/* v115 — istruzioni della linguetta aperta */}
         <div style={{margin:"-4px 0 12px",padding:"8px 10px",borderRadius:8,background:C.blue+"14",
           borderLeft:`4px solid ${C.blue}`,fontSize:12.5,lineHeight:1.4,color:C.text}}>
-          {subTab==="campi" && <><b style={{color:C.blue}}>🗺️ Campi</b> · L'elenco dei campi. Tocca un campo per aprire la sua scheda e registrare semina, lavorazioni, concimazioni e raccolta della campagna scelta sopra.</>}
-          {subTab==="riepilogo" && <><b style={{color:C.blue}}>📊 Riepilogo</b> · I totali della campagna per coltura: ettari, giornate di lavoro e quantità raccolte. Si compila da solo con i dati inseriti nei campi.</>}
-          {subTab==="programma" && <><b style={{color:C.blue}}>🗓️ Programma</b> · Il programma di semina e concimazione della campagna scelta sopra: per ogni campo cosa si semina e si concima, la dose per ettaro e la quantità totale, con le istruzioni. In «Da acquistare» la lista dei semi e dei concimi da comprare. È un piano: quando si esegue un lavoro si registra nella scheda del campo.</>}
-          {subTab==="report" && <><b style={{color:C.blue}}>📈 Report</b> · Quanto è costato ogni prodotto della campagna, il confronto con il prezzo di mercato e con le rese di riferimento, e dove si perde o si guadagna. Tocca una coltura per vedere i suoi campi.</>}
-          {subTab==="storico" && <><b style={{color:C.blue}}>📚 Storico</b> · Tutte le stagioni insieme: costi e rese per coltura, la storia di ogni campo con la concimazione, la classifica dei campi per stagione e per resa. Non dipende dalla campagna scelta sopra e si aggiorna da solo con le nuove stagioni.</>}
+          {subTab==="campi" && <><b style={{color:C.blue}}>{t("🗺️ Campi")}</b> {t("· L'elenco dei campi. Tocca un campo per aprire la sua scheda e registrare semina, lavorazioni, concimazioni e raccolta della campagna scelta sopra.")}</>}
+          {subTab==="riepilogo" && <><b style={{color:C.blue}}>{t("📊 Riepilogo")}</b> {t("· I totali della campagna per coltura: ettari, giornate di lavoro e quantità raccolte. Si compila da solo con i dati inseriti nei campi.")}</>}
+          {subTab==="programma" && <><b style={{color:C.blue}}>{t("🗓️ Programma")}</b> {t("· Il programma di semina e concimazione della campagna scelta sopra: per ogni campo cosa si semina e si concima, la dose per ettaro e la quantità totale, con le istruzioni. In «Da acquistare» la lista dei semi e dei concimi da comprare. È un piano: quando si esegue un lavoro si registra nella scheda del campo.")}</>}
+          {subTab==="report" && <><b style={{color:C.blue}}>{t("📈 Report")}</b> {t("· Quanto è costato ogni prodotto della campagna, il confronto con il prezzo di mercato e con le rese di riferimento, e dove si perde o si guadagna. Tocca una coltura per vedere i suoi campi.")}</>}
+          {subTab==="storico" && <><b style={{color:C.blue}}>{t("📚 Storico")}</b> {t("· Tutte le stagioni insieme: costi e rese per coltura, la storia di ogni campo con la concimazione, la classifica dei campi per stagione e per resa. Non dipende dalla campagna scelta sopra e si aggiorna da solo con le nuove stagioni.")}</>}
         </div>
 
         {subTab==="programma" ? (
@@ -338,20 +337,20 @@ function ListaCampi({campi,coltureDelCampo,nomeColtura,onApri}){
       <div style={{display:"flex",justifyContent:"space-between",textAlign:"center"}}>
         <div style={{flex:1}}>
           <div style={{fontSize:22,fontWeight:800}}>{campi.length}</div>
-          <div style={{fontSize:11,opacity:0.85}}>campi</div>
+          <div style={{fontSize:11,opacity:0.85}}>{t("campi")}</div>
         </div>
         <div style={{flex:1,borderLeft:"1px solid rgba(255,255,255,0.25)"}}>
           <div style={{fontSize:22,fontWeight:800}}>{num(totale,2)}</div>
-          <div style={{fontSize:11,opacity:0.85}}>ettari totali</div>
+          <div style={{fontSize:11,opacity:0.85}}>{t("ettari totali")}</div>
         </div>
         <div style={{flex:1,borderLeft:"1px solid rgba(255,255,255,0.25)"}}>
           <div style={{fontSize:22,fontWeight:800}}>{num(seminativi,2)}</div>
-          <div style={{fontSize:11,opacity:0.85}}>ha seminativi</div>
+          <div style={{fontSize:11,opacity:0.85}}>{t("ha seminativi")}</div>
         </div>
       </div>
     </Card>
 
-    {campi.length===0 && <Vuoto icona="🗺️" testo="Nessun campo in anagrafica."/>}
+    {campi.length===0 && <Vuoto icona="🗺️" testo={t("Nessun campo in anagrafica.")}/>}
 
     {campi.map(campo=>{
       const cols = coltureDelCampo(campo.id);
@@ -371,7 +370,7 @@ function ListaCampi({campi,coltureDelCampo,nomeColtura,onApri}){
                   {campo.numero}. {campo.nome}
                 </div>
                 <div style={{fontSize:12,color:C.muted,marginTop:2}}>
-                  {num(campo.ettari,2)} ha · {num(campo.metri_quadri,0)} m²
+                  {num(campo.ettari,2)} {t("ha ·")} {num(campo.metri_quadri,0)} {t("m²")}
                 </div>
               </div>
               <Badge label={tipo.label} color={tipo.colore}/>
@@ -379,11 +378,11 @@ function ListaCampi({campi,coltureDelCampo,nomeColtura,onApri}){
             <div style={{marginTop:10,display:"flex",flexWrap:"wrap",gap:6}}>
               {cols.length===0
                 ? <span style={{fontSize:12,color:C.muted,fontStyle:"italic"}}>
-                    Nessuna coltura in questa campagna
+                    {t("Nessuna coltura in questa campagna")}
                   </span>
                 : cols.map(c=>(
                     <Badge key={c.id} color={C.green}
-                      label={`🌱 ${nomeColtura(c)}${c.poliennale?" (poliennale)":""}`}/>
+                      label={"🌱 "+t(nomeColtura(c))+(c.poliennale?" ("+t("poliennale")+")":"")}/>
                   ))}
             </div>
           </div>
@@ -403,9 +402,9 @@ function SchedaCampo({campo,campagna,colture,semine,lavori,concimi,diserbi,racco
   const ettari = Number(campo.ettari||0);
 
   const salvaColtura = async()=>{
-    if(!nuovaColtura.coltura){ setErrore("Scegli la coltura"); return; }
+    if(!nuovaColtura.coltura){ setErrore(t("Scegli la coltura")); return; }
     if(nuovaColtura.coltura==="Altro" && !(nuovaColtura.coltura_altro||"").trim()){
-      setErrore("Scrivi il nome della coltura"); return;
+      setErrore(t("Scrivi il nome della coltura")); return;
     }
     const ordine = (colture.reduce((m,c)=>Math.max(m,c.ordine||1),0))+1;
     const poli = POLIENNALI.includes(nuovaColtura.coltura);
@@ -418,15 +417,15 @@ function SchedaCampo({campo,campagna,colture,semine,lavori,concimi,diserbi,racco
       poliennale: poli,
       campagna_semina: poli ? (nuovaColtura.campagna_semina||campagna) : null,
     }]);
-    if(error){ setErrore("Errore nel salvataggio: "+error.message); return; }
+    if(error){ setErrore(t("Errore nel salvataggio: ")+error.message); return; }
     setNuovaColtura(null); setErrore(""); onRicarica();
   };
 
   const eliminaColtura = async(c)=>{
-    if(!window.confirm(`Eliminare "${c.coltura}" da questo campo per la campagna ${campagna}?\n\nSi perdono semina, lavorazioni e raccolte collegate.`)) return;
+    if(!window.confirm(t("Eliminare \"{0}\" da questo campo per la campagna {1}?\n\nSi perdono semina, lavorazioni e raccolte collegate.",{0:(c.coltura),1:(campagna)}))) return;
     const {error} = await supabase.from("colture_campo").delete().eq("id",c.id);
     if(error){
-      setErrore("Non e' stato possibile eliminare la coltura. La cancellazione di una coltura e' riservata all'amministratore — chiedi a Filippo.");
+      setErrore(t("Non e' stato possibile eliminare la coltura. La cancellazione di una coltura e' riservata all'amministratore — chiedi a Filippo."));
       return;
     }
     onRicarica();
@@ -441,7 +440,7 @@ function SchedaCampo({campo,campagna,colture,semine,lavori,concimi,diserbi,racco
           <button onClick={onIndietro} style={{background:"none",border:"none",cursor:"pointer",fontSize:22}}>←</button>
           <div style={{minWidth:0}}>
             <div style={{fontSize:17,fontWeight:700,color:C.primary}}>{campo.numero}. {campo.nome}</div>
-            <div style={{fontSize:12,color:C.muted}}>Campagna {campagna}</div>
+            <div style={{fontSize:12,color:C.muted}}>{t("Campagna")} {campagna}</div>
           </div>
         </div>
 
@@ -460,16 +459,16 @@ function SchedaCampo({campo,campagna,colture,semine,lavori,concimi,diserbi,racco
           <div style={{padding:14}}>
             <div style={{display:"flex",gap:8,marginBottom:10}}>
               <Badge label={tipo.label} color={tipo.colore}/>
-              <Badge label={`${num(ettari,2)} ha`} color={C.blue}/>
-              <Badge label={`${num(campo.metri_quadri,0)} m²`} color={C.muted}/>
+              <Badge label={t("{0} ha",{0:(num(ettari,2))})} color={C.blue}/>
+              <Badge label={t("{0} m²",{0:(num(campo.metri_quadri,0))})} color={C.muted}/>
             </div>
             <div style={{fontSize:12,color:C.muted,lineHeight:1.7}}>
-              <div><b style={{color:C.text}}>Comune</b> {campo.comune||"—"}</div>
-              <div><b style={{color:C.text}}>Foglio</b> {campo.foglio||"—"}</div>
-              <div><b style={{color:C.text}}>Particelle</b>{" "}
+              <div><b style={{color:C.text}}>{t("Comune")}</b> {campo.comune||"—"}</div>
+              <div><b style={{color:C.text}}>{t("Foglio")}</b> {campo.foglio||"—"}</div>
+              <div><b style={{color:C.text}}>{t("Particelle")}</b>{" "}
                 {(campo.particelle&&campo.particelle.length>0)
                   ? campo.particelle.join(", ")
-                  : <span style={{color:C.red}}>da inserire</span>}</div>
+                  : <span style={{color:C.red}}>{t("da inserire")}</span>}</div>
             </div>
             {campo.note && (
               <div style={{marginTop:8,fontSize:11,color:C.red,fontStyle:"italic"}}>{campo.note}</div>
@@ -479,7 +478,7 @@ function SchedaCampo({campo,campagna,colture,semine,lavori,concimi,diserbi,racco
 
         {/* colture della campagna */}
         {colture.length===0 && !nuovaColtura && (
-          <Card><Vuoto icona="🌱" testo={`Nessuna coltura registrata per la campagna ${campagna}.`}/></Card>
+          <Card><Vuoto icona="🌱" testo={t("Nessuna coltura registrata per la campagna {0}.",{0:(campagna)})}/></Card>
         )}
 
         {colture.map(col=>(
@@ -495,45 +494,42 @@ function SchedaCampo({campo,campagna,colture,semine,lavori,concimi,diserbi,racco
         {nuovaColtura ? (
           <Card style={{border:`2px solid ${C.green}`}}>
             <div style={{fontSize:15,fontWeight:700,color:C.primary,marginBottom:12}}>
-              🌱 Nuova coltura su questo campo
+              {t("🌱 Nuova coltura su questo campo")}
             </div>
-            <Field label="Coltura" required value={nuovaColtura.coltura} options={COLTURE}
+            <Field label={t("Coltura")} required value={nuovaColtura.coltura} options={COLTURE}
               onChange={v=>setNuovaColtura(f=>({...f,coltura:v}))}/>
             {nuovaColtura.coltura==="Altro" && (
-              <Field label="Nome della coltura" required value={nuovaColtura.coltura_altro}
-                placeholder="es. Favino"
+              <Field label={t("Nome della coltura")} required value={nuovaColtura.coltura_altro}
+                placeholder={t("es. Favino")}
                 onChange={v=>setNuovaColtura(f=>({...f,coltura_altro:v}))}/>
             )}
             {POLIENNALI.includes(nuovaColtura.coltura) && (
               <div style={{background:C.yellow+"15",border:`1px solid ${C.yellow}55`,
                 borderRadius:10,padding:12,marginBottom:12}}>
                 <div style={{fontSize:12,fontWeight:700,color:C.text,marginBottom:6}}>
-                  Coltura poliennale
+                  {t("Coltura poliennale")}
                 </div>
                 <div style={{fontSize:11,color:C.muted,marginBottom:8}}>
-                  Si semina una volta e si raccoglie per piu' campagne. Se e' stata seminata
-                  in una campagna precedente, indicala qui: il programma non ti chiedera'
-                  il seme in questa.
+                  {t("Si semina una volta e si raccoglie per piu' campagne. Se e' stata seminata in una campagna precedente, indicala qui: il programma non ti chiedera' il seme in questa.")}
                 </div>
-                <Field label="Campagna di semina" value={nuovaColtura.campagna_semina??campagna}
+                <Field label={t("Campagna di semina")} value={nuovaColtura.campagna_semina??campagna}
                   onChange={v=>setNuovaColtura(f=>({...f,campagna_semina:v}))}
-                  placeholder="es. 2024/2025"/>
+                  placeholder={t("es. 2024/2025")}/>
               </div>
             )}
             <div style={{display:"flex",gap:8}}>
-              <Btn label="Salva" icon="✓" variant="success" onClick={salvaColtura} style={{flex:1}}/>
-              <Btn label="Annulla" variant="ghost" onClick={()=>{setNuovaColtura(null);setErrore("");}}/>
+              <Btn label={t("Salva")} icon="✓" variant="success" onClick={salvaColtura} style={{flex:1}}/>
+              <Btn label={t("Annulla")} variant="ghost" onClick={()=>{setNuovaColtura(null);setErrore("");}}/>
             </div>
           </Card>
         ) : (
-          <Btn label="Aggiungi coltura" icon="+" onClick={()=>setNuovaColtura({coltura:""})}
+          <Btn label={t("Aggiungi coltura")} icon="+" onClick={()=>setNuovaColtura({coltura:""})}
             style={{width:"100%",marginTop:4}}/>
         )}
 
         {colture.length>1 && (
           <div style={{fontSize:11,color:C.muted,marginTop:10,textAlign:"center"}}>
-            Piu' colture nella stessa campagna = successione sullo stesso terreno.
-            Nel riepilogo gli ettari vengono contati per ciascuna.
+            {t("Piu' colture nella stessa campagna = successione sullo stesso terreno. Nel riepilogo gli ettari vengono contati per ciascuna.")}
           </div>
         )}
       </div>
@@ -555,14 +551,14 @@ function BloccoColtura({coltura,ettari,campagna,semine,lavori,concimi,diserbi,ra
       <div style={{background:C.green+"12",padding:"12px 14px",
         display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
         <div style={{minWidth:0}}>
-          <div style={{fontSize:15,fontWeight:700,color:C.primary}}>🌱 {nome}</div>
+          <div style={{fontSize:15,fontWeight:700,color:C.primary}}>🌱 {t(nome)}</div>
           {coltura.poliennale && (
             <div style={{fontSize:11,color:C.muted}}>
-              Poliennale · seminata nella campagna {coltura.campagna_semina||campagna}
+              {t("Poliennale · seminata nella campagna")} {coltura.campagna_semina||campagna}
             </div>
           )}
         </div>
-        <button onClick={onElimina} title="Elimina coltura"
+        <button onClick={onElimina} title={t("Elimina coltura")}
           style={{background:"none",border:"none",cursor:"pointer",fontSize:16,opacity:0.55}}>🗑️</button>
       </div>
 
@@ -573,7 +569,7 @@ function BloccoColtura({coltura,ettari,campagna,semine,lavori,concimi,diserbi,ra
               fontSize:13,fontWeight:sezione===s.id?700:500,
               color:sezione===s.id?C.primary:C.muted,
               borderBottom:sezione===s.id?`2.5px solid ${C.primary}`:"2.5px solid transparent"}}>
-            {s.label}
+            {t(s.label)}
           </button>
         ))}
       </div>
@@ -582,8 +578,7 @@ function BloccoColtura({coltura,ettari,campagna,semine,lavori,concimi,diserbi,ra
         {sezione==="semina" && (
           seminaAltrove
             ? <div style={{fontSize:13,color:C.muted,lineHeight:1.6}}>
-                Coltura poliennale seminata nella campagna <b>{coltura.campagna_semina}</b>.
-                In questa campagna non si semina: registra solo lavorazioni e raccolta.
+                {t("Coltura poliennale seminata nella campagna")} <b>{coltura.campagna_semina}</b>{t(". In questa campagna non si semina: registra solo lavorazioni e raccolta.")}
               </div>
             : <Semina coltura={coltura} ettari={ettari} semine={semine} onRicarica={onRicarica}/>
         )}
@@ -633,8 +628,8 @@ function Semina({coltura,ettari,semine,onRicarica}){
   const salva = async()=>{
     const q = parseFloat(String(form.quantita).replace(",","."));
     const seme = form.seme===ALTRO ? (form.seme_altro||"").trim() : form.seme;
-    if(!seme){ setErrore(form.seme===ALTRO?"Scrivi il nome del seme":"Scegli il seme"); return; }
-    if(!q || q<=0){ setErrore("Inserisci una quantita' maggiore di zero"); return; }
+    if(!seme){ setErrore(form.seme===ALTRO?t("Scrivi il nome del seme"):t("Scegli il seme")); return; }
+    if(!q || q<=0){ setErrore(t("Inserisci una quantita' maggiore di zero")); return; }
     const {error} = await supabase.from("semine").insert([{
       coltura_campo_id: coltura.id,
       seme,
@@ -642,18 +637,18 @@ function Semina({coltura,ettari,semine,onRicarica}){
       quantita: q,
       data_semina: form.data_semina||null,
     }]);
-    if(error){ setErrore("Errore nel salvataggio: "+error.message); return; }
+    if(error){ setErrore(t("Errore nel salvataggio: ")+error.message); return; }
     setForm(null); setErrore(""); onRicarica();
   };
 
   const elimina = async(id)=>{
-    if(!window.confirm("Eliminare questa riga di semina?")) return;
+    if(!window.confirm(t("Eliminare questa riga di semina?"))) return;
     await supabase.from("semine").delete().eq("id",id);
     onRicarica();
   };
 
   return (<>
-    {semine.length===0 && !form && <Vuoto icona="🌾" testo="Nessuna semina registrata."/>}
+    {semine.length===0 && !form && <Vuoto icona="🌾" testo={t("Nessuna semina registrata.")}/>}
 
     {semine.map(s=>{
       const perHa = ettari>0 ? Number(s.quantita)/ettari : null;
@@ -663,13 +658,13 @@ function Semina({coltura,ettari,semine,onRicarica}){
           <div style={{minWidth:0}}>
             <div style={{fontSize:14,fontWeight:700,color:C.text}}>{s.seme}</div>
             <div style={{fontSize:12,color:C.muted,marginTop:2}}>
-              {num(s.quantita,2)} {s.unita}
-              {s.unita==="quintali" && <> · {num(Number(s.quantita)*100,0)} kg</>}
+              {num(s.quantita,2)} {t(s.unita)}
+              {s.unita==="quintali" && <> · {num(Number(s.quantita)*100,0)} {t("kg")}</>}
               {s.data_semina && <> · {dataIt(s.data_semina)}</>}
             </div>
             <div style={{fontSize:12,color:C.green,fontWeight:700,marginTop:2}}>
-              {perHa!==null ? `${num(perHa,3)} ${s.unita}/ha` : "—"}
-              {s.unita==="quintali" && perHa!==null && <> · {num(perHa*100,1)} kg/ha</>}
+              {perHa!==null ? t("{0} {1}/ha",{0:(num(perHa,3)),1:(s.unita)}) : "—"}
+              {s.unita==="quintali" && perHa!==null && <> · {num(perHa*100,1)} {t("kg/ha")}</>}
             </div>
           </div>
           <button onClick={()=>elimina(s.id)}
@@ -683,13 +678,13 @@ function Semina({coltura,ettari,semine,onRicarica}){
     {form ? (
       <div style={{marginTop:12,padding:12,background:C.bg,borderRadius:12,
         border:`1.5px solid ${C.border}`}}>
-        <Field label="Seme" required value={form.seme} options={semiPossibili}
+        <Field label={t("Seme")} required value={form.seme} options={semiPossibili}
           onChange={v=>setForm(f=>({...f,seme:v}))}/>
-        {form.seme===ALTRO && <Field label="Nome del seme" required value={form.seme_altro}
-          placeholder="es. Veccia villosa" onChange={v=>setForm(f=>({...f,seme_altro:v}))}/>}
+        {form.seme===ALTRO && <Field label={t("Nome del seme")} required value={form.seme_altro}
+          placeholder={t("es. Veccia villosa")} onChange={v=>setForm(f=>({...f,seme_altro:v}))}/>}
         {puoDosi && (
           <div style={{marginBottom:12}}>
-            <div style={{fontSize:12,fontWeight:600,color:C.muted,marginBottom:4}}>Unita' di misura</div>
+            <div style={{fontSize:12,fontWeight:600,color:C.muted,marginBottom:4}}>{t("Unita' di misura")}</div>
             <div style={{display:"flex",gap:8}}>
               {["quintali","dosi"].map(u=>(
                 <button key={u} onClick={()=>setForm(f=>({...f,unita:u}))}
@@ -702,31 +697,29 @@ function Semina({coltura,ettari,semine,onRicarica}){
               ))}
             </div>
             <div style={{fontSize:11,color:C.muted,marginTop:5}}>
-              Per grano e orzo puoi usare le dosi al posto dei quintali. Le dosi non
-              si convertono in kg: il programma calcola dosi/ha.
+              {t("Per grano e orzo puoi usare le dosi al posto dei quintali. Le dosi non si convertono in kg: il programma calcola dosi/ha.")}
             </div>
           </div>
         )}
-        <Field label={`Quantita' in ${form.unita||"quintali"}`} required type="text" inputMode="decimal"
-          value={form.quantita} placeholder="es. 3,5"
+        <Field label={t("Quantita' in {0}",{0:(form.unita||"quintali")})} required type="text" inputMode="decimal"
+          value={form.quantita} placeholder={t("es. 3,5")}
           onChange={v=>setForm(f=>({...f,quantita:v}))}/>
-        <Field label="Data di semina" type="date" value={form.data_semina}
+        <Field label={t("Data di semina")} type="date" value={form.data_semina}
           onChange={v=>setForm(f=>({...f,data_semina:v}))}/>
         <div style={{display:"flex",gap:8}}>
-          <Btn label="Salva" icon="✓" variant="success" small onClick={salva} style={{flex:1}}/>
-          <Btn label="Annulla" variant="ghost" small onClick={()=>{setForm(null);setErrore("");}}/>
+          <Btn label={t("Salva")} icon="✓" variant="success" small onClick={salva} style={{flex:1}}/>
+          <Btn label={t("Annulla")} variant="ghost" small onClick={()=>{setForm(null);setErrore("");}}/>
         </div>
       </div>
     ) : (
-      <Btn label={composta?"Aggiungi seme":"Registra semina"} icon="+" small
+      <Btn label={composta?t("Aggiungi seme"):t("Registra semina")} icon="+" small
         onClick={()=>setForm({seme:previsti[0]||"",unita:"quintali",data_semina:today()})}
         style={{width:"100%",marginTop:10}}/>
     )}
 
     {composta && (
       <div style={{fontSize:11,color:C.muted,marginTop:10,lineHeight:1.5}}>
-        {coltura.coltura} si compone di trifoglio, avena e loietto. Registra una riga
-        per ciascuna essenza impiegata — anche una sola, se hai usato solo quella.
+        {t(coltura.coltura)} {t("si compone di trifoglio, avena e loietto. Registra una riga per ciascuna essenza impiegata — anche una sola, se hai usato solo quella.")}
       </div>
     )}
   </>);
@@ -761,8 +754,8 @@ function Lavorazioni({coltura,ettari,lavori,concimi,diserbi,onRicarica}){
 
   const salva = async()=>{
     const g = form.giornate_lavoro==="" ? null : parseFloat(String(form.giornate_lavoro).replace(",","."));
-    if(!form.data_esecuzione){ setErrore("Metti la data"); return; }
-    if(g!==null && (isNaN(g)||g<0)){ setErrore("Le giornate lavoro non sono valide"); return; }
+    if(!form.data_esecuzione){ setErrore(t("Metti la data")); return; }
+    if(g!==null && (isNaN(g)||g<0)){ setErrore(t("Le giornate lavoro non sono valide")); return; }
 
     if(form.id){   // correzione: il database accetta solo entro 48 ore (o admin)
       const {data:agg,error:eu} = await supabase.from("lavorazioni_campo").update({
@@ -770,7 +763,7 @@ function Lavorazioni({coltura,ettari,lavori,concimi,diserbi,onRicarica}){
         giornate_lavoro: g,
         note: form.note||null,
       }).eq("id",form.id).select("id");
-      if(eu){ setErrore("Errore nella correzione: "+eu.message); return; }
+      if(eu){ setErrore(t("Errore nella correzione: ")+eu.message); return; }
       if(!agg || agg.length===0){ setErrore(ERR_CORREZIONE); return; }
       setForm(null); setErrore(""); onRicarica(); return;
     }
@@ -782,7 +775,7 @@ function Lavorazioni({coltura,ettari,lavori,concimi,diserbi,onRicarica}){
       giornate_lavoro: g,
       note: form.note||null,
     }]).select("id").single();
-    if(error||!data){ setErrore("Errore nel salvataggio: "+(error?error.message:"nessuna riga creata")); return; }
+    if(error||!data){ setErrore(t("Errore nel salvataggio: ")+(error?error.message:t("nessuna riga creata"))); return; }
 
     if(form.tipo==="Concimazione"){
       const righe = form.concimi
@@ -795,7 +788,7 @@ function Lavorazioni({coltura,ettari,lavori,concimi,diserbi,onRicarica}){
         }));
       if(righe.length>0){
         const {error:e2} = await supabase.from("concimazioni").insert(righe);
-        if(e2){ setErrore("Lavorazione salvata, ma i concimi no: "+e2.message); onRicarica(); return; }
+        if(e2){ setErrore(t("Lavorazione salvata, ma i concimi no: ")+e2.message); onRicarica(); return; }
       }
     }
     if(form.tipo==="Disserbo"){
@@ -807,14 +800,14 @@ function Lavorazioni({coltura,ettari,lavori,concimi,diserbi,onRicarica}){
           quantita: q,
           unita: form.diserbo.unita||"litri",
         }]);
-        if(e3){ setErrore("Lavorazione salvata, ma il diserbo no: "+e3.message); onRicarica(); return; }
+        if(e3){ setErrore(t("Lavorazione salvata, ma il diserbo no: ")+e3.message); onRicarica(); return; }
       }
     }
     setForm(null); setErrore(""); onRicarica();
   };
 
   const elimina = async(id)=>{
-    if(!window.confirm("Eliminare questa esecuzione?")) return;
+    if(!window.confirm(t("Eliminare questa esecuzione?"))) return;
     const {error,count} = await supabase.from("lavorazioni_campo").delete({count:"exact"}).eq("id",id);
     if(error || count===0){ setErrore(ERR_CORREZIONE); return; }
     onRicarica();
@@ -823,8 +816,8 @@ function Lavorazioni({coltura,ettari,lavori,concimi,diserbi,onRicarica}){
   return (<>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",
       marginBottom:10,fontSize:12,color:C.muted}}>
-      <span>{lavori.length} esecuzion{lavori.length===1?"e":"i"}</span>
-      <span style={{fontWeight:700,color:C.primary}}>{num(giornateTot,1)} giornate lavoro</span>
+      <span>{lavori.length===1?t("1 esecuzione"):t("{0} esecuzioni",{0:lavori.length})}</span>
+      <span style={{fontWeight:700,color:C.primary}}>{num(giornateTot,1)} {t("giornate lavoro")}</span>
     </div>
 
     <div style={{border:`1px solid ${C.border}`,borderRadius:12,overflow:"hidden"}}>
@@ -847,16 +840,16 @@ function Lavorazioni({coltura,ettari,lavori,concimi,diserbi,onRicarica}){
               </div>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{fontSize:13,fontWeight:fatta?700:500,color:fatta?C.text:C.muted}}>
-                  {L.icona} {L.nome}
+                  {L.icona} {t(L.nome)}
                   {righe.length>1 && (
                     <span style={{marginLeft:6,background:C.blue,color:"#FFF",borderRadius:10,
-                      padding:"1px 7px",fontSize:10,fontWeight:800}}>×{righe.length}</span>
+                      padding:"1px 7px",fontSize:10,fontWeight:800}}>{t("×")}{righe.length}</span>
                   )}
                 </div>
                 {fatta && (
                   <div style={{fontSize:11,color:C.muted,marginTop:1}}>
-                    {righe.length>1?"ultima ":""}{dataIt(ultima.data_esecuzione)}
-                    {giorni>0 && <> · {num(giorni,1)} gg</>}
+                    {righe.length>1?t("ultima "):""}{dataIt(ultima.data_esecuzione)}
+                    {giorni>0 && <> · {num(giorni,1)} {t("gg")}</>}
                   </div>
                 )}
               </div>
@@ -867,7 +860,7 @@ function Lavorazioni({coltura,ettari,lavori,concimi,diserbi,onRicarica}){
               <div style={{padding:"4px 12px 12px",background:C.bg}}>
                 {righe.length===0 && (
                   <div style={{fontSize:12,color:C.muted,padding:"6px 0"}}>
-                    Non ancora eseguita.
+                    {t("Non ancora eseguita.")}
                   </div>
                 )}
                 {righe.map(r=>(
@@ -878,7 +871,7 @@ function Lavorazioni({coltura,ettari,lavori,concimi,diserbi,onRicarica}){
                     onCorreggi={()=>apriCorrezione(r)}
                     onElimina={()=>elimina(r.id)}/>
                 ))}
-                <Btn label={righe.length>0?"Aggiungi un'altra esecuzione":"Registra esecuzione"}
+                <Btn label={righe.length>0?t("Aggiungi un'altra esecuzione"):t("Registra esecuzione")}
                   icon="+" small variant="ghost" onClick={()=>apriForm(L.nome)}
                   style={{width:"100%",marginTop:8}}/>
               </div>
@@ -889,27 +882,26 @@ function Lavorazioni({coltura,ettari,lavori,concimi,diserbi,onRicarica}){
     </div>
 
     <div style={{fontSize:11,color:C.muted,marginTop:10,lineHeight:1.5}}>
-      Ogni lavorazione puo' essere registrata piu' volte: irrigazione e sfalcio si
-      ripetono nella stessa campagna, e ogni volta ha la sua data e le sue giornate.
+      {t("Ogni lavorazione puo' essere registrata piu' volte: irrigazione e sfalcio si ripetono nella stessa campagna, e ogni volta ha la sua data e le sue giornate.")}
     </div>
 
     {form && (
       <div style={{marginTop:12,padding:14,background:"#FFF",borderRadius:12,
         border:`2px solid ${C.primary}`}}>
         <div style={{fontSize:14,fontWeight:700,color:form.id?C.accent:C.primary,marginBottom:form.id?4:12}}>
-          {form.id ? "✏️ Correggi — "+form.tipo : form.tipo}
+          {form.id ? t("✏️ Correggi — ")+form.tipo : form.tipo}
         </div>
         {form.id && (
           <div style={{fontSize:11,color:C.muted,marginBottom:12}}>
-            Cambia solo il dato sbagliato e salva. La correzione resta segnata sulla riga.
-            {!utente.admin && <> Puoi correggere ancora per circa <b>{oreRimaste(form)} ore</b>.</>}
-            {(form.tipo==="Concimazione"||form.tipo==="Disserbo") && <> I prodotti usati non si correggono da qui: per ora si cancella la riga e si rifà.</>}
+            {t("Cambia solo il dato sbagliato e salva. La correzione resta segnata sulla riga.")}
+            {!utente.admin && <> {t("Puoi correggere ancora per circa")} <b>{oreRimaste(form)} {t("ore")}</b>.</>}
+            {(form.tipo==="Concimazione"||form.tipo==="Disserbo") && <> {t("I prodotti usati non si correggono da qui: per ora si cancella la riga e si rifà.")}</>}
           </div>
         )}
-        <Field label="Data di esecuzione" required type="date" value={form.data_esecuzione}
+        <Field label={t("Data di esecuzione")} required type="date" value={form.data_esecuzione}
           onChange={v=>setForm(f=>({...f,data_esecuzione:v}))}/>
-        <Field label="Giornate lavoro impiegate" type="text" inputMode="decimal"
-          value={form.giornate_lavoro} placeholder="es. 1,5"
+        <Field label={t("Giornate lavoro impiegate")} type="text" inputMode="decimal"
+          value={form.giornate_lavoro} placeholder={t("es. 1,5")}
           onChange={v=>setForm(f=>({...f,giornate_lavoro:v}))}/>
 
         {form.tipo==="Concimazione" && !form.id && (
@@ -917,33 +909,33 @@ function Lavorazioni({coltura,ettari,lavori,concimi,diserbi,onRicarica}){
         )}
         {form.tipo==="Disserbo" && !form.id && (
           <div style={{background:C.bg,borderRadius:10,padding:12,marginBottom:12}}>
-            <div style={{fontSize:12,fontWeight:700,color:C.text,marginBottom:8}}>Prodotto usato</div>
-            <Field label="Tipo di disserbo" value={form.diserbo.prodotto}
-              placeholder="scrivi il nome del prodotto"
+            <div style={{fontSize:12,fontWeight:700,color:C.text,marginBottom:8}}>{t("Prodotto usato")}</div>
+            <Field label={t("Tipo di disserbo")} value={form.diserbo.prodotto}
+              placeholder={t("scrivi il nome del prodotto")}
               onChange={v=>setForm(f=>({...f,diserbo:{...f.diserbo,prodotto:v}}))}/>
             <div style={{display:"flex",gap:8,alignItems:"flex-end"}}>
               <div style={{flex:1}}>
-                <Field label="Quantita'" type="text" inputMode="decimal" value={form.diserbo.quantita}
+                <Field label={t("Quantita'")} type="text" inputMode="decimal" value={form.diserbo.quantita}
                   onChange={v=>setForm(f=>({...f,diserbo:{...f.diserbo,quantita:v}}))}/>
               </div>
               <div style={{width:110}}>
-                <Field label="Unita'" value={form.diserbo.unita} options={["litri","kg"]}
+                <Field label={t("Unita'")} value={form.diserbo.unita} options={["litri","kg"]}
                   onChange={v=>setForm(f=>({...f,diserbo:{...f.diserbo,unita:v}}))}/>
               </div>
             </div>
             {parseFloat(String(form.diserbo.quantita).replace(",","."))>0 && ettari>0 && (
               <div style={{fontSize:12,color:C.green,fontWeight:700}}>
-                {num(parseFloat(String(form.diserbo.quantita).replace(",","."))/ettari,3)} {form.diserbo.unita}/ha
+                {num(parseFloat(String(form.diserbo.quantita).replace(",","."))/ettari,3)} {form.diserbo.unita}{t("/ha")}
               </div>
             )}
           </div>
         )}
 
-        <Field label="Note" value={form.note} onChange={v=>setForm(f=>({...f,note:v}))}/>
+        <Field label={t("Note")} value={form.note} onChange={v=>setForm(f=>({...f,note:v}))}/>
         {errore && <div style={{color:C.red,fontSize:12,fontWeight:600,marginBottom:8}}>⚠️ {errore}</div>}
         <div style={{display:"flex",gap:8}}>
-          <Btn label={form.id?"Salva correzione":"Salva"} icon="✓" variant="success" onClick={salva} style={{flex:1}}/>
-          <Btn label="Annulla" variant="ghost" onClick={()=>{setForm(null);setErrore("");}}/>
+          <Btn label={form.id?t("Salva correzione"):t("Salva")} icon="✓" variant="success" onClick={salva} style={{flex:1}}/>
+          <Btn label={t("Annulla")} variant="ghost" onClick={()=>{setForm(null);setErrore("");}}/>
         </div>
       </div>
     )}
@@ -958,16 +950,16 @@ function DettaglioEsecuzione({riga,ettari,concimi,diserbi,correggibile,onCorregg
         <div style={{minWidth:0}}>
           <div style={{fontSize:13,fontWeight:700,color:C.text}}>{dataIt(riga.data_esecuzione)}</div>
           <div style={{fontSize:11,color:C.muted}}>
-            {riga.giornate_lavoro ? `${num(riga.giornate_lavoro,1)} giornate lavoro` : "giornate non indicate"}
+            {riga.giornate_lavoro ? t("{0} giornate lavoro",{0:(num(riga.giornate_lavoro,1))}) : t("giornate non indicate")}
           </div>
           {riga.note && <div style={{fontSize:11,color:C.muted,fontStyle:"italic",marginTop:2}}>{riga.note}</div>}
           <Corretto riga={riga}/>
         </div>
         {correggibile && (
           <div style={{display:"flex",gap:6,flexShrink:0}}>
-            <button onClick={onCorreggi} title="Correggi"
+            <button onClick={onCorreggi} title={t("Correggi")}
               style={{background:"none",border:"none",cursor:"pointer",fontSize:13,opacity:0.7}}>✏️</button>
-            <button onClick={onElimina} title="Cancella"
+            <button onClick={onElimina} title={t("Cancella")}
               style={{background:"none",border:"none",cursor:"pointer",fontSize:13,opacity:0.5}}>🗑️</button>
           </div>
         )}
@@ -977,10 +969,10 @@ function DettaglioEsecuzione({riga,ettari,concimi,diserbi,correggibile,onCorregg
         <div style={{marginTop:8,paddingTop:8,borderTop:`1px dashed ${C.border}`}}>
           {concimi.map(c=>(
             <div key={c.id} style={{display:"flex",justifyContent:"space-between",fontSize:12,marginTop:2}}>
-              <span style={{color:C.text}}>🧪 {c.tipo_concime==="Altro"?(c.tipo_concime_altro||"Altro"):c.tipo_concime}</span>
+              <span style={{color:C.text}}>🧪 {c.tipo_concime==="Altro"?(c.tipo_concime_altro||t("Altro")):c.tipo_concime}</span>
               <span style={{color:C.muted}}>
-                {num(c.quintali,2)} q
-                {ettari>0 && <b style={{color:C.green}}>{"  "}({num(Number(c.quintali)/ettari,2)} q/ha)</b>}
+                {num(c.quintali,2)} {t("q")}
+                {ettari>0 && <b style={{color:C.green}}>{"  "}({num(Number(c.quintali)/ettari,2)} {t("q/ha)")}</b>}
               </span>
             </div>
           ))}
@@ -990,10 +982,10 @@ function DettaglioEsecuzione({riga,ettari,concimi,diserbi,correggibile,onCorregg
         <div style={{marginTop:8,paddingTop:8,borderTop:`1px dashed ${C.border}`}}>
           {diserbi.map(d=>(
             <div key={d.id} style={{display:"flex",justifyContent:"space-between",fontSize:12,marginTop:2}}>
-              <span style={{color:C.text}}>🧴 {d.prodotto}</span>
+              <span style={{color:C.text}}>🧴 {t(d.prodotto)}</span>
               <span style={{color:C.muted}}>
-                {num(d.quantita,2)} {d.unita}
-                {ettari>0 && <b style={{color:C.green}}>{"  "}({num(Number(d.quantita)/ettari,3)}/ha)</b>}
+                {num(d.quantita,2)} {t(d.unita)}
+                {ettari>0 && <b style={{color:C.green}}>{"  "}({num(Number(d.quantita)/ettari,3)}{t("/ha)")}</b>}
               </span>
             </div>
           ))}
@@ -1017,9 +1009,9 @@ function FormConcimi({form,setForm,ettari}){
 
   return (
     <div style={{background:C.bg,borderRadius:10,padding:12,marginBottom:12}}>
-      <div style={{fontSize:12,fontWeight:700,color:C.text,marginBottom:2}}>Concimi impiegati</div>
+      <div style={{fontSize:12,fontWeight:700,color:C.text,marginBottom:2}}>{t("Concimi impiegati")}</div>
       <div style={{fontSize:11,color:C.muted,marginBottom:8}}>
-        Puoi sceglierne piu' di uno: non sono alternativi.
+        {t("Puoi sceglierne piu' di uno: non sono alternativi.")}
       </div>
       {CONCIMI.map(tipo=>{
         const sel = (form.concimi||[]).find(x=>x.tipo===tipo);
@@ -1032,21 +1024,21 @@ function FormConcimi({form,setForm,ettari}){
                 background:sel?C.green:"#FFF",border:`1.5px solid ${sel?C.green:C.border}`,
                 display:"flex",alignItems:"center",justifyContent:"center",
                 color:"#FFF",fontSize:12,fontWeight:800}}>{sel?"✓":""}</div>
-              <span style={{fontSize:13,fontWeight:sel?700:500,color:sel?C.text:C.muted}}>{tipo}</span>
+              <span style={{fontSize:13,fontWeight:sel?700:500,color:sel?C.text:C.muted}}>{t(tipo)}</span>
             </div>
             {sel && (
               <div style={{paddingLeft:28}}>
                 {tipo==="Altro" && (
                   <input value={sel.altro||""} onChange={e=>setQ(tipo,"altro",e.target.value)}
-                    placeholder="nome del concime"
+                    placeholder={t("nome del concime")}
                     style={{...inputStyle,padding:"7px 10px",fontSize:13,marginBottom:6}}/>
                 )}
                 <input value={sel.quintali} onChange={e=>setQ(tipo,"quintali",e.target.value)}
-                  inputMode="decimal" placeholder="quintali"
+                  inputMode="decimal" placeholder={t("quintali")}
                   style={{...inputStyle,padding:"7px 10px",fontSize:13}}/>
                 {q>0 && ettari>0 && (
                   <div style={{fontSize:11,color:C.green,fontWeight:700,marginTop:3}}>
-                    {num(q/ettari,2)} q/ha
+                    {num(q/ettari,2)} {t("q/ha")}
                   </div>
                 )}
               </div>
@@ -1078,11 +1070,11 @@ function Raccolta({coltura,ettari,raccolte,onRicarica}){
 
   const salva = async()=>{
     const q = parseFloat(String(form.quantita).replace(",","."));
-    if(!form.prodotto){ setErrore("Scegli il prodotto"); return; }
+    if(!form.prodotto){ setErrore(t("Scegli il prodotto")); return; }
     if(form.prodotto==="Altro" && !(form.prodotto_altro||"").trim()){
-      setErrore("Scrivi il nome del prodotto"); return;
+      setErrore(t("Scrivi il nome del prodotto")); return;
     }
-    if(!q || q<=0){ setErrore("Inserisci una quantita' maggiore di zero"); return; }
+    if(!q || q<=0){ setErrore(t("Inserisci una quantita' maggiore di zero")); return; }
     const def = PRODOTTI.find(p=>p.nome===form.prodotto);
     const campi = {
       prodotto: form.prodotto==="Altro" ? form.prodotto_altro.trim() : form.prodotto,
@@ -1093,24 +1085,24 @@ function Raccolta({coltura,ettari,raccolte,onRicarica}){
     };
     if(form.id){   // correzione
       const {data:agg,error:eu} = await supabase.from("raccolte").update(campi).eq("id",form.id).select("id");
-      if(eu){ setErrore("Errore nella correzione: "+eu.message); return; }
+      if(eu){ setErrore(t("Errore nella correzione: ")+eu.message); return; }
       if(!agg || agg.length===0){ setErrore(ERR_CORREZIONE); return; }
       setForm(null); setErrore(""); onRicarica(); return;
     }
     const {error} = await supabase.from("raccolte").insert([{coltura_campo_id: coltura.id, ...campi}]);
-    if(error){ setErrore("Errore nel salvataggio: "+error.message); return; }
+    if(error){ setErrore(t("Errore nel salvataggio: ")+error.message); return; }
     setForm(null); setErrore(""); onRicarica();
   };
 
   const elimina = async(id)=>{
-    if(!window.confirm("Eliminare questa riga di raccolta?")) return;
+    if(!window.confirm(t("Eliminare questa riga di raccolta?"))) return;
     const {error,count} = await supabase.from("raccolte").delete({count:"exact"}).eq("id",id);
     if(error || count===0){ setErrore(ERR_CORREZIONE); return; }
     onRicarica();
   };
 
   return (<>
-    {raccolte.length===0 && !form && <Vuoto icona="🚜" testo="Nessuna raccolta registrata."/>}
+    {raccolte.length===0 && !form && <Vuoto icona="🚜" testo={t("Nessuna raccolta registrata.")}/>}
 
     {raccolte.map(r=>{
       const resa = ettari>0 ? Number(r.quantita)/ettari : null;
@@ -1119,24 +1111,24 @@ function Raccolta({coltura,ettari,raccolte,onRicarica}){
           display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
           <div style={{minWidth:0}}>
             <div style={{fontSize:14,fontWeight:700,color:C.text}}>
-              {r.prodotto}
+              {t(r.prodotto)}
               {r.sottoprodotto && (
-                <span style={{marginLeft:6}}><Badge label="sottoprodotto" color={C.yellow}/></span>
+                <span style={{marginLeft:6}}><Badge label={t("sottoprodotto")} color={C.yellow}/></span>
               )}
             </div>
             <div style={{fontSize:12,color:C.muted,marginTop:2}}>
-              {num(r.quantita,2)} {r.unita}{r.data_raccolta && <> · {dataIt(r.data_raccolta)}</>}
+              {num(r.quantita,2)} {t(r.unita)}{r.data_raccolta && <> · {dataIt(r.data_raccolta)}</>}
             </div>
             <div style={{fontSize:12,color:C.green,fontWeight:700,marginTop:2}}>
-              {resa!==null ? `${num(resa,2)} ${r.unita}/ha` : "—"}
+              {resa!==null ? t("{0} {1}/ha",{0:(num(resa,2)),1:(r.unita)}) : "—"}
             </div>
             <Corretto riga={r}/>
           </div>
           {puoCorreggere(r,utente) && (
             <div style={{display:"flex",gap:6,flexShrink:0}}>
-              <button onClick={()=>apriCorrezione(r)} title="Correggi"
+              <button onClick={()=>apriCorrezione(r)} title={t("Correggi")}
                 style={{background:"none",border:"none",cursor:"pointer",fontSize:14,opacity:0.7}}>✏️</button>
-              <button onClick={()=>elimina(r.id)} title="Cancella"
+              <button onClick={()=>elimina(r.id)} title={t("Cancella")}
                 style={{background:"none",border:"none",cursor:"pointer",fontSize:14,opacity:0.5}}>🗑️</button>
             </div>
           )}
@@ -1151,53 +1143,51 @@ function Raccolta({coltura,ettari,raccolte,onRicarica}){
         border:`1.5px solid ${form.id?C.accent:C.border}`}}>
         {form.id && (
           <div style={{fontSize:13,fontWeight:700,color:C.accent,marginBottom:8}}>
-            ✏️ Correggi la raccolta
-            {!utente.admin && <span style={{fontSize:11,fontWeight:400,color:C.muted}}> — ancora per circa {oreRimaste(form)} ore</span>}
+            {t("✏️ Correggi la raccolta")}
+            {!utente.admin && <span style={{fontSize:11,fontWeight:400,color:C.muted}}> {t("— ancora per circa")} {oreRimaste(form)} {t("ore")}</span>}
           </div>
         )}
-        <Field label="Prodotto raccolto" required value={form.prodotto}
+        <Field label={t("Prodotto raccolto")} required value={form.prodotto}
           options={PRODOTTI.map(p=>p.nome)}
           onChange={v=>{
             const d = PRODOTTI.find(p=>p.nome===v);
             setForm(f=>({...f,prodotto:v,unita:d?d.unita:"quintali"}));
           }}/>
         {form.prodotto==="Altro" && (
-          <Field label="Nome del prodotto" required value={form.prodotto_altro}
+          <Field label={t("Nome del prodotto")} required value={form.prodotto_altro}
             onChange={v=>setForm(f=>({...f,prodotto_altro:v}))}/>
         )}
         {form.prodotto && PRODOTTI.find(p=>p.nome===form.prodotto)?.sotto && (
           <div style={{background:C.yellow+"15",border:`1px solid ${C.yellow}55`,borderRadius:10,
             padding:10,marginBottom:12,fontSize:11,color:C.text,lineHeight:1.5}}>
-            <b>Sottoprodotto.</b> Esce dagli stessi ettari della coltura principale.
-            Nel riepilogo la quantita' e la resa/ha si vedono, ma ettari e giornate
-            restano contati una volta sola sulla coltura madre.
+            <b>{t("Sottoprodotto.")}</b> {t("Esce dagli stessi ettari della coltura principale. Nel riepilogo la quantita' e la resa/ha si vedono, ma ettari e giornate restano contati una volta sola sulla coltura madre.")}
           </div>
         )}
         <div style={{display:"flex",gap:8,alignItems:"flex-end"}}>
           <div style={{flex:1}}>
-            <Field label="Quantita'" required type="text" inputMode="decimal" value={form.quantita}
+            <Field label={t("Quantita'")} required type="text" inputMode="decimal" value={form.quantita}
               onChange={v=>setForm(f=>({...f,quantita:v}))}/>
           </div>
           <div style={{width:130}}>
-            <Field label="Unita'" value={form.unita}
+            <Field label={t("Unita'")} value={form.unita}
               options={["quintali","balloni","rotoballe","kg"]}
               onChange={v=>setForm(f=>({...f,unita:v}))}/>
           </div>
         </div>
-        <Field label="Data di raccolta" type="date" value={form.data_raccolta}
+        <Field label={t("Data di raccolta")} type="date" value={form.data_raccolta}
           onChange={v=>setForm(f=>({...f,data_raccolta:v}))}/>
         {parseFloat(String(form.quantita).replace(",","."))>0 && ettari>0 && (
           <div style={{fontSize:13,color:C.green,fontWeight:700,marginBottom:10}}>
-            Resa: {num(parseFloat(String(form.quantita).replace(",","."))/ettari,2)} {form.unita}/ha
+            {t("Resa:")} {num(parseFloat(String(form.quantita).replace(",","."))/ettari,2)} {t(form.unita)}{t("/ha")}
           </div>
         )}
         <div style={{display:"flex",gap:8}}>
-          <Btn label={form.id?"Salva correzione":"Salva"} icon="✓" variant="success" small onClick={salva} style={{flex:1}}/>
-          <Btn label="Annulla" variant="ghost" small onClick={()=>{setForm(null);setErrore("");}}/>
+          <Btn label={form.id?t("Salva correzione"):t("Salva")} icon="✓" variant="success" small onClick={salva} style={{flex:1}}/>
+          <Btn label={t("Annulla")} variant="ghost" small onClick={()=>{setForm(null);setErrore("");}}/>
         </div>
       </div>
     ) : (
-      <Btn label="Registra raccolta" icon="+" small
+      <Btn label={t("Registra raccolta")} icon="+" small
         onClick={()=>setForm({prodotto:"",unita:"quintali",quantita:"",data_raccolta:today()})}
         style={{width:"100%",marginTop:10}}/>
     )}
@@ -1224,7 +1214,7 @@ function Riepilogo({campi,colture,lavori,raccolte,nomeColtura,campagna}){
     g.giornate += lavori.filter(l=>l.coltura_campo_id===col.id)
       .reduce((s,l)=>s+Number(l.giornate_lavoro||0),0);
     raccolte.filter(r=>r.coltura_campo_id===col.id).forEach(r=>{
-      const k = `${r.prodotto}|${r.unita}`;
+      const k = `${t(r.prodotto)}|${t(r.unita)}`;
       if(!g.prodotti[k]) g.prodotti[k] = {prodotto:r.prodotto,unita:r.unita,
         sottoprodotto:r.sottoprodotto,quantita:0};
       g.prodotti[k].quantita += Number(r.quantita||0);
@@ -1239,24 +1229,24 @@ function Riepilogo({campi,colture,lavori,raccolte,nomeColtura,campagna}){
   const totGiornate = righe.reduce((s,r)=>s+r.giornate,0);
 
   if(righe.length===0) return (
-    <Card><Vuoto icona="📊" testo={`Nessuna coltura registrata nella campagna ${campagna}. Il riepilogo si compila da solo man mano che inserite i dati nei campi.`}/></Card>
+    <Card><Vuoto icona="📊" testo={t("Nessuna coltura registrata nella campagna {0}. Il riepilogo si compila da solo man mano che inserite i dati nei campi.",{0:(campagna)})}/></Card>
   );
 
   return (<>
     <Card style={{background:C.primary,color:"#FFF",border:"none"}}>
-      <div style={{fontSize:12,opacity:0.85,marginBottom:8}}>Campagna {campagna}</div>
+      <div style={{fontSize:12,opacity:0.85,marginBottom:8}}>{t("Campagna")} {campagna}</div>
       <div style={{display:"flex",justifyContent:"space-between",textAlign:"center"}}>
         <div style={{flex:1}}>
           <div style={{fontSize:20,fontWeight:800}}>{righe.length}</div>
-          <div style={{fontSize:11,opacity:0.85}}>colture</div>
+          <div style={{fontSize:11,opacity:0.85}}>{t("colture")}</div>
         </div>
         <div style={{flex:1,borderLeft:"1px solid rgba(255,255,255,0.25)"}}>
           <div style={{fontSize:20,fontWeight:800}}>{num(totEttari,2)}</div>
-          <div style={{fontSize:11,opacity:0.85}}>ettari coltivati</div>
+          <div style={{fontSize:11,opacity:0.85}}>{t("ettari coltivati")}</div>
         </div>
         <div style={{flex:1,borderLeft:"1px solid rgba(255,255,255,0.25)"}}>
           <div style={{fontSize:20,fontWeight:800}}>{num(totGiornate,1)}</div>
-          <div style={{fontSize:11,opacity:0.85}}>giornate lavoro</div>
+          <div style={{fontSize:11,opacity:0.85}}>{t("giornate lavoro")}</div>
         </div>
       </div>
     </Card>
@@ -1265,24 +1255,24 @@ function Riepilogo({campi,colture,lavori,raccolte,nomeColtura,campagna}){
       <Card key={r.nome}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",
           gap:8,marginBottom:10}}>
-          <div style={{fontSize:16,fontWeight:700,color:C.primary}}>🌱 {r.nome}</div>
-          <Badge label={`${r.campi} camp${r.campi===1?"o":"i"}`} color={C.muted}/>
+          <div style={{fontSize:16,fontWeight:700,color:C.primary}}>🌱 {t(r.nome)}</div>
+          <Badge label={r.campi===1?t("1 campo"):t("{0} campi",{0:r.campi})} color={C.muted}/>
         </div>
 
         <div style={{display:"flex",gap:8,marginBottom:12}}>
           <div style={{flex:1,background:C.bg,borderRadius:10,padding:"8px 10px"}}>
-            <div style={{fontSize:10,color:C.muted,fontWeight:600}}>ETTARI DEDICATI</div>
+            <div style={{fontSize:10,color:C.muted,fontWeight:600}}>{t("ETTARI DEDICATI")}</div>
             <div style={{fontSize:16,fontWeight:800,color:C.text}}>{num(r.ettari,2)}</div>
           </div>
           <div style={{flex:1,background:C.bg,borderRadius:10,padding:"8px 10px"}}>
-            <div style={{fontSize:10,color:C.muted,fontWeight:600}}>GIORNATE LAVORO</div>
+            <div style={{fontSize:10,color:C.muted,fontWeight:600}}>{t("GIORNATE LAVORO")}</div>
             <div style={{fontSize:16,fontWeight:800,color:C.text}}>{num(r.giornate,1)}</div>
           </div>
         </div>
 
         {r.prodotti.length===0 ? (
           <div style={{fontSize:12,color:C.muted,fontStyle:"italic"}}>
-            Nessuna raccolta registrata: rese non calcolabili.
+            {t("Nessuna raccolta registrata: rese non calcolabili.")}
           </div>
         ) : (
           <div style={{border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
@@ -1295,23 +1285,23 @@ function Riepilogo({campi,colture,lavori,raccolte,nomeColtura,campagna}){
                     borderBottom:i<r.prodotti.length-1?`1px solid ${C.border}`:"none"}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
                     <div style={{fontSize:13,fontWeight:700,color:C.text}}>
-                      {p.prodotto}
+                      {t(p.prodotto)}
                       {p.sottoprodotto && (
                         <span style={{marginLeft:6,fontSize:10,color:C.yellow,fontWeight:700}}>
-                          sottoprodotto
+                          {t("sottoprodotto")}
                         </span>
                       )}
                     </div>
                     <div style={{fontSize:14,fontWeight:800,color:C.primary,whiteSpace:"nowrap"}}>
-                      {num(p.quantita,2)} <span style={{fontSize:11,fontWeight:600,color:C.muted}}>{p.unita}</span>
+                      {num(p.quantita,2)} <span style={{fontSize:11,fontWeight:600,color:C.muted}}>{t(p.unita)}</span>
                     </div>
                   </div>
                   <div style={{display:"flex",gap:14,marginTop:5,fontSize:11}}>
                     <span style={{color:C.muted}}>
-                      resa/ha <b style={{color:C.green}}>{resaHa!==null?num(resaHa,2):"—"}</b>
+                      {t("resa/ha")} <b style={{color:C.green}}>{resaHa!==null?num(resaHa,2):"—"}</b>
                     </span>
                     <span style={{color:C.muted}}>
-                      resa/giornata <b style={{color:C.green}}>{resaGg!==null?num(resaGg,2):"—"}</b>
+                      {t("resa/giornata")} <b style={{color:C.green}}>{resaGg!==null?num(resaGg,2):"—"}</b>
                     </span>
                   </div>
                 </div>
@@ -1323,10 +1313,7 @@ function Riepilogo({campi,colture,lavori,raccolte,nomeColtura,campagna}){
     ))}
 
     <div style={{fontSize:11,color:C.muted,lineHeight:1.6,padding:"4px 4px 16px"}}>
-      Gli ettari di un sottoprodotto (paglia, seme di medica, seme di sulla) non si
-      sommano: escono dagli stessi ettari della coltura che li ha prodotti, e contarli
-      due volte gonfierebbe la superficie aziendale. Le loro rese sono comunque
-      calcolate su quegli ettari.
+      {t("Gli ettari di un sottoprodotto (paglia, seme di medica, seme di sulla) non si sommano: escono dagli stessi ettari della coltura che li ha prodotti, e contarli due volte gonfierebbe la superficie aziendale. Le loro rese sono comunque calcolate su quegli ettari.")}
     </div>
   </>);
 }
@@ -1362,7 +1349,7 @@ const adessoLocale = () => { const d=new Date(); d.setMinutes(d.getMinutes()-d.g
 // (maiuscole e spazi a parte) si usa quella; se non c'e', diventa "Altro"
 // con quel nome, che al salvataggio viene memorizzato come da verificare.
 // onChange(value, testo): value = id della voce, ALTRO, oppure "".
-const normVoce = (t) => (t||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+const normVoce = (tx) => (tx||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"")
   .trim().replace(/\s+/g," ").toLowerCase();
 
 function SceltaScrivi({label,voci,value,testo,onChange}){
@@ -1374,12 +1361,12 @@ function SceltaScrivi({label,voci,value,testo,onChange}){
   const esatta = q ? voci.find(v=>normVoce(v.voce)===q) : null;
   const filtrate = q && !scelta ? voci.filter(v=>normVoce(v.voce).includes(q)) : voci;
 
-  const scrivi = (t)=>{
-    setScritto(t); setAperto(true);
-    const n = normVoce(t);
+  const scrivi = (tx)=>{
+    setScritto(tx); setAperto(true);
+    const n = normVoce(tx);
     const e = n ? voci.find(v=>normVoce(v.voce)===n) : null;
     if(e) onChange(String(e.id),"");
-    else if(n) onChange(ALTRO,t.trim().replace(/\s+/g," "));
+    else if(n) onChange(ALTRO,tx.trim().replace(/\s+/g," "));
     else onChange("","");
   };
   const scegli = (v)=>{ setScritto(v.voce); onChange(String(v.id),""); setAperto(false); };
@@ -1392,7 +1379,7 @@ function SceltaScrivi({label,voci,value,testo,onChange}){
         {label}<span style={{color:C.red}}> *</span>
       </div>
       <div style={{position:"relative"}}>
-        <input value={scritto} placeholder="Scegli dall'elenco o scrivi…"
+        <input value={scritto} placeholder={t("Scegli dall'elenco o scrivi…")}
           onFocus={()=>setAperto(true)} onBlur={()=>setTimeout(()=>setAperto(false),150)}
           onChange={e=>scrivi(e.target.value)}
           style={{...inputStyle,paddingRight:36,
@@ -1408,24 +1395,24 @@ function SceltaScrivi({label,voci,value,testo,onChange}){
           {(scelta ? voci : filtrate).map(v=>(
             <div key={v.id} onMouseDown={e=>{e.preventDefault();scegli(v);}}
               style={{...riga,background:String(v.id)===String(value)?C.green+"15":"#FFF"}}>
-              {v.voce}{v.da_verificare && <span style={{fontSize:11,color:C.muted}}> (da verificare)</span>}
+              {t(v.voce)}{v.da_verificare && <span style={{fontSize:11,color:C.muted}}> {t("(da verificare)")}</span>}
             </div>
           ))}
           {q && !esatta ? (
             <div onMouseDown={e=>{e.preventDefault();setAperto(false);}}
               style={{...riga,color:C.accent,fontWeight:600}}>
-              ➕ Altro: «{scritto.trim()}» <span style={{fontWeight:400,fontSize:11}}>(nome nuovo)</span>
+              {t("➕ Altro: «")}{scritto.trim()}» <span style={{fontWeight:400,fontSize:11}}>{t("(nome nuovo)")}</span>
             </div>
           ) : !q && (
             <div style={{...riga,color:C.muted,fontSize:12,cursor:"default"}}>
-              Altro: scrivi il nome qui sopra
+              {t("Altro: scrivi il nome qui sopra")}
             </div>
           )}
         </div>
       )}
       {nuovo && !aperto && (
         <div style={{fontSize:11,color:C.accent,marginTop:4}}>
-          ➕ Nome nuovo: verrà memorizzato come «da verificare».
+          {t("➕ Nome nuovo: verrà memorizzato come «da verificare».")}
         </div>
       )}
     </div>
@@ -1462,46 +1449,38 @@ function IstruzioniGasolio(){
     <Card style={{padding:12,background:C.blue+"0D",border:`1px solid ${C.blue}40`}}>
       <div onClick={()=>setAperto(a=>!a)} style={{display:"flex",justifyContent:"space-between",
         alignItems:"center",cursor:"pointer"}}>
-        <b style={{fontSize:14,color:C.blue}}>ℹ️ Come si registra un rifornimento</b>
-        <span style={{color:C.blue,fontSize:13}}>{aperto?"chiudi ▲":"apri ▼"}</span>
+        <b style={{fontSize:14,color:C.blue}}>{t("ℹ️ Come si registra un rifornimento")}</b>
+        <span style={{color:C.blue,fontSize:13}}>{aperto?t("chiudi ▲"):t("apri ▼")}</span>
       </div>
       {aperto && (<>
         <div style={{margin:"10px 0",padding:"10px 12px",background:"#FFF",borderRadius:10,
           border:`1px solid ${C.green}40`,fontSize:12,lineHeight:1.55,color:C.text}}>
-          <div style={{fontSize:13,fontWeight:700,color:C.green,marginBottom:4}}>🌱 Perché è importante</div>
-          Il gasolio è una delle spese più grandi dell'azienda. Ogni litro che registri serve a
-          <b> sapere quanto ci costa davvero</b> produrre il nostro fieno e il nostro orzo e allevare
-          i nostri animali.
+          <div style={{fontSize:13,fontWeight:700,color:C.green,marginBottom:4}}>{t("🌱 Perché è importante")}</div>
+          {t("Il gasolio è una delle spese più grandi dell'azienda. Ogni litro che registri serve a sapere quanto ci costa davvero produrre il nostro fieno e il nostro orzo e allevare i nostri animali.")}
           <ul style={{margin:"6px 0",paddingLeft:18}}>
-            <li>capiamo <b>cosa conviene coltivare</b> e cosa conviene comprare;</li>
-            <li>scegliamo <b>la macchina giusta per ogni attività</b>;</li>
-            <li><b>ottimizziamo la nostra azienda</b>.</li>
+            <li>{t("capiamo cosa conviene coltivare e cosa conviene comprare;")}</li>
+            <li>{t("scegliamo la macchina giusta per ogni attività;")}</li>
+            <li><b>{t("ottimizziamo la nostra azienda")}</b>.</li>
           </ul>
-          Dati giusti = decisioni giuste = un'azienda più forte, per tutti noi.
+          {t("Dati giusti = decisioni giuste = un'azienda più forte, per tutti noi.")}
           <div style={{marginTop:6,fontWeight:700}}>
-            Bastano 30 secondi: registra <u>ogni</u> prelievo, subito dopo averlo fatto.
+            {t("Bastano 30 secondi: registra OGNI prelievo, subito dopo averlo fatto.")}
           </div>
         </div>
         <ol style={{margin:0,paddingLeft:20,fontSize:12,lineHeight:1.5,color:C.text}}>
-          {passi.map(([t,d])=>(
-            <li key={t} style={{marginBottom:6}}><b>{t}</b>: {d}</li>
+          {passi.map(([tx,d])=>(
+            <li key={tx} style={{marginBottom:6}}><b>{t(tx)}</b>: {t(d)}</li>
           ))}
         </ol>
         <div style={{fontSize:11,color:C.muted,marginTop:4}}>
-          I campi con <span style={{color:C.red}}>*</span> sono obbligatori: senza, il rifornimento non si salva.
+          {t("I campi con")} <span style={{color:C.red}}>*</span> {t("sono obbligatori: senza, il rifornimento non si salva.")}
         </div>
-        <div style={{fontSize:13,fontWeight:700,color:C.blue,margin:"12px 0 4px"}}>Se hai sbagliato</div>
+        <div style={{fontSize:13,fontWeight:700,color:C.blue,margin:"12px 0 4px"}}>{t("Se hai sbagliato")}</div>
         <ul style={{margin:0,paddingLeft:20,fontSize:12,lineHeight:1.5,color:C.text}}>
-          <li style={{marginBottom:6}}><b>Un dato sbagliato</b> (mezzo, litri, motivo…): tocca la matita ✏️
-            sulla riga, correggi solo quel dato e tocca «Salva correzione». Data e ora restano quelle
-            del prelievo.</li>
-          <li style={{marginBottom:6}}><b>Rifornimento inserito due volte</b>, o che non andava inserito:
-            cancellalo col cestino 🗑️.</li>
-          <li style={{marginBottom:6}}><b>Hai 48 ore</b> dall'inserimento per correggere o cancellare i
-            rifornimenti inseriti da te. Dopo, la matita e il cestino spariscono: avvisa l'amministratore,
-            che può correggere sempre.</li>
-          <li><b>Ogni correzione resta scritta</b> sulla riga («✏️ Corretto il… da…»): toccando
-            «cosa è cambiato» si vede il valore di prima e quello nuovo.</li>
+          <li style={{marginBottom:6}}><b>{t("Un dato sbagliato")}</b> {t("(mezzo, litri, motivo…): tocca la matita ✏️ sulla riga, correggi solo quel dato e tocca «Salva correzione». Data e ora restano quelle del prelievo.")}</li>
+          <li style={{marginBottom:6}}><b>{t("Rifornimento inserito due volte")}</b>{t(", o che non andava inserito: cancellalo col cestino 🗑️.")}</li>
+          <li style={{marginBottom:6}}><b>{t("Hai 48 ore")}</b> {t("dall'inserimento per correggere o cancellare i rifornimenti inseriti da te. Dopo, la matita e il cestino spariscono: avvisa l'amministratore, che può correggere sempre.")}</li>
+          <li><b>{t("Ogni correzione resta scritta")}</b> {t("sulla riga («✏️ Corretto il… da…»): toccando «cosa è cambiato» si vede il valore di prima e quello nuovo.")}</li>
         </ul>
       </>)}
     </Card>
@@ -1536,7 +1515,7 @@ function RegistroGasolio({campagna}){
         .not("contalitri","is",null)
         .order("data_ora",{ascending:false}).limit(500),
     ]);
-    if(e1||e2) setErrore("Errore nel caricamento: "+(e1||e2).message);
+    if(e1||e2) setErrore(t("Errore nel caricamento: ")+(e1||e2).message);
     setVoci(v||[]); setRighe(r||[]); const ult = {};   // la prima riga per cisterna e' la piu' recente
     (u||[]).forEach(x=>{ if(!ult[x.cisterna_id]) ult[x.cisterna_id]=x; });
     setLetture(ult);
@@ -1605,19 +1584,19 @@ function RegistroGasolio({campagna}){
     const litri = numIn(form.litri);
     const lettura = form.contalitri==="" ? null : numIn(form.contalitri);
     if(form.tardiva){
-      if(!form.data_ora){ setErrore("Indica data e ora del prelievo"); return; }
-      if(new Date(form.data_ora) > new Date()){ setErrore("Data e ora non possono essere nel futuro"); return; }
+      if(!form.data_ora){ setErrore(t("Indica data e ora del prelievo")); return; }
+      if(new Date(form.data_ora) > new Date()){ setErrore(t("Data e ora non possono essere nel futuro")); return; }
     }
-    if(!form.cisterna){ setErrore("Scegli la cisterna"); return; }
-    if(form.cisterna===ALTRO && !(form.cisterna_altro||"").trim()){ setErrore("Scrivi il nome della cisterna"); return; }
-    if(!form.operatore){ setErrore("Scegli l'operatore"); return; }
-    if(form.operatore===ALTRO && !(form.operatore_altro||"").trim()){ setErrore("Scrivi il nome dell'operatore"); return; }
-    if(!form.mezzo){ setErrore("Scegli il mezzo"); return; }
-    if(form.mezzo===ALTRO && !(form.mezzo_altro||"").trim()){ setErrore("Scrivi il nome del mezzo"); return; }
-    if(!form.motivo){ setErrore("Scegli il motivo del prelievo"); return; }
-    if(form.motivo==="altro" && !(form.motivo_altro||"").trim()){ setErrore("Scrivi il motivo"); return; }
-    if(!litri || litri<=0){ setErrore("Inserisci i litri (maggiori di zero)"); return; }
-    if(lettura!==null && (isNaN(lettura) || lettura<0)){ setErrore("La lettura del contalitri non e' valida"); return; }
+    if(!form.cisterna){ setErrore(t("Scegli la cisterna")); return; }
+    if(form.cisterna===ALTRO && !(form.cisterna_altro||"").trim()){ setErrore(t("Scrivi il nome della cisterna")); return; }
+    if(!form.operatore){ setErrore(t("Scegli l'operatore")); return; }
+    if(form.operatore===ALTRO && !(form.operatore_altro||"").trim()){ setErrore(t("Scrivi il nome dell'operatore")); return; }
+    if(!form.mezzo){ setErrore(t("Scegli il mezzo")); return; }
+    if(form.mezzo===ALTRO && !(form.mezzo_altro||"").trim()){ setErrore(t("Scrivi il nome del mezzo")); return; }
+    if(!form.motivo){ setErrore(t("Scegli il motivo del prelievo")); return; }
+    if(form.motivo==="altro" && !(form.motivo_altro||"").trim()){ setErrore(t("Scrivi il motivo")); return; }
+    if(!litri || litri<=0){ setErrore(t("Inserisci i litri (maggiori di zero)")); return; }
+    if(lettura!==null && (isNaN(lettura) || lettura<0)){ setErrore(t("La lettura del contalitri non e' valida")); return; }
     setSalvando(true); setErrore("");
     try{
       const {data:{user}} = await supabase.auth.getUser();
@@ -1650,9 +1629,9 @@ function RegistroGasolio({campagna}){
   };
 
   const elimina = async(id)=>{
-    if(!window.confirm("Eliminare questo rifornimento?")) return;
+    if(!window.confirm(t("Eliminare questo rifornimento?"))) return;
     const {error,count} = await supabase.from("gasolio_rifornimenti").delete({count:"exact"}).eq("id",id);
-    if(error || count===0){ setErrore("Puoi cancellare solo i rifornimenti inseriti da te, entro 48 ore. Altrimenti chiedi all'amministratore."); return; }
+    if(error || count===0){ setErrore(t("Puoi cancellare solo i rifornimenti inseriti da te, entro 48 ore. Altrimenti chiedi all'amministratore.")); return; }
     carica();
   };
 
@@ -1676,24 +1655,24 @@ function RegistroGasolio({campagna}){
     {/* totali della campagna */}
     <Card>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline"}}>
-        <div style={{fontSize:13,fontWeight:700,color:C.muted}}>⛽ Gasolio prelevato {campagna}</div>
-        <div style={{fontSize:20,fontWeight:800,color:C.primary}}>{num(totale,0)} L</div>
+        <div style={{fontSize:13,fontWeight:700,color:C.muted}}>{t("⛽ Gasolio prelevato")} {campagna}</div>
+        <div style={{fontSize:20,fontWeight:800,color:C.primary}}>{num(totale,0)} {t("L")}</div>
       </div>
       {Object.keys(perMezzo).length>0 && (
         <div style={{marginTop:8}}>
           {Object.entries(perMezzo).sort((a,b)=>b[1]-a[1]).map(([id,l])=>(
             <div key={id} style={{display:"flex",justifyContent:"space-between",fontSize:13,
               padding:"4px 0",borderTop:`1px solid ${C.border}`}}>
-              <span>{nomeVoce(Number(id))}</span><b>{num(l,0)} L</b>
+              <span>{nomeVoce(Number(id))}</span><b>{num(l,0)} {t("L")}</b>
             </div>
           ))}
         </div>
       )}
       <div style={{fontSize:11,color:C.muted,marginTop:8}}>
         {Object.keys(letture).length===0
-          ? "Nessuna lettura del contalitri ancora registrata."
+          ? t("Nessuna lettura del contalitri ancora registrata.")
           : Object.entries(letture).map(([id,l])=>(
-              <div key={id}>Contalitri {nomeVoce(Number(id))}: <b>{num(l.contalitri,0)}</b> ({oraIt(l.data_ora)})</div>
+              <div key={id}>{t("Contalitri")} {nomeVoce(Number(id))}: <b>{num(l.contalitri,0)}</b> ({oraIt(l.data_ora)})</div>
             ))}
       </div>
     </Card>
@@ -1704,34 +1683,34 @@ function RegistroGasolio({campagna}){
     {form ? (
       <Card key={form.id||"nuovo"} style={{border:`1.5px solid ${form.id?C.accent:C.primary}`}}>
         <div style={{fontSize:15,fontWeight:700,color:form.id?C.accent:C.primary,marginBottom:form.id?4:12}}>
-          {form.id ? "✏️ Correggi rifornimento" : "Nuovo rifornimento"}
+          {form.id ? t("✏️ Correggi rifornimento") : t("Nuovo rifornimento")}
         </div>
         {form.id && (
           <div style={{fontSize:11,color:C.muted,marginBottom:12}}>
-            Cambia solo il dato sbagliato e salva. La correzione resta segnata sulla riga.
-            {!utente.admin && <> Puoi correggere ancora per circa <b>{oreRimaste(form)} ore</b>.</>}
+            {t("Cambia solo il dato sbagliato e salva. La correzione resta segnata sulla riga.")}
+            {!utente.admin && <> {t("Puoi correggere ancora per circa")} <b>{oreRimaste(form)} {t("ore")}</b>.</>}
           </div>
         )}
         {/* data e ora: automatiche, oppure registrazione tardiva */}
         <div style={{marginBottom:12,padding:10,borderRadius:10,background:C.bg,border:`1px solid ${C.border}`}}>
           {form.id && !form.tardiva ? (
             <div style={{fontSize:13}}>
-              📅 <b>Data e ora: {oraIt(form.data_ora_orig)}</b>
+              📅 <b>{t("Data e ora:")} {oraIt(form.data_ora_orig)}</b>
               <div style={{fontSize:11,color:C.muted,marginTop:2}}>
-                Registrate automaticamente: non si possono cambiare.
+                {t("Registrate automaticamente: non si possono cambiare.")}
               </div>
             </div>
           ) : !form.tardiva ? (
             <div style={{fontSize:13}}>
-              📅 <b>Data e ora: adesso</b>
+              📅 <b>{t("Data e ora: adesso")}</b>
               <div style={{fontSize:11,color:C.muted,marginTop:2}}>
-                Registrate automaticamente al momento del salvataggio.
+                {t("Registrate automaticamente al momento del salvataggio.")}
               </div>
             </div>
           ) : (
             <div>
               <div style={{fontSize:12,fontWeight:600,color:C.muted,marginBottom:4}}>
-                Quando è avvenuto il prelievo<span style={{color:C.red}}> *</span>
+                {t("Quando è avvenuto il prelievo")}<span style={{color:C.red}}> *</span>
               </div>
               <input type="datetime-local" value={form.data_ora} max={adessoLocale()}
                 onChange={e=>setForm(f=>({...f,data_ora:e.target.value}))} style={inputStyle}/>
@@ -1741,23 +1720,23 @@ function RegistroGasolio({campagna}){
             <label style={{display:"flex",alignItems:"center",gap:8,marginTop:8,fontSize:13,cursor:"pointer"}}>
               <input type="checkbox" checked={!!form.tardiva}
                 onChange={e=>setForm(f=>({...f,tardiva:e.target.checked,data_ora:f.data_ora||adessoLocale()}))}/>
-              Registrazione tardiva (il prelievo è avvenuto prima)
+              {t("Registrazione tardiva (il prelievo è avvenuto prima)")}
             </label>
           )}
         </div>
-        <SceltaScrivi label="Cisterna" voci={cisterne}
+        <SceltaScrivi label={t("Cisterna")} voci={cisterne}
           value={form.cisterna} testo={form.cisterna_altro}
-          onChange={(v,t)=>setForm(f=>({...f,cisterna:v,cisterna_altro:t}))}/>
-        <SceltaScrivi label="Operatore" voci={operatori}
+          onChange={(v,tx)=>setForm(f=>({...f,cisterna:v,cisterna_altro:tx}))}/>
+        <SceltaScrivi label={t("Operatore")} voci={operatori}
           value={form.operatore} testo={form.operatore_altro}
-          onChange={(v,t)=>setForm(f=>({...f,operatore:v,operatore_altro:t}))}/>
-        <SceltaScrivi label="Mezzo" voci={mezzi}
+          onChange={(v,tx)=>setForm(f=>({...f,operatore:v,operatore_altro:tx}))}/>
+        <SceltaScrivi label={t("Mezzo")} voci={mezzi}
           value={form.mezzo} testo={form.mezzo_altro}
-          onChange={(v,t)=>setForm(f=>({...f,mezzo:v,mezzo_altro:t}))}/>
+          onChange={(v,tx)=>setForm(f=>({...f,mezzo:v,mezzo_altro:tx}))}/>
         {/* motivo: tre pulsanti, un tocco */}
         <div style={{marginBottom:12}}>
           <div style={{fontSize:12,fontWeight:600,color:C.muted,marginBottom:4}}>
-            Motivo<span style={{color:C.red}}> *</span>
+            {t("Motivo")}<span style={{color:C.red}}> *</span>
           </div>
           <div style={{display:"flex",gap:6}}>
             {MOTIVI.map(m=>(
@@ -1765,37 +1744,35 @@ function RegistroGasolio({campagna}){
                 style={{flex:1,padding:"10px 4px",borderRadius:10,fontSize:13,fontWeight:600,cursor:"pointer",
                   background:form.motivo===m.v?C.primary:"#FFF",color:form.motivo===m.v?"#FFF":C.text,
                   border:`1.5px solid ${form.motivo===m.v?C.primary:C.border}`}}>
-                {m.l}
+                {t(m.l)}
               </button>
             ))}
           </div>
         </div>
         {form.motivo==="altro" && (
-          <Field label="Specifica il motivo" required value={form.motivo_altro}
-            placeholder="es. generatore, trasporto merci…"
+          <Field label={t("Specifica il motivo")} required value={form.motivo_altro}
+            placeholder={t("es. generatore, trasporto merci…")}
             onChange={v=>setForm(f=>({...f,motivo_altro:v}))}/>
         )}
-        <Field label="Litri prelevati" required inputMode="decimal" value={form.litri}
+        <Field label={t("Litri prelevati")} required inputMode="decimal" value={form.litri}
           onChange={v=>setForm(f=>({...f,litri:v}))}/>
-        <Field label="Lettura contalitri dopo il prelievo (facoltativa)" inputMode="decimal"
+        <Field label={t("Lettura contalitri dopo il prelievo (facoltativa)")} inputMode="decimal"
           value={form.contalitri} onChange={v=>setForm(f=>({...f,contalitri:v}))}/>
         {scarto!==null && Math.abs(scarto)>1 && (
           <div style={{background:C.yellow+"15",border:`1px solid ${C.yellow}55`,borderRadius:10,
             padding:10,marginBottom:12,fontSize:12,lineHeight:1.5}}>
-            ⚠️ Con l'ultima lettura ({num(ultima.contalitri,0)}) + {num(litriForm,0)} L
-            mi aspettavo <b>{num(attesa,0)}</b>: differenza di {num(scarto,0)} L.
-            Ricontrolla il numero: può capitare di leggerlo male o che manchi un prelievo precedente.
+            {t("⚠️ Con l'ultima lettura ({0}) + {1} L mi aspettavo {2}: differenza di {3} L. Ricontrolla il numero: può capitare di leggerlo male o che manchi un prelievo precedente.",{0:num(ultima.contalitri,0),1:num(litriForm,0),2:num(attesa,0),3:num(scarto,0)})}
           </div>
         )}
-        <Field label="Note" value={form.note} onChange={v=>setForm(f=>({...f,note:v}))}/>
+        <Field label={t("Note")} value={form.note} onChange={v=>setForm(f=>({...f,note:v}))}/>
         <div style={{display:"flex",gap:8}}>
-          <Btn label={salvando?"Salvo…":(form.id?"Salva correzione":"Salva")} icon="✓" variant="success" disabled={salvando}
+          <Btn label={salvando?t("Salvo…"):(form.id?t("Salva correzione"):t("Salva"))} icon="✓" variant="success" disabled={salvando}
             onClick={salva} style={{flex:1}}/>
-          <Btn label="Annulla" variant="ghost" onClick={()=>{setForm(null);setErrore("");}}/>
+          <Btn label={t("Annulla")} variant="ghost" onClick={()=>{setForm(null);setErrore("");}}/>
         </div>
       </Card>
     ) : (
-      <Btn label="Registra rifornimento" icon="+" style={{width:"100%",marginBottom:12}}
+      <Btn label={t("Registra rifornimento")} icon="+" style={{width:"100%",marginBottom:12}}
         onClick={()=>setForm({tardiva:false,data_ora:"",
           cisterna:"",operatore:"",mezzo:"",motivo:"",motivo_altro:"",litri:"",contalitri:"",note:""})}/>
     )}
@@ -1803,36 +1780,36 @@ function RegistroGasolio({campagna}){
     {/* elenco */}
     <Card>
       <div style={{fontSize:13,fontWeight:700,color:C.muted,marginBottom:6}}>
-        Rifornimenti ({righe.length})
+        {t("Rifornimenti (")}{righe.length})
       </div>
-      {righe.length===0 && <Vuoto icona="⛽" testo="Nessun rifornimento registrato in questa campagna."/>}
+      {righe.length===0 && <Vuoto icona="⛽" testo={t("Nessun rifornimento registrato in questa campagna.")}/>}
       {righe.map(r=>(
         <div key={r.id} style={{borderTop:`1px solid ${C.border}`,padding:"10px 0",
           display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
           <div style={{minWidth:0}}>
             <div style={{fontSize:14,fontWeight:700}}>
               {nomeVoce(r.mezzo_id)}
-              {daVerif(r.mezzo_id) && <span style={{marginLeft:6}}><Badge label="da verificare" color={C.yellow}/></span>}
+              {daVerif(r.mezzo_id) && <span style={{marginLeft:6}}><Badge label={t("da verificare")} color={C.yellow}/></span>}
             </div>
             <div style={{fontSize:12,color:C.muted,marginTop:2}}>
               {oraIt(r.data_ora)} · {nomeVoce(r.cisterna_id)} · {nomeVoce(r.operatore_id)}
-              {r.motivo && <> · <b>{nomeMotivo(r)}</b></>}
-              {daVerif(r.operatore_id) && " (da verificare)"}
-              {r.contalitri!==null && <> · contalitri {num(r.contalitri,0)}</>}
+              {r.motivo && <> · <b>{t(nomeMotivo(r))}</b></>}
+              {daVerif(r.operatore_id) && t(" (da verificare)")}
+              {r.contalitri!==null && <> {t("· contalitri")} {num(r.contalitri,0)}</>}
             </div>
             {r.tardiva && (
               <div style={{fontSize:11,color:C.accent,marginTop:2}}>
-                ⏱ Registrazione tardiva — scritta il {oraIt(r.created_at)}
+                {t("⏱ Registrazione tardiva — scritta il")} {oraIt(r.created_at)}
               </div>
             )}
             {r.note && <div style={{fontSize:12,color:C.text,marginTop:2}}>{r.note}</div>}
             {r.modificato_at && (
               <div style={{fontSize:11,color:C.accent,marginTop:2}}>
-                ✏️ Corretto il {oraIt(r.modificato_at)}{persone[r.modificato_da] && <> da {persone[r.modificato_da]}</>}
+                {t("✏️ Corretto il")} {oraIt(r.modificato_at)}{persone[r.modificato_da] && <> {t("da")} {persone[r.modificato_da]}</>}
                 {" · "}
                 <span onClick={()=>setStoricoAperto(a=>a===r.id?null:r.id)}
                   style={{textDecoration:"underline",cursor:"pointer"}}>
-                  {storicoAperto===r.id?"nascondi":"cosa è cambiato"}
+                  {storicoAperto===r.id?t("nascondi"):t("cosa è cambiato")}
                 </span>
               </div>
             )}
@@ -1850,11 +1827,11 @@ function RegistroGasolio({campagna}){
             )}
           </div>
           <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
-            <b style={{fontSize:15,color:C.primary}}>{num(r.litri,0)} L</b>
+            <b style={{fontSize:15,color:C.primary}}>{num(r.litri,0)} {t("L")}</b>
             {puoCorreggere(r) && (<>
-              <button onClick={()=>apriCorrezione(r)} title="Correggi"
+              <button onClick={()=>apriCorrezione(r)} title={t("Correggi")}
                 style={{background:"none",border:"none",cursor:"pointer",fontSize:14,opacity:0.7}}>✏️</button>
-              <button onClick={()=>elimina(r.id)} title="Cancella"
+              <button onClick={()=>elimina(r.id)} title={t("Cancella")}
                 style={{background:"none",border:"none",cursor:"pointer",fontSize:14,opacity:0.5}}>🗑️</button>
             </>)}
           </div>
@@ -1881,13 +1858,13 @@ export function Gasolio(){
       <div style={{padding:"16px 16px 24px"}}>
         <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
           <span style={{fontSize:24}}>⛽</span>
-          <h2 style={{margin:0,fontSize:20,color:C.primary}}>Rifornimento gasolio</h2>
+          <h2 style={{margin:0,fontSize:20,color:C.primary}}>{t("Rifornimento gasolio")}</h2>
         </div>
         <Card style={{padding:12,marginBottom:12}}>
-          <div style={{fontSize:12,fontWeight:600,color:C.muted,marginBottom:4}}>Campagna agraria (1 settembre – 31 agosto)</div>
+          <div style={{fontSize:12,fontWeight:600,color:C.muted,marginBottom:4}}>{t("Campagna agraria (1 settembre – 31 agosto)")}</div>
           <select value={campagna} onChange={e=>setCampagna(e.target.value)} style={inputStyle}>
             {campagne.map(c=>(
-              <option key={c} value={c}>{c}{c===corrente?"  (in corso)":""}</option>
+              <option key={c} value={c}>{c}{c===corrente?t("  (in corso)"):""}</option>
             ))}
           </select>
         </Card>

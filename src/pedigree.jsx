@@ -6,6 +6,7 @@
 // di logica e' stata toccata. Una pulizia vera si puo' fare con calma, un file
 // alla volta, verificando ogni rimozione.
 import { useState, useEffect, useMemo } from "react";
+import { t } from "./i18n";   // v119 — lingue
 import { supabase } from "./supabase";
 import * as XLSX from "xlsx-js-style";
 
@@ -29,7 +30,7 @@ const Card=({children,style={}})=>(
 );
 const Badge=({label,color})=>(
   <span style={{background:color+"22",color,border:`1px solid ${color}44`,
-    borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:700}}>{label}</span>
+    borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:700}}>{t(label)}</span>
 );
 const Btn=({label,onClick,variant="primary",small=false,icon,disabled=false})=>{
   const s={primary:{bg:C.primary,fg:"#FFF"},success:{bg:C.green,fg:"#FFF"},
@@ -42,7 +43,7 @@ const Btn=({label,onClick,variant="primary",small=false,icon,disabled=false})=>{
         borderRadius:10,padding:small?"6px 12px":"10px 18px",
         fontSize:small?13:15,fontWeight:600,cursor:disabled?"default":"pointer",
         opacity:disabled?0.5:1,boxShadow:["primary","success","danger"].includes(variant)?"0 2px 6px rgba(0,0,0,0.15)":"none"}}>
-      {icon}{label}
+      {icon}{t(label)}
     </button>
   );
 };
@@ -51,12 +52,12 @@ const inputStyle={width:"100%",boxSizing:"border-box",border:`1.5px solid ${C.bo
 const Field=({label,value,onChange,type="text",options,required})=>(
   <div style={{marginBottom:12}}>
     <div style={{fontSize:12,fontWeight:600,color:C.muted,marginBottom:4}}>
-      {label}{required&&<span style={{color:C.red}}> *</span>}
+      {t(label)}{required&&<span style={{color:C.red}}> *</span>}
     </div>
     {options
       ?<select value={value??""} onChange={e=>onChange(e.target.value)} style={inputStyle}>
-          <option value="">— seleziona —</option>
-          {options.map(o=><option key={o.value??o} value={o.value??o}>{o.label??o}</option>)}
+          <option value="">{t("— seleziona —")}</option>
+          {options.map(o=><option key={o.value??o} value={o.value??o}>{t(o.label??o)}</option>)}
         </select>
       :<input type={type} value={value??""} onChange={e=>onChange(e.target.value)} style={inputStyle}/>
     }
@@ -65,7 +66,7 @@ const Field=({label,value,onChange,type="text",options,required})=>(
 const Spinner=()=>(
   <div style={{textAlign:"center",padding:60,color:C.muted}}>
     <div style={{fontSize:40,marginBottom:12}}>⏳</div>
-    <div>Caricamento dati...</div>
+    <div>{t("Caricamento dati...")}</div>
   </div>
 );
 
@@ -131,7 +132,7 @@ function MiniCard({a, onClick, generazione=0}) {
   if (!a) return (
     <div style={{background:C.border+"40",borderRadius:10,padding:"8px 12px",
       textAlign:"center",border:`1.5px dashed ${C.border}`}}>
-      <div style={{fontSize:12,color:C.muted}}>sconosciuto</div>
+      <div style={{fontSize:12,color:C.muted}}>{t("sconosciuto")}</div>
     </div>
   );
   const vivo = a.vivo !== false && a.stato === "attivo";
@@ -152,7 +153,7 @@ function MiniCard({a, onClick, generazione=0}) {
       )}
       <div style={{display:"flex",gap:4,marginTop:3,flexWrap:"wrap"}}>
         <Badge label={a.sesso==="M"?"♂":"♀"} color={col}/>
-        {!vivo&&<Badge label="uscito" color={C.morto}/>}
+        {!vivo&&<Badge label={t("uscito")} color={C.morto}/>}
       </div>
     </div>
   );
@@ -167,7 +168,7 @@ function AlberoGenealogicoView({animale, animali, onSeleziona}) {
       <g>
         <rect x={x} y={y} width={w} height={h} rx={8} fill={C.border+"30"}
           stroke={C.border} strokeWidth={1} strokeDasharray="4"/>
-        <text x={x+w/2} y={y+h/2+4} textAnchor="middle" fontSize={10} fill={C.muted}>sconosciuto</text>
+        <text x={x+w/2} y={y+h/2+4} textAnchor="middle" fontSize={10} fill={C.muted}>{t("sconosciuto")}</text>
       </g>
     );
     const vivo = a.vivo !== false && a.stato === "attivo";
@@ -187,7 +188,7 @@ function AlberoGenealogicoView({animale, animali, onSeleziona}) {
           </text>
         )}
         <text x={x+8} y={y+54} fontSize={9} fill={col} fontWeight="600">
-          {a.sesso==="M"?"♂ Maschio":"♀ Femmina"}{!vivo?" · ✝":""}
+          {a.sesso==="M"?t("♂ Maschio"):t("♀ Femmina")}{!vivo?" · ✝":""}
         </text>
       </g>
     );
@@ -250,7 +251,7 @@ function SchedaPedigree({animale, animali, parti, onBack, onSeleziona}) {
     <div style={{padding:"16px 16px 80px"}}>
       <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
         <button onClick={onBack} style={{background:"none",border:"none",cursor:"pointer",fontSize:22}}>←</button>
-        <span style={{fontSize:18,fontWeight:800,color:C.text}}>Pedigree</span>
+        <span style={{fontSize:18,fontWeight:800,color:C.text}}>{t("Pedigree")}</span>
       </div>
 
       <Card style={{borderLeft:`5px solid ${specieColor(animale.specie)}`,
@@ -263,13 +264,13 @@ function SchedaPedigree({animale, animali, parti, onBack, onSeleziona}) {
             {animale.bdn} · {animale.razza_calcolata||animale.razza||"—"}
           </div>
           <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap"}}>
-            <Badge label={animale.sesso==="M"?"♂ Maschio":"♀ Femmina"}
+            <Badge label={animale.sesso==="M"?t("♂ Maschio"):t("♀ Femmina")}
               color={animale.sesso==="M"?C.maschio:C.femmina}/>
-            {animale.nascita&&<Badge label={`nato ${animale.nascita}`} color={C.muted}/>}
-            {animale.razza_calcolata==="METICCIA"&&<Badge label="🧬 Meticcio" color={C.accent}/>}
-            {!vivo&&<Badge label="✝ Uscito" color={C.morto}/>}
+            {animale.nascita&&<Badge label={t("nato {0}",{0:(animale.nascita)})} color={C.muted}/>}
+            {animale.razza_calcolata==="METICCIA"&&<Badge label={t("🧬 Meticcio")} color={C.accent}/>}
+            {!vivo&&<Badge label={t("✝ Uscito")} color={C.morto}/>}
             {consanguinei.length>0&&(
-              <Badge label={`🚫 ${consanguinei.length} consanguinei`} color={C.red}/>
+              <Badge label={t("🚫 {0} consanguinei",{0:(consanguinei.length)})} color={C.red}/>
             )}
           </div>
         </div>
@@ -282,14 +283,14 @@ function SchedaPedigree({animale, animali, parti, onBack, onSeleziona}) {
             color:tab==="pedigree"?"#FFF":C.muted,
             border:`1.5px solid ${tab==="pedigree"?C.primary:C.border}`,
             borderRadius:20,padding:"6px 14px",fontSize:13,fontWeight:700,cursor:"pointer"}}>
-          🌳 Pedigree
+          {t("🌳 Pedigree")}
         </button>
         <button onClick={()=>setTab("consanguineita")}
           style={{background:tab==="consanguineita"?C.red:"transparent",
             color:tab==="consanguineita"?"#FFF":C.muted,
             border:`1.5px solid ${tab==="consanguineita"?C.red:C.border}`,
             borderRadius:20,padding:"6px 14px",fontSize:13,fontWeight:700,cursor:"pointer"}}>
-          🚫 Consanguineità {consanguinei.length>0&&`(${consanguinei.length})`}
+          {t("🚫 Consanguineità")} {consanguinei.length>0&&`(${consanguinei.length})`}
         </button>
       </div>
 
@@ -298,17 +299,17 @@ function SchedaPedigree({animale, animali, parti, onBack, onSeleziona}) {
         <>
           <div style={{background:C.red+"12",border:`1px solid ${C.red}33`,
             borderRadius:12,padding:"10px 14px",marginBottom:14,fontSize:13,color:C.text}}>
-            ⚠️ <strong>Riproduzione impedita</strong> con i seguenti animali per evitare consanguineità diretta.
-            {vivo&&animale.sesso==="F"&&<span> Non accoppiare con i maschi elencati.</span>}
-            {vivo&&animale.sesso==="M"&&<span> Non accoppiare con le femmine elencate.</span>}
+            ⚠️ <strong>{t("Riproduzione impedita")}</strong> {t("con i seguenti animali per evitare consanguineità diretta.")}
+            {vivo&&animale.sesso==="F"&&<span> {t("Non accoppiare con i maschi elencati.")}</span>}
+            {vivo&&animale.sesso==="M"&&<span> {t("Non accoppiare con le femmine elencate.")}</span>}
           </div>
 
           {consanguinei.length===0?(
             <div style={{textAlign:"center",padding:36,color:C.muted}}>
               <div style={{fontSize:44,marginBottom:8}}>✓</div>
-              <div style={{fontWeight:700,fontSize:15}}>Nessun consanguineo registrato</div>
+              <div style={{fontWeight:700,fontSize:15}}>{t("Nessun consanguineo registrato")}</div>
               <div style={{fontSize:12,marginTop:6}}>
-                Questo animale non ha genitori, figli o fratelli tracciati nel database
+                {t("Questo animale non ha genitori, figli o fratelli tracciati nel database")}
               </div>
             </div>
           ):(
@@ -340,7 +341,7 @@ function SchedaPedigree({animale, animali, parti, onBack, onSeleziona}) {
                             </div>
                             <div style={{fontSize:11,color:C.muted}}>
                               {c.bdn}{(c.razza_calcolata||c.razza)?` · 🧬 ${c.razza_calcolata||c.razza}`:""}
-                              {c.nascita&&` · nato ${c.nascita}`}
+                              {c.nascita&&t(" · nato {0}",{0:(c.nascita)})}
                             </div>
                           </div>
                           <div style={{textAlign:"right",flexShrink:0}}>
@@ -363,14 +364,14 @@ function SchedaPedigree({animale, animali, parti, onBack, onSeleziona}) {
 
       {/* Genitori */}
       <div style={{fontSize:12,fontWeight:700,color:C.muted,
-        margin:"12px 0 8px",textTransform:"uppercase",letterSpacing:1}}>Genitori</div>
+        margin:"12px 0 8px",textTransform:"uppercase",letterSpacing:1}}>{t("Genitori")}</div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
         <div>
-          <div style={{fontSize:11,fontWeight:700,color:C.femmina,marginBottom:4}}>♀ MADRE</div>
+          <div style={{fontSize:11,fontWeight:700,color:C.femmina,marginBottom:4}}>{t("♀ MADRE")}</div>
           <MiniCard a={madre} onClick={madre?()=>onSeleziona(madre):null} generazione={1}/>
         </div>
         <div>
-          <div style={{fontSize:11,fontWeight:700,color:C.maschio,marginBottom:4}}>♂ PADRE</div>
+          <div style={{fontSize:11,fontWeight:700,color:C.maschio,marginBottom:4}}>{t("♂ PADRE")}</div>
           <MiniCard a={padre} onClick={padre?()=>onSeleziona(padre):null} generazione={1}/>
         </div>
       </div>
@@ -378,7 +379,7 @@ function SchedaPedigree({animale, animali, parti, onBack, onSeleziona}) {
       {/* Albero */}
       <div style={{fontSize:12,fontWeight:700,color:C.muted,
         margin:"12px 0 8px",textTransform:"uppercase",letterSpacing:1}}>
-        Albero genealogico (3 generazioni)
+        {t("Albero genealogico (3 generazioni)")}
       </div>
       <AlberoGenealogicoView animale={animale} animali={animali} onSeleziona={onSeleziona}/>
 
@@ -386,7 +387,7 @@ function SchedaPedigree({animale, animali, parti, onBack, onSeleziona}) {
       {figli.length>0&&<>
         <div style={{fontSize:12,fontWeight:700,color:C.muted,
           margin:"16px 0 8px",textTransform:"uppercase",letterSpacing:1}}>
-          Discendenti diretti ({figli.length})
+          {t("Discendenti diretti (")}{figli.length})
         </div>
         {figli.map(f=>(
           <div key={f.id} onClick={()=>onSeleziona(f)}
@@ -413,7 +414,7 @@ function SchedaPedigree({animale, animali, parti, onBack, onSeleziona}) {
       {mieiParti.length>0&&<>
         <div style={{fontSize:12,fontWeight:700,color:C.muted,
           margin:"16px 0 8px",textTransform:"uppercase",letterSpacing:1}}>
-          Storico parti ({mieiParti.length})
+          {t("Storico parti (")}{mieiParti.length})
         </div>
         {mieiParti.map(p=>{
           const figliParto = animali.filter(a=>a.nascita===p.data_evento&&a.madre_id===animale.id);
@@ -425,13 +426,13 @@ function SchedaPedigree({animale, animali, parti, onBack, onSeleziona}) {
               <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
                 <span style={{fontWeight:700}}>📅 {p.data_evento}</span>
                 <div style={{display:"flex",gap:6}}>
-                  {p.nati_vivi>0&&<Badge label={`${p.nati_vivi} vivi`} color={C.green}/>}
-                  {p.nati_morti>0&&<Badge label={`${p.nati_morti} morti`} color={C.red}/>}
+                  {p.nati_vivi>0&&<Badge label={t("{0} vivi",{0:(p.nati_vivi)})} color={C.green}/>}
+                  {p.nati_morti>0&&<Badge label={t("{0} morti",{0:(p.nati_morti)})} color={C.red}/>}
                 </div>
               </div>
               {altroGenitore&&(
                 <div style={{fontSize:13,color:C.muted,marginBottom:6}}>
-                  ♂ Padre: <b>{altroGenitore.nome||altroGenitore.bdn}</b>
+                  {t("♂ Padre:")} <b>{altroGenitore.nome||altroGenitore.bdn}</b>
                 </div>
               )}
               {p.note&&<div style={{fontSize:12,color:C.muted,fontStyle:"italic"}}>{p.note}</div>}
@@ -445,7 +446,7 @@ function SchedaPedigree({animale, animali, parti, onBack, onSeleziona}) {
                     <span style={{color:f.sesso==="M"?C.maschio:C.femmina,marginLeft:6}}>
                       {f.sesso==="M"?"♂":"♀"}
                     </span>
-                    {f.peso_nascita&&<span style={{color:C.muted}}> · {f.peso_nascita}kg</span>}
+                    {f.peso_nascita&&<span style={{color:C.muted}}> · {f.peso_nascita}{t("kg")}</span>}
                   </div>
                   <span style={{color:C.muted}}>›</span>
                 </div>
@@ -486,9 +487,9 @@ function ListaAnimali({animali, parti, onSeleziona, onReport}) {
         borderRadius:"0 0 28px 28px",padding:"28px 20px 24px",marginBottom:20}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
           <div style={{flex:1}}>
-            <div style={{fontSize:22,fontWeight:800,color:"#FFF"}}>🧬 Registro Genealogico</div>
+            <div style={{fontSize:22,fontWeight:800,color:"#FFF"}}>{t("🧬 Registro Genealogico")}</div>
             <div style={{fontSize:14,color:"rgba(255,255,255,0.75)",marginTop:4}}>
-              {animali.length} animali · {conPedigree} con pedigree · {totParti} parti
+              {animali.length} {t("animali ·")} {conPedigree} {t("con pedigree ·")} {totParti} {t("parti")}
             </div>
           </div>
           {onReport&&(
@@ -496,14 +497,14 @@ function ListaAnimali({animali, parti, onSeleziona, onReport}) {
               style={{background:"rgba(255,255,255,0.2)",border:"1.5px solid rgba(255,255,255,0.4)",
                 borderRadius:12,padding:"8px 12px",cursor:"pointer",flexShrink:0,
                 color:"#FFF",fontSize:12,fontWeight:700}}>
-              🚫 Consanguineità
+              {t("🚫 Consanguineità")}
             </button>
           )}
         </div>
       </div>
 
       <div style={{padding:"0 16px"}}>
-        <input placeholder="🔍  Cerca per BDN o nome..." value={cerca}
+        <input placeholder={t("🔍  Cerca per BDN o nome...")} value={cerca}
           onChange={e=>setCerca(e.target.value)} style={{...inputStyle,marginBottom:12}}/>
 
         <div style={{display:"flex",gap:8,marginBottom:12,overflowX:"auto",paddingBottom:4}}>
@@ -514,7 +515,7 @@ function ListaAnimali({animali, parti, onSeleziona, onReport}) {
                 border:`1.5px solid ${filtroSpecie===s?C.primary:C.border}`,
                 borderRadius:20,padding:"5px 14px",fontSize:12,fontWeight:600,
                 cursor:"pointer",whiteSpace:"nowrap"}}>
-              {s==="tutti"?"Tutte":specieIcon(s)+" "+s.charAt(0).toUpperCase()+s.slice(1)}
+              {s==="tutti"?t("Tutte"):specieIcon(s)+" "+s.charAt(0).toUpperCase()+s.slice(1)}
             </button>
           ))}
           {["tutti","M","F"].map(s=>(
@@ -523,7 +524,7 @@ function ListaAnimali({animali, parti, onSeleziona, onReport}) {
                 color:filtroSesso===s?"#FFF":C.muted,
                 border:`1.5px solid ${filtroSesso===s?(s==="M"?C.maschio:s==="F"?C.femmina:C.blue):C.border}`,
                 borderRadius:20,padding:"5px 12px",fontSize:12,fontWeight:600,cursor:"pointer"}}>
-              {s==="tutti"?"♂♀ Tutti":s==="M"?"♂ Maschi":"♀ Femmine"}
+              {s==="tutti"?t("♂♀ Tutti"):s==="M"?t("♂ Maschi"):t("♀ Femmine")}
             </button>
           ))}
         </div>
@@ -547,7 +548,7 @@ function ListaAnimali({animali, parti, onSeleziona, onReport}) {
         {lista.length===0&&(
           <div style={{textAlign:"center",padding:40,color:C.muted}}>
             <div style={{fontSize:40,marginBottom:8}}>🧬</div>
-            <div>Nessun animale trovato</div>
+            <div>{t("Nessun animale trovato")}</div>
           </div>
         )}
 
@@ -571,11 +572,11 @@ function ListaAnimali({animali, parti, onSeleziona, onReport}) {
                     {a.bdn} · {a.razza_calcolata||a.razza||"—"} · {a.nascita||"—"}
                   </div>
                   <div style={{display:"flex",gap:6,marginTop:6,flexWrap:"wrap"}}>
-                    <Badge label={a.sesso==="M"?"♂ M":"♀ F"} color={col}/>
-                    {a.razza_calcolata==="METICCIA"&&<Badge label="🧬 Meticcio" color={C.accent}/>}
+                    <Badge label={a.sesso==="M"?t("♂ M"):t("♀ F")} color={col}/>
+                    {a.razza_calcolata==="METICCIA"&&<Badge label={t("🧬 Meticcio")} color={C.accent}/>}
                     {!vivo&&<Badge label="✝" color={C.morto}/>}
-                    {(madre||padre)&&<Badge label="pedigree ✓" color={C.green}/>}
-                    {nFigli>0&&<Badge label={`${nFigli} figli`} color={C.primary}/>}
+                    {(madre||padre)&&<Badge label={t("pedigree ✓")} color={C.green}/>}
+                    {nFigli>0&&<Badge label={t("{0} figli",{0:(nFigli)})} color={C.primary}/>}
                   </div>
                   {(madre||padre)&&(
                     <div style={{fontSize:11,color:C.muted,marginTop:4}}>
@@ -760,9 +761,9 @@ function ReportConsanguineita({animali, onBack, onSeleziona}) {
             border:"none",borderRadius:10,padding:"6px 10px",color:"#FFF",
             cursor:"pointer",fontSize:18}}>←</button>
           <div>
-            <div style={{fontSize:17,fontWeight:800,color:"#FFF"}}>🚫 Report Consanguineità</div>
+            <div style={{fontSize:17,fontWeight:800,color:"#FFF"}}>{t("🚫 Report Consanguineità")}</div>
             <div style={{fontSize:12,color:"rgba(255,255,255,0.8)"}}>
-              {rischi.length} accoppiamenti a rischio · {capi.length} capi con genealogia consanguinea
+              {rischi.length} {t("accoppiamenti a rischio ·")} {capi.length} {t("capi con genealogia consanguinea")}
             </div>
           </div>
         </div>
@@ -776,19 +777,19 @@ function ReportConsanguineita({animali, onBack, onSeleziona}) {
               color:tab==="rischi"?"#FFF":C.muted,
               border:`1.5px solid ${tab==="rischi"?C.red:C.border}`,
               borderRadius:20,padding:"6px 14px",fontSize:13,fontWeight:700,cursor:"pointer"}}>
-            ⚠️ Accoppiamenti a rischio ({rischi.length})
+            {t("⚠️ Accoppiamenti a rischio (")}{rischi.length})
           </button>
           <button onClick={()=>setTab("capi")}
             style={{background:tab==="capi"?C.accent:"transparent",
               color:tab==="capi"?"#FFF":C.muted,
               border:`1.5px solid ${tab==="capi"?C.accent:C.border}`,
               borderRadius:20,padding:"6px 14px",fontSize:13,fontWeight:700,cursor:"pointer"}}>
-            🧬 Capi consanguinei ({capi.length})
+            {t("🧬 Capi consanguinei (")}{capi.length})
           </button>
           <button onClick={()=>esportaConsanguineita(rischi,capi)}
             style={{background:C.green,color:"#FFF",border:"none",borderRadius:20,
               padding:"6px 14px",fontSize:13,fontWeight:700,cursor:"pointer",marginLeft:"auto"}}>
-            📊 Excel
+            {t("📊 Excel")}
           </button>
         </div>
 
@@ -797,15 +798,14 @@ function ReportConsanguineita({animali, onBack, onSeleziona}) {
           <>
             <div style={{background:C.red+"12",border:`1px solid ${C.red}33`,
               borderRadius:12,padding:"10px 14px",marginBottom:14,fontSize:12,color:C.text}}>
-              ⚠️ <strong>Prevenzione:</strong> potenziali accoppiamenti tra maschi e femmine attivi
-              della stessa specie che sono consanguinei. Da evitare durante la stagione di monta.
+              ⚠️ <strong>{t("Prevenzione:")}</strong> {t("potenziali accoppiamenti tra maschi e femmine attivi della stessa specie che sono consanguinei. Da evitare durante la stagione di monta.")}
             </div>
             {rischi.length===0?(
               <div style={{textAlign:"center",padding:36,color:C.muted}}>
                 <div style={{fontSize:44,marginBottom:8}}>✓</div>
-                <div style={{fontWeight:700,fontSize:15}}>Nessun accoppiamento a rischio</div>
+                <div style={{fontWeight:700,fontSize:15}}>{t("Nessun accoppiamento a rischio")}</div>
                 <div style={{fontSize:12,marginTop:6}}>
-                  Nessuna coppia maschio-femmina attiva risulta consanguinea diretta
+                  {t("Nessuna coppia maschio-femmina attiva risulta consanguinea diretta")}
                 </div>
               </div>
             ):(
@@ -813,7 +813,7 @@ function ReportConsanguineita({animali, onBack, onSeleziona}) {
                 <div key={sp} style={{marginBottom:18}}>
                   <div style={{fontSize:11,fontWeight:700,color:specieColor(sp),
                     marginBottom:6,textTransform:"uppercase",letterSpacing:1}}>
-                    {specieIcon(sp)} {sp} · {arr.length} coppie a rischio
+                    {specieIcon(sp)} {sp} · {arr.length} {t("coppie a rischio")}
                   </div>
                   {/* v110 — dentro ogni specie le coppie sono raggruppate per priorità:
                       prima la stessa razza pura, in fondo i meticci fra loro. */}
@@ -826,9 +826,9 @@ function ReportConsanguineita({animali, onBack, onSeleziona}) {
                       borderLeft:`4px solid ${pr.colore}`,borderRadius:10,
                       padding:"7px 10px",marginBottom:6}}>
                       <div style={{fontSize:12,fontWeight:800,color:pr.colore}}>
-                        {pr.liv}. {pr.label} · {gruppo.length}
+                        {pr.liv}. {t(pr.label)} · {gruppo.length}
                       </div>
-                      <div style={{fontSize:10,color:C.muted,marginTop:1}}>{pr.desc}</div>
+                      <div style={{fontSize:10,color:C.muted,marginTop:1}}>{t(pr.desc)}</div>
                     </div>
                   {gruppo.map((r,i)=>(
                     <div key={i} style={{background:C.card,borderRadius:12,padding:"10px 12px",
@@ -837,7 +837,7 @@ function ReportConsanguineita({animali, onBack, onSeleziona}) {
                       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
                         <div style={{flex:1,minWidth:0}}>
                           <div style={{fontSize:11,fontWeight:700,color:C.red,marginBottom:4}}>
-                            🚫 {r.tipo}
+                            🚫 {t(r.tipo)}
                           </div>
                           <div onClick={()=>onSeleziona(r.m)}
                             style={{fontSize:12,color:C.maschio,fontWeight:600,cursor:"pointer",
@@ -849,7 +849,7 @@ function ReportConsanguineita({animali, onBack, onSeleziona}) {
                             <span style={{background:C.maschio+"18",color:C.maschio,
                               border:`1px solid ${C.maschio}44`,borderRadius:20,
                               padding:"1px 8px",fontSize:10,fontWeight:700,whiteSpace:"nowrap"}}>
-                              🧬 {r.m.razza_calcolata||r.m.razza||"razza non indicata"}
+                              🧬 {r.m.razza_calcolata||r.m.razza||t("razza non indicata")}
                             </span>
                           </div>
                           <div onClick={()=>onSeleziona(r.f)}
@@ -860,7 +860,7 @@ function ReportConsanguineita({animali, onBack, onSeleziona}) {
                             <span style={{background:C.femmina+"18",color:C.femmina,
                               border:`1px solid ${C.femmina}44`,borderRadius:20,
                               padding:"1px 8px",fontSize:10,fontWeight:700,whiteSpace:"nowrap"}}>
-                              🧬 {r.f.razza_calcolata||r.f.razza||"razza non indicata"}
+                              🧬 {r.f.razza_calcolata||r.f.razza||t("razza non indicata")}
                             </span>
                           </div>
                         </div>
@@ -881,15 +881,14 @@ function ReportConsanguineita({animali, onBack, onSeleziona}) {
           <>
             <div style={{background:C.accent+"12",border:`1px solid ${C.accent}33`,
               borderRadius:12,padding:"10px 14px",marginBottom:14,fontSize:12,color:C.text}}>
-              🧬 <strong>Monitoraggio:</strong> capi attivi in azienda i cui genitori risultano
-              consanguinei tra loro. Da valutare per la qualità genetica del patrimonio.
+              🧬 <strong>{t("Monitoraggio:")}</strong> {t("capi attivi in azienda i cui genitori risultano consanguinei tra loro. Da valutare per la qualità genetica del patrimonio.")}
             </div>
             {capi.length===0?(
               <div style={{textAlign:"center",padding:36,color:C.muted}}>
                 <div style={{fontSize:44,marginBottom:8}}>✓</div>
-                <div style={{fontWeight:700,fontSize:15}}>Nessun capo con consanguineità</div>
+                <div style={{fontWeight:700,fontSize:15}}>{t("Nessun capo con consanguineità")}</div>
                 <div style={{fontSize:12,marginTop:6}}>
-                  Non risultano capi nati da accoppiamenti consanguinei diretti
+                  {t("Non risultano capi nati da accoppiamenti consanguinei diretti")}
                 </div>
               </div>
             ):(
@@ -899,20 +898,20 @@ function ReportConsanguineita({animali, onBack, onSeleziona}) {
                     marginBottom:6,border:`1px solid ${C.border}`,
                     borderLeft:`4px solid ${C.accent}`,cursor:"pointer"}}>
                   <div style={{fontSize:11,fontWeight:700,color:C.accent,marginBottom:4}}>
-                    🧬 {x.tipo}
+                    🧬 {t(x.tipo)}
                   </div>
                   <div style={{fontWeight:700,fontSize:14}}>
                     {specieIcon(x.a.specie)} {x.a.nome||x.a.bdn}
                   </div>
                   <div style={{fontSize:11,color:C.muted,marginBottom:6}}>
-                    {x.a.bdn} · {x.a.razza_calcolata||x.a.razza||"—"} · {x.a.sesso==="M"?"♂":"♀"} · nato {x.a.nascita||"—"}
+                    {x.a.bdn} · {x.a.razza_calcolata||x.a.razza||"—"} · {x.a.sesso==="M"?"♂":"♀"} {t("· nato")} {x.a.nascita||"—"}
                   </div>
                   <div style={{fontSize:11,color:C.muted,paddingTop:6,
                     borderTop:`1px solid ${C.border}`}}>
-                    ♂ Padre: <b>{x.padre.nome||x.padre.bdn}</b> ({x.padre.bdn})
+                    {t("♂ Padre:")} <b>{x.padre.nome||x.padre.bdn}</b> ({x.padre.bdn})
                     {" · 🧬 "}{x.padre.razza_calcolata||x.padre.razza||"—"}
                     <br/>
-                    ♀ Madre: <b>{x.madre.nome||x.madre.bdn}</b> ({x.madre.bdn})
+                    {t("♀ Madre:")} <b>{x.madre.nome||x.madre.bdn}</b> ({x.madre.bdn})
                     {" · 🧬 "}{x.madre.razza_calcolata||x.madre.razza||"—"}
                   </div>
                 </div>
