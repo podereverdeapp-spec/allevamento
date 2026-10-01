@@ -25,6 +25,9 @@ const specieColor = s => ({ Bovini:C.bovini, Suini:C.suini, Ovini:C.ovini }[grup
 const fData = d => d ? d.split("-").reverse().join("/") : "—";
 const USCITA_PV = "Uscita da Podere Verde";
 const BUCKET = "modelli4";
+// v123 — da questa data in poi le uscite vanno abbinate ai modelli 4 (prima no)
+const INIZIO_ABBINAMENTI = "2026-09-24";
+const numAbbinati = d => (d.modelli4_abbinamenti || []).length;
 
 const inputStyle = { width:"100%", boxSizing:"border-box", border:`1.5px solid ${C.border}`,
   borderRadius:10, padding:"10px 12px", fontSize:15, background:"#FAFAF8", color:C.text, outline:"none" };
@@ -137,11 +140,29 @@ function Caricamento({ onFine }) {
 }
 
 // ─── SCHEDA DOCUMENTO ─────────────────────────────────────────────────────────
-function Documento({ d, doppio, admin, onElimina }) {
+function Documento({ d, doppio, admin, onElimina, animaliPerMatricola, onAggiorna }) {
   const [aperto, setAperto] = useState(false);
   const capi = d.modelli4_capi || [];
   const col = specieColor(d.specie);
   const altro = d.tipo_movimento !== USCITA_PV;
+  const abbinati = numAbbinati(d);
+  const daRegistrare = !altro && d.data_uscita >= INIZIO_ABBINAMENTI && abbinati < (d.numero_capi || 0);
+
+  // v123 — registra l'uscita nell'app di un capo con matricola scritto nel modello 4
+  const registraUscita = async (a) => {
+    const macello = d.destinazione_tipo === "Macello";
+    if (!window.confirm(t("Registrare l'uscita di {0} il {1} ({2}) con il modello 4 {3}?",
+      { 0:a.bdn, 1:fData(d.data_uscita), 2:macello ? t("Macellato") : t("Venduto vivo"), 3:d.numero_documento }))) return;
+    const { error } = await supabase.from("animali").update({
+      stato: macello ? "macellato" : "venduto", vivo:false,
+      motivo_uscita: macello ? "Macellato" : "Venduto vivo", data_uscita: d.data_uscita,
+    }).eq("id", a.id);
+    if (error) { window.alert(t("Errore") + ": " + error.message); return; }
+    await supabase.from("modelli4_abbinamenti").delete().eq("animale_id", a.id);
+    const { error: e2 } = await supabase.from("modelli4_abbinamenti").insert({ documento_id:d.id, animale_id:a.id, numero_capi:1 });
+    if (e2) window.alert(t("Errore") + ": " + e2.message);
+    onAggiorna();
+  };
 
   const apriPdf = async () => {
     const w = window.open("", "_blank");
@@ -169,6 +190,11 @@ function Documento({ d, doppio, admin, onElimina }) {
           </div>
         </div>
         {altro && <div style={{ fontSize:11, fontWeight:700, color:C.blue, marginTop:4 }}>↔️ {d.tipo_movimento}</div>}
+        {!altro && d.data_uscita >= INIZIO_ABBINAMENTI && (
+          <div style={{ fontSize:11, fontWeight:700, marginTop:4, color: daRegistrare ? C.red : C.green }}>
+            {daRegistrare ? "⏳ " : "✅ "}{t("Uscite registrate nell'app: {0} di {1}", { 0:abbinati, 1:d.numero_capi ?? "?" })}
+          </div>
+        )}
         {doppio && <div style={{ fontSize:11, fontWeight:700, color:"#9A6B00", marginTop:4 }}>
           ⚠️ {t("Stesso numero emesso due volte con codice di controllo diverso: verificare in Banca Dati Nazionale quale è valido")}
         </div>}
@@ -205,6 +231,19 @@ function Documento({ d, doppio, admin, onElimina }) {
                   .filter(Boolean).join(" · ")}
               </div>
               {c.provenienza && <div style={{ color:C.muted }}>{t("Provenienza")}: {c.provenienza}{c.data_ingresso ? ` · ${t("ingresso")} ${fData(c.data_ingresso)}` : ""}</div>}
+              {!altro && /^[A-Z]{2}\d/.test(c.matricola || "") && (() => {
+                const a = animaliPerMatricola[c.matricola];
+                if (!a) return <div style={{ color:C.red, fontWeight:700, marginTop:2 }}>⚠️ {t("Matricola non registrata nell'app")}</div>;
+                const qui = (d.modelli4_abbinamenti || []).some(x => x.animale_id === a.id);
+                if (qui) return <div style={{ color:C.green, fontWeight:700, marginTop:2 }}>✅ {t("Uscita registrata nell'app")} ({a.nome || a.bdn})</div>;
+                if (a.stato !== "attivo") return <div style={{ color:C.muted, marginTop:2 }}>{t("Nell'app: {0}, uscita {1}", { 0:a.stato, 1:fData(a.data_uscita) })}</div>;
+                return (
+                  <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:4 }}>
+                    <span style={{ color:C.red, fontWeight:700 }}>⏳ {t("Ancora attivo nell'app")}</span>
+                    <Btn small icon="📤" label={t("Registra uscita")} onClick={() => registraUscita(a)}/>
+                  </div>
+                );
+              })()}
             </div>
           ))}
 
@@ -231,11 +270,21 @@ export default function Modelli4() {
   const [cerca, setCerca] = useState("");
   const [mostraCarica, setMostraCarica] = useState(false);
   const [quanti, setQuanti] = useState(30);
+  const [animaliPerMatricola, setAnimaliPerMatricola] = useState({});
 
   const carica = async () => {
     const { data, error } = await supabase.from("modelli4_documenti")
-      .select("*, modelli4_capi(*)").order("data_uscita", { ascending:false }).order("numero_documento", { ascending:false });
-    if (!error) setDocs(data || []);
+      .select("*, modelli4_capi(*), modelli4_abbinamenti(id,animale_id,suino_lotto_id)").order("data_uscita", { ascending:false }).order("numero_documento", { ascending:false });
+    if (!error) {
+      setDocs(data || []);
+      const matricole = [...new Set((data || []).flatMap(d => (d.modelli4_capi || []).map(c => c.matricola)).filter(m => /^[A-Z]{2}\d/.test(m || "")))];
+      const mappa = {};
+      for (let i = 0; i < matricole.length; i += 150) {
+        const { data: an } = await supabase.from("animali").select("id,bdn,nome,stato,data_uscita").in("bdn", matricole.slice(i, i + 150));
+        (an || []).forEach(a => { mappa[String(a.bdn).replace(/\s/g, "").toUpperCase()] = a; });
+      }
+      setAnimaliPerMatricola(mappa);
+    }
     setLoading(false);
   };
   useEffect(() => {
@@ -260,6 +309,7 @@ export default function Modelli4() {
       if (anno !== "Tutti" && d.data_uscita?.slice(0, 4) !== anno) return false;
       if (movimento === "uscite" && d.tipo_movimento !== USCITA_PV) return false;
       if (movimento === "altri" && d.tipo_movimento === USCITA_PV) return false;
+      if (movimento === "da_registrare" && !(d.tipo_movimento === USCITA_PV && d.data_uscita >= INIZIO_ABBINAMENTI && numAbbinati(d) < (d.numero_capi || 0))) return false;
       if (!q) return true;
       const testo = [d.numero_documento, d.destinatario, d.destinatario_codice, d.trasportatore, d.email_oggetto, d.file_nome,
         ...(d.modelli4_capi || []).flatMap(c => [c.matricola, c.riferimento_insieme, c.categoria, c.razza])].join(" ").toLowerCase();
@@ -316,6 +366,7 @@ export default function Modelli4() {
         </select>
         <select value={movimento} onChange={e => setMovimento(e.target.value)} style={{ ...inputStyle, padding:"8px 10px", fontSize:14 }}>
           <option value="uscite">{t("Uscite da Podere Verde")}</option>
+          <option value="da_registrare">{t("Uscite da registrare nell'app")}</option>
           <option value="altri">{t("Altri movimenti")}</option>
           <option value="tutti">{t("Tutti i movimenti")}</option>
         </select>
@@ -331,6 +382,16 @@ export default function Modelli4() {
         </div>
       </Card>
 
+      {(() => {
+        const n = docs.filter(d => d.tipo_movimento === USCITA_PV && d.data_uscita >= INIZIO_ABBINAMENTI && numAbbinati(d) < (d.numero_capi || 0)).length;
+        return n > 0 && !loading && movimento !== "da_registrare" ? (
+          <div onClick={() => setMovimento("da_registrare")} style={{ cursor:"pointer", background:"#FDE9E7", border:`1.5px solid ${C.red}`,
+            borderRadius:12, padding:"10px 12px", marginBottom:10, fontSize:13, fontWeight:700, color:C.red }}>
+            ⏳ {t("{n} modelli 4 con uscite ancora da registrare nell'app — tocca per vederli", { n })}
+          </div>
+        ) : null;
+      })()}
+
       {senzaPdf > 0 && !loading && (
         <div style={{ fontSize:12, color:C.muted, marginBottom:10 }}>
           📎 {t("{n} documenti in archivio senza PDF: caricare i PDF con «Carica PDF» per poterli aprire.", { n:senzaPdf })}
@@ -344,6 +405,7 @@ export default function Modelli4() {
           : <>
               {filtrati.slice(0, quanti).map(d => (
                 <Documento key={d.id} d={d} admin={admin} onElimina={elimina}
+                  animaliPerMatricola={animaliPerMatricola} onAggiorna={carica}
                   doppio={doppi.has(d.numero_documento + "|" + d.specie)}/>
               ))}
               {filtrati.length > quanti && (

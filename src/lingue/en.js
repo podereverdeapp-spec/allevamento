@@ -1761,6 +1761,22 @@ const D = {
 "Non indicato": "Not stated",
 "Macello": "Slaughterhouse",
 // v122
-"Modello 4": "Movement document"
+"Modello 4": "Movement document",
+// v123
+"Abbiniamo questa uscita a uno di questi modelli 4?": "Shall we link this departure to one of these movement documents?",
+"Ancora attivo nell'app": "Still active in the app",
+"Matricola non registrata nell'app": "Ear tag not registered in the app",
+"Modello 4 pronto per questa uscita": "Movement document ready for this departure",
+"Nell'app: {0}, uscita {1}": "In the app: {0}, departure {1}",
+"Nessun modello 4": "No movement document",
+"Nessun modello 4 arrivato per questa specie intorno al {0}": "No movement document received for this species around {0}",
+"Registrare l'uscita di {0} il {1} ({2}) con il modello 4 {3}?": "Record the departure of {0} on {1} ({2}) with movement document {3}?",
+"Uscita registrata nell'app": "Departure recorded in the app",
+"Uscite da registrare nell'app": "Departures to record in the app",
+"Uscite registrate nell'app: {0} di {1}": "Departures recorded in the app: {0} of {1}",
+"abbinati {0} di {1}": "{0} of {1} linked",
+"questa matricola è nel modello 4": "this ear tag is in the document",
+"{n} modelli 4 con uscite ancora da registrare nell'app — tocca per vederli": "{n} movement documents with departures still to record in the app — tap to see them",
+"⚠️ Uscita salvata, ma abbinamento al modello 4 non riuscito:\n\n{0}": "⚠️ Departure saved, but linking to the movement document failed:\n\n{0}"
 };
 export default D;

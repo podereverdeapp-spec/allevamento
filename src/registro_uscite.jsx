@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { t } from "./i18n";   // v119 — lingue
 import { supabase } from "./supabase";
+import { ProposteModello4, salvaAbbinamento, MOTIVI_CON_MODELLO4 } from "./modelli4_abbina";   // v123
 
 const C = {
   bg:"#F5F0E8", card:"#FFFFFF", primary:"#5C3D1E", accent:"#A0522D",
@@ -115,6 +116,7 @@ function FormUscita({animale, onSave, onCancel}) {
     note: animale.note||"",
   });
   const [saving,setSaving]=useState(false);
+  const [m4,setM4]=useState(undefined);   // v123 — modello 4 abbinato
 
   const resa = form.peso_carcassa&&form.peso_vivo_uscita
     ? Math.round(parseFloat(form.peso_carcassa)/parseFloat(form.peso_vivo_uscita)*1000)/10
@@ -138,6 +140,10 @@ function FormUscita({animale, onSave, onCancel}) {
       vivo: false,
     };
     const{error}=await supabase.from("animali").update(payload).eq("id",animale.id);
+    if(!error&&m4!==undefined){
+      const{error:e2}=await salvaAbbinamento({documentoId:MOTIVI_CON_MODELLO4.includes(form.motivo_uscita)?m4:null,animaleId:animale.id});
+      if(e2) alert(t("⚠️ Uscita salvata, ma abbinamento al modello 4 non riuscito:\n\n{0}",{0:e2.message}));
+    }
     setSaving(false);
     if(error){
       alert(t("⚠️ Errore nel salvataggio dell'uscita:\n\n{0}",{0:(error.message)}));
@@ -171,6 +177,9 @@ function FormUscita({animale, onSave, onCancel}) {
       <Field label={t("Nuovo stato")} value={form.stato} onChange={v=>setForm(f=>({...f,stato:v}))}
         options={["macellato","deceduto","venduto","trasferito"]}/>
       <Field label={t("Data uscita")} value={form.data_uscita} onChange={v=>setForm(f=>({...f,data_uscita:v}))} type="date"/>
+      {MOTIVI_CON_MODELLO4.includes(form.motivo_uscita)&&
+        <ProposteModello4 specie={animale.specie} dataUscita={form.data_uscita} bdn={animale.bdn}
+          animaleId={animale.id} valore={m4} onChange={setM4}/>}
 
       {gg>0&&(
         <div style={{background:C.blue+"12",border:`1px solid ${C.blue}33`,borderRadius:10,
@@ -510,6 +519,7 @@ export default function RegistroUscite() {
                             peso_vivo_uscita:null, peso_carcassa:null, resa_percent:null,
                           }).eq("id",a.id);
                           if(error){ alert(t("⚠️ Errore nell'annullamento:\n\n{0}",{0:(error.message)})); return; }
+                          await salvaAbbinamento({documentoId:null,animaleId:a.id});   // v123
                           carica();
                         }}
                         style={{flex:1,background:C.green+"18",border:"none",borderRadius:8,

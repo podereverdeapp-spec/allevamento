@@ -1761,6 +1761,22 @@ const D = {
 "Non indicato": "ਨਹੀਂ ਦੱਸਿਆ",
 "Macello": "ਬੁੱਚੜਖ਼ਾਨਾ",
 // v122
-"Modello 4": "ਮੂਵਮੈਂਟ ਦਸਤਾਵੇਜ਼"
+"Modello 4": "ਮੂਵਮੈਂਟ ਦਸਤਾਵੇਜ਼",
+// v123
+"Abbiniamo questa uscita a uno di questi modelli 4?": "ਕੀ ਇਸ ਨਿਕਾਸੀ ਨੂੰ ਇਹਨਾਂ ਵਿੱਚੋਂ ਕਿਸੇ ਮੂਵਮੈਂਟ ਦਸਤਾਵੇਜ਼ ਨਾਲ ਜੋੜੀਏ?",
+"Ancora attivo nell'app": "ਐਪ ਵਿੱਚ ਅਜੇ ਸਰਗਰਮ",
+"Matricola non registrata nell'app": "ਕੰਨ ਦਾ ਟੈਗ ਐਪ ਵਿੱਚ ਦਰਜ ਨਹੀਂ",
+"Modello 4 pronto per questa uscita": "ਇਸ ਨਿਕਾਸੀ ਲਈ ਮੂਵਮੈਂਟ ਦਸਤਾਵੇਜ਼ ਤਿਆਰ ਹੈ",
+"Nell'app: {0}, uscita {1}": "ਐਪ ਵਿੱਚ: {0}, ਨਿਕਾਸੀ {1}",
+"Nessun modello 4": "ਕੋਈ ਮੂਵਮੈਂਟ ਦਸਤਾਵੇਜ਼ ਨਹੀਂ",
+"Nessun modello 4 arrivato per questa specie intorno al {0}": "{0} ਦੇ ਆਸ-ਪਾਸ ਇਸ ਪ੍ਰਜਾਤੀ ਲਈ ਕੋਈ ਮੂਵਮੈਂਟ ਦਸਤਾਵੇਜ਼ ਨਹੀਂ ਆਇਆ",
+"Registrare l'uscita di {0} il {1} ({2}) con il modello 4 {3}?": "{0} ਦੀ ਨਿਕਾਸੀ {1} ਨੂੰ ({2}) ਮੂਵਮੈਂਟ ਦਸਤਾਵੇਜ਼ {3} ਨਾਲ ਦਰਜ ਕਰਨੀ ਹੈ?",
+"Uscita registrata nell'app": "ਨਿਕਾਸੀ ਐਪ ਵਿੱਚ ਦਰਜ ਹੈ",
+"Uscite da registrare nell'app": "ਐਪ ਵਿੱਚ ਦਰਜ ਕਰਨ ਵਾਲੀਆਂ ਨਿਕਾਸੀਆਂ",
+"Uscite registrate nell'app: {0} di {1}": "ਐਪ ਵਿੱਚ ਦਰਜ ਨਿਕਾਸੀਆਂ: {1} ਵਿੱਚੋਂ {0}",
+"abbinati {0} di {1}": "{1} ਵਿੱਚੋਂ {0} ਜੁੜੇ",
+"questa matricola è nel modello 4": "ਇਹ ਕੰਨ ਦਾ ਟੈਗ ਦਸਤਾਵੇਜ਼ ਵਿੱਚ ਹੈ",
+"{n} modelli 4 con uscite ancora da registrare nell'app — tocca per vederli": "{n} ਮੂਵਮੈਂਟ ਦਸਤਾਵੇਜ਼ਾਂ ਦੀਆਂ ਨਿਕਾਸੀਆਂ ਅਜੇ ਐਪ ਵਿੱਚ ਦਰਜ ਕਰਨੀਆਂ ਹਨ — ਦੇਖਣ ਲਈ ਛੂਹੋ",
+"⚠️ Uscita salvata, ma abbinamento al modello 4 non riuscito:\n\n{0}": "⚠️ ਨਿਕਾਸੀ ਸੇਵ ਹੋ ਗਈ, ਪਰ ਮੂਵਮੈਂਟ ਦਸਤਾਵੇਜ਼ ਨਾਲ ਜੋੜਨਾ ਨਹੀਂ ਹੋਇਆ:\n\n{0}"
 };
 export default D;

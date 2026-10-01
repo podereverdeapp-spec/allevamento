@@ -8,6 +8,7 @@
 import { useState, useEffect, useRef } from "react";
 import { t } from "./i18n";   // v119 — lingue
 import { supabase } from "./supabase";
+import { ProposteModello4, salvaAbbinamento, MOTIVI_CON_MODELLO4 } from "./modelli4_abbina";   // v123
 
 const C = {
   bg:"#F5F0E8", card:"#FFFFFF", primary:"#5C3D1E", accent:"#A0522D",
@@ -623,14 +624,19 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
         ? (form.data_qualifica_riproduttore || today())
         : null,
     };
-    let err;
+    let err, idSalvato=form.id||null;
     if(form.id){
       const r=await aggiorna(form.id,payload);
       err=r.error;
       // Aggiorna dettaglio con i dati freschi salvati
       if(!err&&r.data) setDettaglio(r.data);
     }
-    else{const r=await aggiungi(payload);err=r.error;}
+    else{const r=await aggiungi(payload);err=r.error;idSalvato=r.data?.id||null;}
+    // v123 — abbinamento dell'uscita al modello 4
+    if(!err&&idSalvato&&(form._m4!==undefined||form.stato==="attivo")){
+      const doc = form.stato!=="attivo"&&MOTIVI_CON_MODELLO4.includes(form.motivo_uscita) ? (form._m4??null) : null;
+      if(form._m4!==undefined||form.id) await salvaAbbinamento({documentoId:doc,animaleId:idSalvato});
+    }
     setSaving(false);
     if(err){setErrore(t("Errore nel salvataggio: ")+err.message);return;}
     setForm(null);
@@ -1031,6 +1037,9 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
           <Field label={t("Motivo uscita")} value={form.motivo_uscita}
             onChange={v=>setForm(f=>({...f,motivo_uscita:v}))}
             options={["Macellato","Morto (cause naturali)","Morto (malattia)","Venduto vivo","Furto","Scappato","Trasferito","Altro"]}/>
+          {MOTIVI_CON_MODELLO4.includes(form.motivo_uscita)&&
+            <ProposteModello4 specie={form.specie} dataUscita={form.data_uscita} bdn={form.bdn}
+              animaleId={form.id||null} valore={form._m4} onChange={v=>setForm(f=>({...f,_m4:v}))}/>}
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
             <Field label={t("Peso vivo uscita (kg)")} value={form.peso_vivo_uscita}
               onChange={v=>setForm(f=>({...f,peso_vivo_uscita:v}))} type="number"/>

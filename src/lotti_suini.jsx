@@ -9,6 +9,7 @@ import { useState, useEffect, useMemo } from "react";
 import { t } from "./i18n";   // v119 — lingue
 import * as XLSX from "xlsx";
 import { supabase } from "./supabase";
+import { ProposteModello4, salvaAbbinamento, MOTIVI_CON_MODELLO4 } from "./modelli4_abbina";   // v123
 
 const C = {
   bg:"#F5F0E8", card:"#FFFFFF", primary:"#5C3D1E", accent:"#A0522D",
@@ -209,6 +210,7 @@ function FormUscitaUnita({unita, lotto, onSave, onCancel}) {
     peso_carcassa: unita.peso_carcassa ?? "",
   });
   const [saving,setSaving] = useState(false);
+  const [m4,setM4] = useState(undefined);   // v123 — modello 4 abbinato
   const codice = unita.codice_completo||codiceUnita(lotto.codice_lotto||lotto.codice, unita.nr);
 
   // Accrescimento giornaliero
@@ -242,6 +244,10 @@ function FormUscitaUnita({unita, lotto, onSave, onCancel}) {
       peso_carcassa: form.peso_carcassa?parseFloat(form.peso_carcassa):null,
       resa_percent: resa,
     }).eq("id", unita.id);
+    if(!error&&m4!==undefined){
+      const {error:e2} = await salvaAbbinamento({documentoId:MOTIVI_CON_MODELLO4.includes(form.motivo)?m4:null, suinoLottoId:unita.id});
+      if(e2) alert(t("⚠️ Uscita salvata, ma abbinamento al modello 4 non riuscito:\n\n{0}",{0:e2.message}));
+    }
     setSaving(false);
     if(error){
       alert(t("⚠️ Errore nel salvataggio dell'uscita:\n\n{0}",{0:(error.message)}));
@@ -267,6 +273,9 @@ function FormUscitaUnita({unita, lotto, onSave, onCancel}) {
           onChange={v=>setForm(f=>({...f,causa_morte:v}))} placeholder={t("Es. Polmonite, PRRS, setticemia...")}/>}
       <Field label={t("Data uscita")} value={form.data_uscita}
         onChange={v=>setForm(f=>({...f,data_uscita:v}))} type="date"/>
+      {MOTIVI_CON_MODELLO4.includes(form.motivo)&&
+        <ProposteModello4 specie="suino" dataUscita={form.data_uscita}
+          suinoLottoId={unita.id} valore={m4} onChange={setM4}/>}
       {giorni>0&&<div style={{fontSize:12,color:C.blue,marginBottom:8}}>
         📅 {giorni} {t("giorni di permanenza")}
       </div>}
@@ -412,6 +421,7 @@ function CardUnita({u, lotto, animali, onUpdate}) {
                   peso_vivo_uscita:null, peso_carcassa:null, resa_percent:null,
                 }).eq("id", u.id);
                 if(error){ alert(t("⚠️ Errore nell'annullamento:\n\n{0}",{0:(error.message)})); return; }
+                await salvaAbbinamento({documentoId:null, suinoLottoId:u.id});   // v123
                 onUpdate();
               }}
               style={{background:C.green+"20",border:"none",borderRadius:8,
