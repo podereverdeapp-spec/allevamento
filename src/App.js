@@ -23,6 +23,7 @@ import ExportManager       from "./ExportManager";
 import UBAReport            from "./UBAReport";
 import Destinatari          from "./destinatari";
 import { exportCompleto }  from "./exportExcel";
+import { t, impostaLingua, linguaSalvata, SceltaLingua, Bandiera } from "./i18n";   // v119 — lingue
 import "./App.css";
 
 const C = { primary:"#5C3D1E", border:"#D4C4A8", muted:"#8B7355", bg:"#F5F0E8", red:"#C0392B" };
@@ -30,7 +31,7 @@ const C = { primary:"#5C3D1E", border:"#D4C4A8", muted:"#8B7355", bg:"#F5F0E8", 
 // v104 — versione visibile nel menu utente. Serve a capire in un secondo se il
 // deploy Vercel e' arrivato davvero o se il browser sta servendo una copia
 // vecchia dalla cache: basta aprire il menu e leggere il numero.
-const VERSIONE = "v115";
+const VERSIONE = "v119";
 
 const TABS = [
   { id:"gestione",    label:"Gestione",   icon:"🐄" },
@@ -62,6 +63,14 @@ export default function App() {
   const [tab,        setTab]        = useState("gestione");
   const [menuAperto, setMenuAperto] = useState(false);
   const [loading,    setLoading]    = useState(true);
+  // v119 — lingua: si carica il dizionario prima di mostrare qualsiasi testo
+  const [lingua,     setLingua]     = useState(null);
+  useEffect(() => { impostaLingua(linguaSalvata()).then(setLingua); }, []);
+  const scegliLingua = async (l, salvaNelProfilo=true) => {
+    const nuova = await impostaLingua(l);
+    setLingua(nuova);
+    if (salvaNelProfilo && sessione) await supabase.from('profili').update({ lingua: nuova }).eq('id', sessione.user.id);
+  };
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -80,6 +89,8 @@ export default function App() {
   const caricaProfilo = async (userId) => {
     const { data } = await supabase.from('profili').select('*').eq('id', userId).single();
     setProfilo(data);
+    // v119 — se l'utente ha scelto una lingua nel profilo, vale quella
+    if (data?.lingua) setLingua(await impostaLingua(data.lingua));
   };
 
   const logout = async () => { await supabase.auth.signOut(); setMenuAperto(false); };
@@ -99,25 +110,26 @@ export default function App() {
     setMenuAperto(false);
   };
 
-  if (loading) return (
+  if (loading || !lingua) return (
     <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",background:C.bg,fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
       <div style={{textAlign:"center"}}>
         <img src="/logo192.png" alt="logo" style={{height:80,marginBottom:12}}/>
-        <div style={{color:C.muted,marginTop:8}}>Caricamento...</div>
+        <div style={{color:C.muted,marginTop:8}}>{t("Caricamento...")}</div>
       </div>
     </div>
   );
 
-  if (!sessione) return <Auth />;
+  if (!sessione) return <Auth lingua={lingua} onLingua={l=>scegliLingua(l,false)}/>;
 
   return (
     <div style={{fontFamily:"'Segoe UI',system-ui,sans-serif",background:C.bg,minHeight:"100vh",maxWidth:480,margin:"0 auto"}}>
       <div style={{background:C.primary,padding:"10px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,zIndex:200}}>
         <div style={{display:"flex",alignItems:"center",gap:8}}>
           <img src="/logo192.png" alt="logo" style={{height:28,borderRadius:6}}/>
-          <span style={{fontSize:15,fontWeight:700,color:"#FFF"}}>Allevamento</span>
+          <span style={{fontSize:15,fontWeight:700,color:"#FFF"}}>{t("Allevamento")}</span>
         </div>
         <button onClick={()=>setMenuAperto(!menuAperto)} style={{background:"rgba(255,255,255,0.15)",border:"none",borderRadius:10,padding:"6px 12px",color:"#FFF",fontSize:13,fontWeight:600,cursor:"pointer"}}>
+          <span style={{display:"inline-flex",verticalAlign:"middle",marginRight:6}}><Bandiera id={lingua} h={12}/></span>
           👤 {profilo?.nome || sessione.user.email.split('@')[0]}
           {profilo?.ruolo==="admin" && <span style={{background:"gold",color:C.primary,borderRadius:6,padding:"1px 6px",fontSize:10,fontWeight:800,marginLeft:6}}>ADMIN</span>}
         </button>
@@ -128,23 +140,28 @@ export default function App() {
           <div style={{padding:"12px 16px",borderBottom:`1px solid ${C.border}`,fontSize:13,color:C.muted}}>
             <div style={{fontWeight:700,color:C.primary}}>{profilo?.nome}</div>
             <div>{sessione.user.email}</div>
-            <div style={{fontSize:11,marginTop:2}}>Ruolo: <b>{profilo?.ruolo}</b></div>
-            <div style={{fontSize:11,marginTop:2}}>Versione: <b>{VERSIONE}</b></div>
+            <div style={{fontSize:11,marginTop:2}}>{t("Ruolo")}: <b>{profilo?.ruolo}</b></div>
+            <div style={{fontSize:11,marginTop:2}}>{t("Versione")}: <b>{VERSIONE}</b></div>
+          </div>
+          {/* v119 — scelta della lingua, salvata nel profilo dell'utente */}
+          <div style={{padding:"10px 12px",borderBottom:`1px solid ${C.border}`}}>
+            <div style={{fontSize:11,color:C.muted,marginBottom:6,textAlign:"center"}}>🌐 {t("Lingua")} · Language · भाषा</div>
+            <SceltaLingua lingua={lingua} compatta onScegli={l=>{scegliLingua(l);setMenuAperto(false);}}/>
           </div>
           <button onClick={esportaTutto} style={{width:"100%",padding:"12px 16px",background:"none",border:"none",textAlign:"left",fontSize:14,cursor:"pointer",borderBottom:`1px solid ${C.border}`}}>
-            📊 Esporta tutto in Excel
+            📊 {t("Esporta tutto in Excel")}
           </button>
           <button onClick={()=>{setTab("guida");setMenuAperto(false);}} style={{width:"100%",padding:"12px 16px",background:"none",border:"none",textAlign:"left",fontSize:14,cursor:"pointer",borderBottom:`1px solid ${C.border}`}}>
-            📖 Guida per allevatori
+            📖 {t("Guida per allevatori")}
           </button>
           <button onClick={logout} style={{width:"100%",padding:"12px 16px",background:"none",border:"none",textAlign:"left",fontSize:14,color:C.red,cursor:"pointer",fontWeight:600}}>
-            🚪 Esci
+            🚪 {t("Esci")}
           </button>
         </div>
       )}
       {menuAperto && <div onClick={()=>setMenuAperto(false)} style={{position:"fixed",inset:0,zIndex:250}}/>}
 
-      <div style={{paddingBottom:70}}>
+      <div key={lingua} style={{paddingBottom:70}}>
         {tab==="gestione"    && <AllevamentoApp    supabase={supabase}/>}
         {tab==="pedigree"    && <Pedigree          supabase={supabase}/>}
         {tab==="lotti"       && <LottiSuini        supabase={supabase}/>}
@@ -162,12 +179,12 @@ export default function App() {
       </div>
 
       <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,background:"#FFF",borderTop:`1.5px solid ${C.border}`,display:"flex",overflowX:"auto",padding:"6px 4px 8px",zIndex:100,boxShadow:"0 -4px 20px rgba(0,0,0,0.1)"}}>
-        {TABS.map(t=>(
-          <button key={t.id} onClick={()=>setTab(t.id)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:1,background:"none",border:"none",cursor:"pointer",padding:"3px 8px",minWidth:46,flexShrink:0}}>
-            <div style={{background:tab===t.id?C.primary+"18":"transparent",borderRadius:8,padding:"4px 5px"}}>
-              <span style={{fontSize:15}}>{t.icon}</span>
+        {TABS.map(tb=>(
+          <button key={tb.id} onClick={()=>setTab(tb.id)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:1,background:"none",border:"none",cursor:"pointer",padding:"3px 8px",minWidth:46,flexShrink:0}}>
+            <div style={{background:tab===tb.id?C.primary+"18":"transparent",borderRadius:8,padding:"4px 5px"}}>
+              <span style={{fontSize:15}}>{tb.icon}</span>
             </div>
-            <span style={{fontSize:9,fontWeight:tab===t.id?700:500,color:tab===t.id?C.primary:C.muted,whiteSpace:"nowrap"}}>{t.label}</span>
+            <span style={{fontSize:9,fontWeight:tab===tb.id?700:500,color:tab===tb.id?C.primary:C.muted,whiteSpace:"nowrap"}}>{t(tb.label)}</span>
           </button>
         ))}
       </div>

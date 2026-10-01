@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { t } from "./i18n";   // v119 — guida in tre lingue
 
 const C = {
   bg:"#F5F0E8", card:"#FFFFFF", primary:"#5C3D1E", accent:"#A0522D",
@@ -33,7 +34,7 @@ const SEZIONI = [
         ["🐄 Gestione","Anagrafica animali, sanitario, alimentazione, magazzino, report, riproduttori"],
         ["🧬 Pedigree","Albero genealogico, consanguineità, prevenzione accoppiamenti a rischio"],
         ["🐷 Lotti","Lotti suini (nati e acquistati) con tatuaggio automatico"],
-        ["🌾 Coltivazione","I 16 campi aziendali: colture, semine, lavorazioni, raccolta e rese"],
+        ["🌾 Coltivazione","I campi aziendali: colture, semine, lavorazioni, raccolta, programma, costi, report e storico"],
         ["🏆 Selezione","Ranking genetico: IIP, produttività, età primo parto, resa media figli"],
         ["📤 Uscite","Macellazioni, vendite, morti — con resa % e IPG"],
         ["🐾 UBA","Calcolo UBA medio per fascia di età con ripartizione presenza effettiva"],
@@ -242,57 +243,88 @@ const SEZIONI = [
     ]
   },
   {
-    id:"coltivazione", icon:"🌾", titolo:"Coltivazione — campi, colture, raccolta",
+    id:"coltivazione", icon:"🌾", titolo:"Coltivazione — campi, colture, costi e report",
     contenuto:[
-      {tipo:"p",testo:"La sezione 🌾 Coltivazione raccoglie i 16 campi aziendali (84,43 ettari) con la loro foto aerea, l'identificazione catastale, e tutto quello che ci si fa sopra campagna per campagna."},
+      {tipo:"p",testo:"La sezione 🌾 Coltivazione raccoglie i campi aziendali (16 in uso oggi, 84,43 ettari, più quelli coltivati negli anni passati) con foto aerea e dati catastali, e tutto quello che ci si fa sopra campagna per campagna: colture, semine, lavorazioni, concimi, raccolte, costi e risultati."},
       {tipo:"h3",testo:"La campagna agraria — si sceglie in cima"},
-      {tipo:"p",testo:"Il selettore in alto comanda l'intera sezione: cambiando campagna cambia tutto quello che vedi sotto. La campagna va dal 1° settembre al 31 agosto, così il grano seminato a novembre e trebbiato a giugno resta tutto dentro la stessa (2025/2026, per esempio). Le campagne passate restano consultabili."},
-      {tipo:"h3",testo:"Lista campi"},
-      {tipo:"bullets",voci:[
-        "Ogni campo mostra foto, ettari, tipo (seminativo / pascolo / arboreo / altro) e le colture della campagna scelta",
-        "In cima il totale: numero campi, ettari totali, ettari seminativi",
-        "Tocca un campo per aprirne la scheda",
+      {tipo:"p",testo:"Il selettore in alto comanda l'intera sezione: cambiando campagna cambia tutto quello che vedi sotto. La campagna va dal 1° settembre al 31 agosto: la semina d'autunno e la trebbiatura dell'estate dopo stanno nella stessa campagna, e anche le semine di primavera-estate (pascoli, erbai in irriguo) appartengono alla campagna iniziata il settembre precedente. Si arriva indietro fino al 2019/2020; la 2022/2023 non è caricata."},
+      {tipo:"h3",testo:"Le cinque linguette"},
+      {tipo:"tabella",righe:[
+        ["🗺️ Campi","Lista dei campi e scheda di ogni campo: si registra qui"],
+        ["📊 Riepilogo","Ettari, giornate di lavoro, quantità e rese della campagna, per coltura"],
+        ["🗓️ Programma","Cosa seminare e concimare in ogni campo, e cosa comprare"],
+        ["📈 Report","Costi, valore di mercato e rese della campagna scelta"],
+        ["📚 Storico","Tutte le stagioni insieme: per coltura, per campo e classifiche"],
       ]},
-      {tipo:"h3",testo:"Scheda campo — mettere una coltura"},
+      {tipo:"h3",testo:"🗺️ Campi — la scheda del campo"},
       {tipo:"steps",passi:[
-        "Apri il campo → in fondo tocca '+ Aggiungi coltura'",
-        "Scegli fra Avena, Erba Medica, Erbaio Misto, Grano, Orzo, Pisello Proteico, Produzione Seme, Sulla — oppure 'Altro' e scrivi il nome",
-        "Per medica e sulla, che sono poliennali, indica in quale campagna sono state seminate",
+        "Tocca un campo: si apre la scheda con le colture della campagna",
+        "Per metterne una nuova tocca '+ Aggiungi coltura' e scegli fra Avena, Erba Medica, Erbaio Misto, Grano, Orzo, Pisello Proteico, Produzione Seme, Sulla — oppure 'Altro' e scrivi il nome",
+        "Per medica e sulla, che sono poliennali, indica in quale campagna sono state seminate: nelle campagne dopo la semina non viene più chiesta",
         "Salva — compare il blocco della coltura con tre linguette: Semina, Lavorazioni, Raccolta",
       ]},
-      {tipo:"nota",testo:"Sullo stesso campo puoi mettere PIÙ colture nella stessa campagna: è il caso delle successioni, per esempio orzo mietuto a giugno e poi un erbaio estivo. Basta premere di nuovo '+ Aggiungi coltura'."},
+      {tipo:"nota",testo:"Sullo stesso campo puoi mettere PIÙ colture nella stessa campagna: le successioni (orzo mietuto a giugno e poi un erbaio estivo, o il sorgo dopo il pascolo) e le porzioni di campo con colture diverse. Basta premere di nuovo '+ Aggiungi coltura'."},
       {tipo:"h3",testo:"🌱 Semina"},
       {tipo:"bullets",voci:[
-        "Inserisci la quantità di seme in quintali — l'app calcola da sola i kg, i quintali/ha e i kg/ha sugli ettari di quel campo",
-        "Per GRANO e ORZO puoi usare le 'dosi' al posto dei quintali: in quel caso calcola dosi/ha, e le dosi non vengono convertite in kg",
-        "Per ERBAIO MISTO e PRODUZIONE SEME registra una riga per ciascuna essenza — trifoglio, avena, loietto — premendo '+ Aggiungi seme'. Puoi metterle tutte e tre, o anche una sola se hai usato solo quella",
-        "Per le poliennali già seminate in una campagna precedente la semina non viene chiesta: si registrano solo lavorazioni e raccolta",
+        "Nel menu 'Seme' compaiono per primi, con 📋, i semi previsti dal Programma per quella coltura; sotto, tutti i semi già usati in azienda. Se manca, scegli '✏️ Altro seme' e scrivi il nome",
+        "Inserisci la quantità in quintali: l'app calcola da sola i chilogrammi, i quintali per ettaro e i chilogrammi per ettaro sugli ettari della coltura",
+        "Per GRANO e ORZO puoi usare le 'dosi' (confezioni) al posto dei quintali: in quel caso calcola le dosi per ettaro",
+        "Per ERBAIO MISTO e PRODUZIONE SEME registra una riga per ciascuna essenza (trifoglio, avena, loietto) con '+ Aggiungi seme'",
       ]},
       {tipo:"h3",testo:"🚜 Lavorazioni"},
       {tipo:"p",testo:"L'elenco delle 15 lavorazioni è sempre lì: aratura, estirpatura, erpicatura, morganatura, rippatura, spietratura, concimazione, semina, disserbo, sfalcio, ranghinatura, pressatura balle, raccolta balle, trebbiatura, irrigazione."},
       {tipo:"steps",passi:[
-        "Tocca la riga della lavorazione che hai eseguito — si apre",
+        "Tocca la riga della lavorazione eseguita — si apre",
         "Tocca 'Registra esecuzione'",
-        "Metti la data (calendario) e le giornate lavoro impiegate — anche mezze giornate, si scrive 0,5",
+        "Metti la data e le giornate di lavoro impiegate — anche mezze giornate, si scrive 0,5",
         "Salva: la spunta della riga diventa verde",
       ]},
-      {tipo:"nota",testo:"IMPORTANTE — la stessa lavorazione si può registrare più volte. L'erba medica si sfalcia 3-4 volte l'anno e l'irrigazione si ripete per tutta l'estate: ogni volta apri la riga e aggiungi una nuova esecuzione, con la sua data e le sue giornate. Accanto al nome comparirà ×3, e la colonna giornate mostra il totale sommato."},
-      {tipo:"h3",testo:"Concimazione e disserbo"},
+      {tipo:"nota",testo:"La stessa lavorazione si registra più volte: la medica si sfalcia 3-4 volte l'anno e l'irrigazione si ripete per tutta l'estate. Ogni volta aggiungi una nuova esecuzione con la sua data e le sue giornate: accanto al nome compare ×3 e le giornate si sommano."},
       {tipo:"bullets",voci:[
-        "Spuntando CONCIMAZIONE il form chiede quali concimi — binario, ternario, stallatico, letame o altro — e i quintali di ciascuno. Non sono alternativi: puoi sceglierne più di uno nella stessa passata",
-        "Spuntando DISSERBO il form chiede il nome del prodotto (testo libero), la quantità e se è in litri o kg",
-        "In entrambi i casi la quantità ad ettaro viene calcolata da sola sugli ettari del campo",
+        "CONCIMAZIONE: il form chiede quali concimi — binario, ternario, stallatico, letame o altro — e i quintali di ciascuno; se ne possono mettere più di uno nella stessa passata",
+        "DISSERBO: il form chiede il prodotto, la quantità e se è in litri o in chilogrammi",
+        "La quantità per ettaro si calcola da sola sugli ettari della coltura",
       ]},
       {tipo:"h3",testo:"🌾 Raccolta"},
       {tipo:"steps",passi:[
         "Linguetta Raccolta → '+ Registra raccolta'",
         "Scegli il PRODOTTO raccolto (non la coltura): avena, erba medica, erbaio misto, grano, orzo, paglia, pisello proteico, sulla, seme misto, seme di medica, seme di sulla, o Altro",
-        "L'unità si imposta da sola — quintali per i cereali, balloni per i foraggi — ma puoi cambiarla",
-        "Inserisci la quantità e la data: la resa ad ettaro si calcola da sola",
+        "L'unità si imposta da sola — quintali per i cereali, balloni per i foraggi — ma puoi cambiarla in quintali, balloni, rotoballe o chilogrammi",
+        "Inserisci la quantità e la data: la resa per ettaro si calcola da sola",
       ]},
-      {tipo:"nota",testo:"La PAGLIA, il SEME DI MEDICA e il SEME DI SULLA sono sottoprodotti: escono dagli stessi ettari della coltura principale. Il programma li segna come tali e nel riepilogo mostra la loro quantità e la loro resa, senza però contare due volte ettari e giornate di lavoro. Se li trattasse da colture a sé, la superficie aziendale risulterebbe più grande di quella che possediamo."},
+      {tipo:"nota",testo:"PAGLIA, SEME DI MEDICA e SEME DI SULLA sono sottoprodotti: escono dagli stessi ettari della coltura principale e nel riepilogo non ne raddoppiano ettari e giornate. Le colture PASCOLATE non hanno raccolta: il loro costo va tutto al pascolo."},
+      {tipo:"h3",testo:"✏️ Correggere un dato"},
+      {tipo:"p",testo:"Le esecuzioni delle lavorazioni e le raccolte si correggono o si cancellano con la matita e il cestino accanto alla riga: ognuno può farlo sulle righe inserite da lui, entro 48 ore dall'inserimento. Dopo, o per le righe di altri, serve l'amministratore. Una riga corretta mostra '✏️ Corretto il…' e il valore di prima resta nello storico delle rettifiche."},
       {tipo:"h3",testo:"📊 Riepilogo"},
-      {tipo:"p",testo:"La seconda linguetta in alto raccoglie tutti i campi della campagna scelta, raggruppati per coltura. Per ognuna: ettari dedicati, giornate lavorative, e per ciascun prodotto la quantità raccolta, la resa ad ettaro e la resa a giornata lavorativa. Si compila da solo man mano che si inseriscono i dati nei campi — non c'è niente da compilare a mano."},
+      {tipo:"p",testo:"Tutti i campi della campagna raggruppati per coltura: ettari dedicati, giornate di lavoro e, per ciascun prodotto, quantità raccolta, resa per ettaro e resa per giornata di lavoro. Si compila da solo man mano che si inseriscono i dati."},
+      {tipo:"h3",testo:"🗓️ Programma"},
+      {tipo:"bullets",voci:[
+        "🗺️ Per campo: per ogni coltura i semi e i concimi previsti, con dose per ettaro e quantità totale (dose × ettari); le confezioni sono arrotondate per eccesso. Sotto, '▸ Istruzioni per semina e concimazione' apre le note del piano approvato",
+        "🛒 Da acquistare: gli stessi prodotti sommati su tutta l'azienda, cioè la lista della spesa della campagna",
+        "Il programma lo prepara l'amministratore dal piano approvato dal dott. Bizzarri; chi semina trova i semi previsti già proposti nel menu della Semina",
+      ]},
+      {tipo:"h3",testo:"📈 Report — la campagna scelta"},
+      {tipo:"p",testo:"Il costo di ogni coltura è semi + concimi + fitosanitari + lavorazioni + altro, dalle schede campo approvate. Le lavorazioni fatte in azienda sono valutate a tariffa, senza fattura. Il costo della coltura si divide fra tutti i suoi prodotti (paglia e seme compresi) in proporzione al valore di mercato."},
+      {tipo:"bullets",voci:[
+        "In cima: superficie, costo totale, costo per ettaro e saldo contro il mercato",
+        "DOVE GUADAGNI e DOVE PERDI: i prodotti che sono costati meno o più del loro prezzo di mercato, con il semaforo (verde sotto il mercato, giallo poco sopra, rosso oltre la soglia)",
+        "RESE CONTRO IL RIFERIMENTO: la resa per ettaro confrontata con la media ISTAT della provincia di Roma, solo per orzo, avena e favino; per fieni, paglia, sementi e pascoli un riferimento affidabile non c'è",
+        "PASCOLI: le colture pascolate senza raccolta, con il loro costo per ettaro",
+        "COSTI PER COLTURA: tocca una coltura per vedere i suoi campi",
+        "⚙️ Prezzi e rese: prezzi di mercato in euro al quintale, peso del ballone e della rotoballa (340 chilogrammi), soglia del semaforo e rese di riferimento. Li modifica solo l'amministratore; il report si ricalcola subito",
+        "📥 Esporta Excel e 📅 Confronto tra stagioni (tutte le stagioni affiancate: superficie, costo per ettaro, saldo e produzione)",
+      ]},
+      {tipo:"h3",testo:"📚 Storico — tutte le stagioni"},
+      {tipo:"tabella",righe:[
+        ["🌱 Per coltura","Stagione per stagione: ettari, resa, costo e costo di ogni unità di prodotto contro il mercato"],
+        ["🗺️ Per campo","Per un campo: coltura, produzione, costi, concimi con la dose per ettaro e risultato contro il mercato"],
+        ["🏅 Ranking stagione","In ogni stagione i campi dal migliore al peggiore per costo del prodotto rapportato al prezzo di mercato"],
+        ["🏆 Ranking resa","I campi su tutte le stagioni, confrontati con gli altri della stessa coltura: 100 = media dell'azienda"],
+        ["🥇 Ranking per coltura","Per una coltura, i campi che l'hanno avuta sommando tutte le stagioni, al quintale del prodotto principale"],
+      ]},
+      {tipo:"nota",testo:"Report e Storico non si compilano: si ricalcolano ogni volta dai dati del database. Se si corregge una scheda, un prezzo o una resa, cambiano subito. Esclusi i pascoli, che non hanno un prodotto misurato."},
+      {tipo:"h3",testo:"🏭 Collegamento con la Contabilità Industriale"},
+      {tipo:"p",testo:"La Contabilità Industriale legge, in sola lettura, gli stessi dati delle coltivazioni attraverso le viste del database, e trova i report Excel delle coltivazioni (rese delle stagioni, schede campo, piano della campagna) nell'archivio dei report, sempre all'ultima versione. Dall'app Coltivazione non si scrive mai nei dati della Contabilità Industriale."},
     ]
   },
   {
@@ -458,8 +490,10 @@ const SEZIONI = [
     ]
   },
   {
-    id:"novita_2026", icon:"✨", titolo:"Novità v65 → v107 (settembre 2026)",
+    id:"novita_2026", icon:"✨", titolo:"Novità v65 → v119 (settembre 2026)",
     contenuto:[
+      {tipo:"h3",testo:"🌾 Coltivazione: costi, report, storico e programma (v115 → v119)"},
+      {tipo:"p",testo:"Caricate le schede campo approvate dal 2019/2020 al 2025/2026 con i costi. Nuove linguette 📈 Report (costi, mercato, rese di riferimento ISTAT, semaforo, esportazione Excel, confronto tra stagioni), 📚 Storico (per coltura, per campo e tre classifiche) e 🗓️ Programma (semina e concimazione per campo, lista degli acquisti). Nella Semina il seme si sceglie da un elenco, con i semi del programma in cima. Balloni e rotoballe a 340 chilogrammi. Tutto descritto nella sezione Coltivazione di questa guida."},
       {tipo:"h3",testo:"🌾 Sezione Coltivazione — completamente nuova"},
       {tipo:"p",testo:"I 16 campi aziendali con foto aeree, catasto, colture per campagna, semine, le 15 lavorazioni ripetibili, raccolta per prodotto e riepilogo rese. Ha una sua sezione dedicata in questa guida."},
       {tipo:"h3",testo:"⚖️ Storico Pesate"},
@@ -544,25 +578,25 @@ export default function Guida() {
   const renderContenuto = (items) => items.map((item, i) => {
     if (item.tipo==="h3") return (
       <div key={i} style={{fontWeight:700,fontSize:14,color:C.primary,margin:"14px 0 6px"}}>
-        {item.testo}
+        {t(item.testo)}
       </div>
     );
     if (item.tipo==="p") return (
       <p key={i} style={{fontSize:14,color:C.text,margin:"0 0 10px",lineHeight:1.6}}>
-        {item.testo}
+        {t(item.testo)}
       </p>
     );
     if (item.tipo==="steps") return (
       <ol key={i} style={{paddingLeft:20,margin:"0 0 12px"}}>
         {item.passi.map((p,j)=>(
-          <li key={j} style={{fontSize:14,color:C.text,marginBottom:6,lineHeight:1.5}}>{p}</li>
+          <li key={j} style={{fontSize:14,color:C.text,marginBottom:6,lineHeight:1.5}}>{t(p)}</li>
         ))}
       </ol>
     );
     if (item.tipo==="bullets") return (
       <ul key={i} style={{paddingLeft:20,margin:"0 0 12px"}}>
         {item.voci.map((v,j)=>(
-          <li key={j} style={{fontSize:14,color:C.text,marginBottom:6,lineHeight:1.5}}>{v}</li>
+          <li key={j} style={{fontSize:14,color:C.text,marginBottom:6,lineHeight:1.5}}>{t(v)}</li>
         ))}
       </ul>
     );
@@ -570,7 +604,7 @@ export default function Guida() {
       <div key={i} style={{background:C.primary+"12",border:`1px solid ${C.primary}33`,
         borderRadius:10,padding:"10px 14px",fontSize:13,color:C.text,
         margin:"8px 0 12px",lineHeight:1.5}}>
-        {item.testo}
+        {t(item.testo)}
       </div>
     );
     if (item.tipo==="tabella") return (
@@ -578,8 +612,8 @@ export default function Guida() {
         {item.righe.map((r,j)=>(
           <div key={j} style={{display:"flex",gap:12,padding:"8px 0",
             borderBottom:`1px solid ${C.border}`,fontSize:13}}>
-            <div style={{fontWeight:700,color:C.primary,minWidth:110,flexShrink:0}}>{r[0]}</div>
-            <div style={{color:C.text,flex:1}}>{r[1]}</div>
+            <div style={{fontWeight:700,color:C.primary,minWidth:110,flexShrink:0}}>{t(r[0])}</div>
+            <div style={{color:C.text,flex:1}}>{t(r[1])}</div>
           </div>
         ))}
       </div>
@@ -595,7 +629,7 @@ export default function Guida() {
         <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
           <button onClick={()=>setAperta(null)}
             style={{background:"none",border:"none",cursor:"pointer",fontSize:22}}>←</button>
-          <span style={{fontSize:18,fontWeight:800}}>{s.icon} {s.titolo}</span>
+          <span style={{fontSize:18,fontWeight:800}}>{s.icon} {t(s.titolo)}</span>
         </div>
         <Card>{renderContenuto(s.contenuto)}</Card>
       </div>
@@ -607,17 +641,16 @@ export default function Guida() {
       minHeight:"100vh",maxWidth:480,margin:"0 auto",paddingBottom:80}}>
       <div style={{background:`linear-gradient(135deg,${C.primary},${C.accent})`,
         borderRadius:"0 0 28px 28px",padding:"28px 20px 24px",marginBottom:20}}>
-        <div style={{fontSize:22,fontWeight:800,color:"#FFF"}}>📖 Guida per Allevatori</div>
+        <div style={{fontSize:22,fontWeight:800,color:"#FFF"}}>📖 {t("Guida per Allevatori")}</div>
         <div style={{fontSize:14,color:"rgba(255,255,255,0.75)",marginTop:4}}>
-          App Allevamento — Podere Verde · v28
+          {t("App Allevamento")} — Podere Verde · v119
         </div>
       </div>
       <div style={{padding:"0 16px"}}>
         <div style={{background:C.green+"15",border:`1px solid ${C.green}33`,
           borderRadius:14,padding:"14px 16px",marginBottom:16,fontSize:13,
           color:C.text,lineHeight:1.6}}>
-          Tutti i dati vengono <strong>salvati automaticamente</strong> nel database condiviso.
-          Ogni operatore vede gli stessi dati in tempo reale da qualsiasi dispositivo.
+          {t("Tutti i dati vengono salvati automaticamente nel database condiviso. Ogni operatore vede gli stessi dati in tempo reale da qualsiasi dispositivo.")}
         </div>
         {SEZIONI.map(s=>(
           <button key={s.id} onClick={()=>setAperta(s.id)}
@@ -627,13 +660,13 @@ export default function Guida() {
               boxShadow:"0 2px 6px rgba(0,0,0,0.06)"}}>
             <span style={{fontSize:28}}>{s.icon}</span>
             <div style={{flex:1}}>
-              <div style={{fontWeight:700,fontSize:15,color:C.text}}>{s.titolo}</div>
+              <div style={{fontWeight:700,fontSize:15,color:C.text}}>{t(s.titolo)}</div>
             </div>
             <span style={{color:C.muted,fontSize:18}}>›</span>
           </button>
         ))}
         <div style={{textAlign:"center",padding:"20px 0",fontSize:12,color:C.muted}}>
-          App Allevamento v28 · Podere Verde · podereverdeapp.it
+          {t("App Allevamento")} v119 · Podere Verde · podereverdeapp.it
         </div>
       </div>
     </div>
