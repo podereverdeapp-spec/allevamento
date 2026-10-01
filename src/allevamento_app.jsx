@@ -1276,6 +1276,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
                     {a.data_uscita&&<Row label={t("Data uscita")} val={a.data_uscita}/>}
                     {gg>0&&<Row label={t("Permanenza")} val={`${gg} giorni${gg>=365?" ("+( gg/365).toFixed(1)+" anni)":""}`}/>}
                     {a.motivo_uscita&&<Row label={t("Motivo uscita")} val={a.motivo_uscita}/>}
+                    {a.specie==="bovino"&&a.bdn&&<Modello4Uscita bdn={a.bdn}/>}
                     {a.peso_vivo_uscita&&<Row label={t("Peso vivo uscita")} val={a.peso_vivo_uscita+" kg"}/>}
                     {a.peso_carcassa&&<Row label={t("Peso carcassa")} val={a.peso_carcassa+" kg"}/>}
                     {a.resa_percent&&(
@@ -2165,6 +2166,47 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
 }
 
 // Helper riga info
+// v122 — numero del modello 4 con cui il capo e' uscito (archivio Modelli 4).
+// Se lo stesso capo compare in piu' modelli 4 (documento annullato e riemesso),
+// vale quello con la data di uscita piu' recente.
+function Modello4Uscita({bdn}){
+  const [doc,setDoc]=useState(undefined);
+  useEffect(()=>{
+    let vivo=true;
+    const matricola=String(bdn).replace(/\s/g,"").toUpperCase();
+    supabase.from("modelli4_capi")
+      .select("modelli4_documenti(numero_documento,data_uscita,file_percorso,tipo_movimento)")
+      .eq("matricola",matricola)
+      .then(({data})=>{
+        if(!vivo) return;
+        const docs=(data||[]).map(r=>r.modelli4_documenti).filter(d=>d&&!String(d.tipo_movimento||"").startsWith("Ingresso"))
+          .sort((x,y)=>(y.data_uscita||"").localeCompare(x.data_uscita||""));
+        setDoc(docs[0]||null);
+      });
+    return()=>{vivo=false;};
+  },[bdn]);
+  if(!doc) return null;
+  const apri=async()=>{
+    const w=window.open("","_blank");
+    const {data,error}=await supabase.storage.from("modelli4").createSignedUrl(doc.file_percorso,300);
+    if(error||!data?.signedUrl){ if(w) w.close(); window.alert(t("PDF non disponibile")); return; }
+    if(w) w.location.href=data.signedUrl; else window.location.href=data.signedUrl;
+  };
+  return(
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,padding:"6px 0",
+      borderBottom:`1px solid ${C.border}`,fontSize:14}}>
+      <span style={{color:C.muted,fontSize:13}}>{t("Modello 4")}</span>
+      <span style={{display:"flex",alignItems:"center",gap:8,fontWeight:600,textAlign:"right"}}>
+        <span style={{wordBreak:"break-all"}}>{doc.numero_documento}</span>
+        {doc.file_percorso&&(
+          <button onClick={apri} style={{background:C.primary,color:"#FFF",border:"none",borderRadius:8,
+            padding:"4px 8px",fontSize:12,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap"}}>📄 {t("Apri PDF")}</button>
+        )}
+      </span>
+    </div>
+  );
+}
+
 function Row({label,val}){
   return(
     <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",

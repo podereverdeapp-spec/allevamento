@@ -1759,6 +1759,8 @@ const D = {
 "Maschio": "Male",
 "Femmina": "Female",
 "Non indicato": "Not stated",
-"Macello": "Slaughterhouse"
+"Macello": "Slaughterhouse",
+// v122
+"Modello 4": "Movement document"
 };
 export default D;

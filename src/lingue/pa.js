@@ -1759,6 +1759,8 @@ const D = {
 "Maschio": "ਨਰ",
 "Femmina": "ਮਾਦਾ",
 "Non indicato": "ਨਹੀਂ ਦੱਸਿਆ",
-"Macello": "ਬੁੱਚੜਖ਼ਾਨਾ"
+"Macello": "ਬੁੱਚੜਖ਼ਾਨਾ",
+// v122
+"Modello 4": "ਮੂਵਮੈਂਟ ਦਸਤਾਵੇਜ਼"
 };
 export default D;
