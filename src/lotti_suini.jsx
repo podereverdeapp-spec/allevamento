@@ -10,6 +10,7 @@ import { t } from "./i18n";   // v119 — lingue
 import * as XLSX from "xlsx";
 import { supabase } from "./supabase";
 import { ProposteModello4, salvaAbbinamento, MOTIVI_CON_MODELLO4 } from "./modelli4_abbina";   // v123
+import { AvvisoPesoVivo, confermaPesoVivo } from "./avviso_peso";   // v124
 
 const C = {
   bg:"#F5F0E8", card:"#FFFFFF", primary:"#5C3D1E", accent:"#A0522D",
@@ -233,6 +234,7 @@ function FormUscitaUnita({unita, lotto, onSave, onCancel}) {
   ];
 
   const salva = async () => {
+    if(!confermaPesoVivo(form.motivo, form.peso_vivo_uscita)) return;   // v124
     setSaving(true);
     const {error} = await supabase.from("suini_lotto").update({
       stato: form.stato,
@@ -262,6 +264,7 @@ function FormUscitaUnita({unita, lotto, onSave, onCancel}) {
       <div style={{fontWeight:700,color:C.red,marginBottom:10,fontSize:14}}>
         📤 {giaUscita?t("Modifica"):t("Registra")} {t("uscita —")} {codice}
       </div>
+      <AvvisoPesoVivo motivo={form.motivo} peso={form.peso_vivo_uscita}/>
       <Field label={t("Motivo uscita")} value={form.motivo}
         onChange={v=>{
           const m=MOTIVI.find(x=>x.label===v);

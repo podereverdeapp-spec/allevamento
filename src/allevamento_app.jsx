@@ -9,6 +9,8 @@ import { useState, useEffect, useRef } from "react";
 import { t } from "./i18n";   // v119 — lingue
 import { supabase } from "./supabase";
 import { ProposteModello4, salvaAbbinamento, MOTIVI_CON_MODELLO4 } from "./modelli4_abbina";   // v123
+import { AvvisoPesoVivo, confermaPesoVivo } from "./avviso_peso";   // v124
+import { AvvisoConsegne, ConsegnaInScheda } from "./consegne";   // v125
 
 const C = {
   bg:"#F5F0E8", card:"#FFFFFF", primary:"#5C3D1E", accent:"#A0522D",
@@ -293,6 +295,8 @@ function Dashboard({animali,eventi_sanitari,magazzino,onNav,suiniLotto}){
     <div style={{padding:"16px 16px 80px"}}>
       <div style={{fontSize:22,fontWeight:800,marginBottom:4}}>{t("Buongiorno 👋")}</div>
       <div style={{fontSize:14,color:C.muted,marginBottom:20}}>{new Date().toLocaleDateString("it-IT",{weekday:"long",day:"numeric",month:"long"})}</div>
+      {/* v125 — capi usciti per la macellazione da completare (carcassa, partita, cliente) */}
+      <AvvisoConsegne/>
       {/* Alert scadenze richiami */}
       {(richiamiScaduti.length>0||richiamiImminenti.length>0)&&(
         <Card style={{background:richiamiScaduti.length>0?C.red+"12":C.yellow+"14",
@@ -572,6 +576,9 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
 
   const salva=async()=>{
     if(!form.bdn&&!form.nome){setErrore(t("Inserisci almeno BDN o nome"));return;}
+    // v124 — uscita senza peso vivo: chiede conferma (solo se l'uscita e' nuova o cambiata)
+    if(form.stato!=="attivo"&&!(dettaglio&&dettaglio.id===form.id&&dettaglio.stato!=="attivo"&&dettaglio.peso_vivo_uscita==null&&!form.peso_vivo_uscita&&dettaglio.data_uscita===form.data_uscita)
+       &&!confermaPesoVivo(form.motivo_uscita, form.peso_vivo_uscita)) return;
     setSaving(true);setErrore("");
     // Risolvi genitori esterni
     let padre_id=form.padre_id?parseInt(form.padre_id):null;
@@ -1021,6 +1028,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
 
         {form.stato!=="attivo"&&(<>
           <Sezione label={t("Dati Uscita")}/>
+          <AvvisoPesoVivo motivo={form.motivo_uscita} peso={form.peso_vivo_uscita}/>
           <Field label={t("Data uscita")} value={form.data_uscita}
             onChange={v=>setForm(f=>({...f,data_uscita:v}))} type="date"/>
           {/* Giorni permanenza calcolati */}
@@ -1286,6 +1294,8 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
                     {gg>0&&<Row label={t("Permanenza")} val={`${gg} giorni${gg>=365?" ("+( gg/365).toFixed(1)+" anni)":""}`}/>}
                     {a.motivo_uscita&&<Row label={t("Motivo uscita")} val={a.motivo_uscita}/>}
                     {a.specie==="bovino"&&a.bdn&&<Modello4Uscita bdn={a.bdn}/>}
+                    {/* v125 — partita e cliente della consegna al macello */}
+                    <ConsegnaInScheda animaleId={a.id}/>
                     {a.peso_vivo_uscita&&<Row label={t("Peso vivo uscita")} val={a.peso_vivo_uscita+" kg"}/>}
                     {a.peso_carcassa&&<Row label={t("Peso carcassa")} val={a.peso_carcassa+" kg"}/>}
                     {a.resa_percent&&(

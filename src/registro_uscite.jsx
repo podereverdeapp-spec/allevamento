@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { t } from "./i18n";   // v119 — lingue
 import { supabase } from "./supabase";
 import { ProposteModello4, salvaAbbinamento, MOTIVI_CON_MODELLO4 } from "./modelli4_abbina";   // v123
+import { AvvisoPesoVivo, confermaPesoVivo } from "./avviso_peso";   // v124
 
 const C = {
   bg:"#F5F0E8", card:"#FFFFFF", primary:"#5C3D1E", accent:"#A0522D",
@@ -127,6 +128,7 @@ function FormUscita({animale, onSave, onCancel}) {
 
   const salva=async()=>{
     if(!form.motivo_uscita) return;
+    if(!confermaPesoVivo(form.motivo_uscita, form.peso_vivo_uscita)) return;   // v124
     setSaving(true);
     const payload={
       stato: form.stato||"uscito",
@@ -168,6 +170,7 @@ function FormUscita({animale, onSave, onCancel}) {
         {animale.data_ingresso&&<div style={{fontSize:12,color:C.muted}}>{t("📥 Ingresso:")} {animale.data_ingresso}</div>}
       </Card>
 
+      <AvvisoPesoVivo motivo={form.motivo_uscita} peso={form.peso_vivo_uscita}/>
       <Field label={t("Motivo uscita")} value={form.motivo_uscita} onChange={v=>setForm(f=>({...f,motivo_uscita:v}))}
         options={["Macellato","Morto (cause naturali)","Morto (malattia)","Venduto vivo","Furto","Scappato","Trasferito","Altro"]}
         required/>

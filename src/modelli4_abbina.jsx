@@ -1,5 +1,5 @@
 // ============================================================================
-// MODELLI 4 — ABBINAMENTO DELLE USCITE — v123
+// MODELLI 4 — ABBINAMENTO DELLE USCITE — v123 (v125: anche modelli 4 gia' pieni)
 // ----------------------------------------------------------------------------
 // Quando un operatore registra l'uscita di un animale (o di un'unita' di un
 // lotto suini), l'app cerca i modelli 4 gia' arrivati per quella specie con
@@ -75,8 +75,10 @@ export function ProposteModello4({ specie, dataUscita, bdn, animaleId, suinoLott
             const contiene = !!matricola && (d.modelli4_capi || []).some(c => c.matricola === matricola);
             return { ...d, abbinati: altri, liberi: (d.numero_capi || 0) - altri, contiene };
           })
-          .filter(d => d.liberi > 0 || d.contiene || d.id === attuale)
-          .sort((a, b) => (b.contiene - a.contiene)
+          // v125 — si propongono anche i modelli 4 gia' "pieni": il numero dei capi nel
+          // modello 4 puo' essere diverso da quello reale (es. modello 4 di prelievo);
+          // conta chiudere la scheda dell'animale. Prima quelli con posti liberi.
+          .sort((a, b) => (b.contiene - a.contiene) || ((b.liberi > 0) - (a.liberi > 0))
             || Math.abs(new Date(a.data_uscita) - new Date(dataUscita || Date.now())) - Math.abs(new Date(b.data_uscita) - new Date(dataUscita || Date.now())));
         setDocs(lista);
         // proposta iniziale: quello gia' abbinato, altrimenti quello che contiene la matricola
@@ -116,7 +118,7 @@ export function ProposteModello4({ specie, dataUscita, bdn, animaleId, suinoLott
         return voce(valore === d.id, () => onChange(d.id),
           `${fData(d.data_uscita)} · ${d.numero_capi} ${t("capi")}${cat ? " (" + cat + ")" : ""} → ${d.destinatario || "—"}`,
           [d.numero_documento,
-           t("abbinati {0} di {1}", { 0: d.abbinati, 1: d.numero_capi }),
+           t("abbinati {0} di {1}", { 0: d.abbinati, 1: d.numero_capi }) + (d.liberi <= 0 ? " — " + t("si può abbinare comunque") : ""),
            d.contiene ? "✅ " + t("questa matricola è nel modello 4") : null].filter(Boolean).join(" · "),
           d.contiene ? "#4A7C59" : "#5C3D1E");
       })}

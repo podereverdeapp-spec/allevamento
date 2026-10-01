@@ -1777,6 +1777,33 @@ const D = {
 "abbinati {0} di {1}": "{1} ਵਿੱਚੋਂ {0} ਜੁੜੇ",
 "questa matricola è nel modello 4": "ਇਹ ਕੰਨ ਦਾ ਟੈਗ ਦਸਤਾਵੇਜ਼ ਵਿੱਚ ਹੈ",
 "{n} modelli 4 con uscite ancora da registrare nell'app — tocca per vederli": "{n} ਮੂਵਮੈਂਟ ਦਸਤਾਵੇਜ਼ਾਂ ਦੀਆਂ ਨਿਕਾਸੀਆਂ ਅਜੇ ਐਪ ਵਿੱਚ ਦਰਜ ਕਰਨੀਆਂ ਹਨ — ਦੇਖਣ ਲਈ ਛੂਹੋ",
-"⚠️ Uscita salvata, ma abbinamento al modello 4 non riuscito:\n\n{0}": "⚠️ ਨਿਕਾਸੀ ਸੇਵ ਹੋ ਗਈ, ਪਰ ਮੂਵਮੈਂਟ ਦਸਤਾਵੇਜ਼ ਨਾਲ ਜੋੜਨਾ ਨਹੀਂ ਹੋਇਆ:\n\n{0}"
+"⚠️ Uscita salvata, ma abbinamento al modello 4 non riuscito:\n\n{0}": "⚠️ ਨਿਕਾਸੀ ਸੇਵ ਹੋ ਗਈ, ਪਰ ਮੂਵਮੈਂਟ ਦਸਤਾਵੇਜ਼ ਨਾਲ ਜੋੜਨਾ ਨਹੀਂ ਹੋਇਆ:\n\n{0}",
+// v124
+"Ricordati di pesare l'animale vivo!": "ਪਸ਼ੂ ਨੂੰ ਜਿਉਂਦੇ ਦਾ ਭਾਰ ਤੋਲਣਾ ਯਾਦ ਰੱਖੋ!",
+"Peso vivo inserito": "ਜਿਉਂਦਾ ਭਾਰ ਦਰਜ ਹੈ",
+"⚖️ Ricordati di pesare l'animale vivo!\n\nIl peso vivo non è stato inserito. Salvare comunque l'uscita?": "⚖️ ਪਸ਼ੂ ਨੂੰ ਜਿਉਂਦੇ ਦਾ ਭਾਰ ਤੋਲਣਾ ਯਾਦ ਰੱਖੋ!\n\nਜਿਉਂਦਾ ਭਾਰ ਦਰਜ ਨਹੀਂ ਕੀਤਾ ਗਿਆ। ਕੀ ਫਿਰ ਵੀ ਨਿਕਾਸੀ ਸੇਵ ਕਰਨੀ ਹੈ?",
+// v125
+"Altro: scrivi il nome": "ਹੋਰ: ਨਾਮ ਲਿਖੋ",
+"Animali usciti per la macellazione": "ਬੁੱਚੜਖ਼ਾਨੇ ਭੇਜੇ ਪਸ਼ੂ",
+"Cliente": "ਗਾਹਕ",
+"Da completare": "ਪੂਰਾ ਕਰਨਾ ਹੈ",
+"Fatturazione": "ਬਿਲਿੰਗ",
+"Inserire peso della carcassa, numero di partita e cliente": "ਲੋਥ ਦਾ ਭਾਰ, ਬੈਚ ਨੰਬਰ ਅਤੇ ਗਾਹਕ ਭਰੋ",
+"Mostra anche quelli già completati": "ਪਹਿਲਾਂ ਪੂਰੇ ਕੀਤੇ ਵੀ ਦਿਖਾਓ",
+"Nessun capo da completare": "ਪੂਰਾ ਕਰਨ ਲਈ ਕੋਈ ਪਸ਼ੂ ਨਹੀਂ",
+"Nessun modello 4 abbinato": "ਕੋਈ ਮੂਵਮੈਂਟ ਦਸਤਾਵੇਜ਼ ਨਹੀਂ ਜੁੜਿਆ",
+"Nome del cliente": "ਗਾਹਕ ਦਾ ਨਾਮ",
+"Numero con cui il cliente ha caricato il capo": "ਜਿਸ ਨੰਬਰ ਨਾਲ ਗਾਹਕ ਨੇ ਪਸ਼ੂ ਦਰਜ ਕੀਤਾ",
+"Numero di partita del cliente": "ਗਾਹਕ ਦਾ ਬੈਚ ਨੰਬਰ",
+"Resa": "ਝਾੜ",
+"Tocca un capo per inserire peso della carcassa, numero di partita del cliente e cliente.": "ਲੋਥ ਦਾ ਭਾਰ, ਗਾਹਕ ਦਾ ਬੈਚ ਨੰਬਰ ਅਤੇ ਗਾਹਕ ਭਰਨ ਲਈ ਪਸ਼ੂ ਨੂੰ ਛੂਹੋ।",
+"Torna all'elenco": "ਸੂਚੀ ਤੇ ਵਾਪਸ",
+"fatturato": "ਬਿੱਲ ਬਣ ਗਿਆ",
+"lotto": "ਲਾਟ",
+"partita": "ਬੈਚ",
+"pronto da fatturare": "ਬਿੱਲ ਲਈ ਤਿਆਰ",
+"{n} capi da completare: peso della carcassa, partita e cliente": "{n} ਪਸ਼ੂ ਪੂਰੇ ਕਰਨੇ ਹਨ: ਲੋਥ ਦਾ ਭਾਰ, ਬੈਚ ਅਤੇ ਗਾਹਕ",
+"— scegli il cliente —": "— ਗਾਹਕ ਚੁਣੋ —",
+"si può abbinare comunque": "ਫਿਰ ਵੀ ਜੋੜਿਆ ਜਾ ਸਕਦਾ ਹੈ"
 };
 export default D;

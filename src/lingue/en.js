@@ -1777,6 +1777,33 @@ const D = {
 "abbinati {0} di {1}": "{0} of {1} linked",
 "questa matricola è nel modello 4": "this ear tag is in the document",
 "{n} modelli 4 con uscite ancora da registrare nell'app — tocca per vederli": "{n} movement documents with departures still to record in the app — tap to see them",
-"⚠️ Uscita salvata, ma abbinamento al modello 4 non riuscito:\n\n{0}": "⚠️ Departure saved, but linking to the movement document failed:\n\n{0}"
+"⚠️ Uscita salvata, ma abbinamento al modello 4 non riuscito:\n\n{0}": "⚠️ Departure saved, but linking to the movement document failed:\n\n{0}",
+// v124
+"Ricordati di pesare l'animale vivo!": "Remember to weigh the animal alive!",
+"Peso vivo inserito": "Live weight entered",
+"⚖️ Ricordati di pesare l'animale vivo!\n\nIl peso vivo non è stato inserito. Salvare comunque l'uscita?": "⚖️ Remember to weigh the animal alive!\n\nThe live weight has not been entered. Save the departure anyway?",
+// v125
+"Altro: scrivi il nome": "Other: type the name",
+"Animali usciti per la macellazione": "Animals sent to slaughter",
+"Cliente": "Customer",
+"Da completare": "To be completed",
+"Fatturazione": "Invoicing",
+"Inserire peso della carcassa, numero di partita e cliente": "Enter carcass weight, batch number and customer",
+"Mostra anche quelli già completati": "Also show those already completed",
+"Nessun capo da completare": "No animals to complete",
+"Nessun modello 4 abbinato": "No movement document linked",
+"Nome del cliente": "Customer name",
+"Numero con cui il cliente ha caricato il capo": "Number the customer used to register the animal",
+"Numero di partita del cliente": "Customer batch number",
+"Resa": "Yield",
+"Tocca un capo per inserire peso della carcassa, numero di partita del cliente e cliente.": "Tap an animal to enter carcass weight, customer batch number and customer.",
+"Torna all'elenco": "Back to the list",
+"fatturato": "invoiced",
+"lotto": "batch",
+"partita": "batch no.",
+"pronto da fatturare": "ready to invoice",
+"{n} capi da completare: peso della carcassa, partita e cliente": "{n} animals to complete: carcass weight, batch and customer",
+"— scegli il cliente —": "— choose the customer —",
+"si può abbinare comunque": "can be linked anyway"
 };
 export default D;
