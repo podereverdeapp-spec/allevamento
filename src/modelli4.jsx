@@ -12,6 +12,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { t } from "./i18n";
 import { supabase } from "./supabase";
 import { caricaPdfjs, testoDaPdf, leggiModello4 } from "./modelli4_lettura";
+import { PROMPT_IA_MODELLO4 } from "./modelli4_prompt_ia";   // v126
 
 const C = {
   bg:"#F5F0E8", card:"#FFFFFF", primary:"#5C3D1E", accent:"#A0522D",
@@ -54,6 +55,43 @@ const Riga = ({ label, value }) => value ? (
     <div style={{ color:C.text, fontWeight:600, wordBreak:"break-word" }}>{value}</div>
   </div>
 ) : null;
+
+// ─── MODELLO 4 SCANSIONATO: PROMPT PER L'IA (v126) ───────────────────────────
+function PromptIA() {
+  const [aperto, setAperto] = useState(false);
+  const [copiato, setCopiato] = useState(false);
+  const copia = async () => {
+    try { await navigator.clipboard.writeText(PROMPT_IA_MODELLO4); }
+    catch (e) {
+      const ta = document.createElement("textarea"); ta.value = PROMPT_IA_MODELLO4; document.body.appendChild(ta);
+      ta.select(); document.execCommand("copy"); ta.remove();
+    }
+    setCopiato(true); setTimeout(() => setCopiato(false), 2500);
+  };
+  return (
+    <div style={{ marginTop:10, background:"#EEF4FA", border:`1px solid ${C.blue}55`, borderRadius:12, padding:10 }}>
+      <div onClick={() => setAperto(!aperto)} style={{ cursor:"pointer", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+        <b style={{ fontSize:13, color:C.blue }}>🤖 {t("Modello 4 su carta o scansionato? Fallo leggere all'IA")}</b>
+        <span style={{ fontSize:12, color:C.blue }}>{aperto ? "▲" : "▼"}</span>
+      </div>
+      {aperto && (<>
+        <ol style={{ margin:"8px 0", paddingLeft:18, fontSize:12, lineHeight:1.5, color:C.text }}>
+          <li>{t("Scansiona o fotografa BENE il modello 4: tutto il foglio, dritto, a fuoco, con buona luce e senza ombre. Tutte le pagine.")}</li>
+          <li>{t("Apri l'IA (per esempio Claude) e allega la scansione.")}</li>
+          <li>{t("Tocca «Copia il prompt» qui sotto e incollalo nella stessa richiesta.")}</li>
+          <li>{t("L'IA restituisce un PDF scritto: controlla che numeri e matricole siano giusti.")}</li>
+          <li>{t("Carica quel PDF qui sopra con «Scegli file». Nel documento resterà la nota «Trascritto dall'intelligenza artificiale da una scansione».")}</li>
+        </ol>
+        <button onClick={copia} style={{ background:copiato ? C.green : C.blue, color:"#FFF", border:"none", borderRadius:10,
+          padding:"8px 14px", fontSize:13, fontWeight:700, cursor:"pointer", marginBottom:8 }}>
+          {copiato ? "✓ " + t("Prompt copiato") : "📋 " + t("Copia il prompt")}
+        </button>
+        <pre style={{ whiteSpace:"pre-wrap", fontSize:11, background:"#FFF", border:`1px solid ${C.border}`, borderRadius:8,
+          padding:8, maxHeight:220, overflowY:"auto", margin:0, color:C.text }}>{PROMPT_IA_MODELLO4}</pre>
+      </>)}
+    </div>
+  );
+}
 
 // ─── CARICAMENTO PDF ─────────────────────────────────────────────────────────
 function Caricamento({ onFine }) {
@@ -118,6 +156,7 @@ function Caricamento({ onFine }) {
       </div>
       <input ref={inputRef} type="file" accept="application/pdf,.pdf" multiple disabled={lavoro}
         onChange={e => carica(e.target.files)} style={{ fontSize:13, marginBottom:8, width:"100%" }}/>
+      <PromptIA/>
       {lavoro && <div style={{ fontSize:13, color:C.muted }}>⏳ {t("Lettura in corso: {n} di {m}", { n:esiti.length, m:inputRef.current?.files?.length || "?" })}</div>}
       {esiti.length > 0 && (
         <div style={{ marginTop:8, maxHeight:260, overflowY:"auto" }}>
@@ -216,6 +255,7 @@ function Documento({ d, doppio, admin, onElimina, animaliPerMatricola, onAggiorn
           <Riga label={t("Trasportatore")} value={d.trasportatore}/>
           <Riga label={t("Ditta di trasporto")} value={d.ditta_trasporto}/>
           <Riga label={t("Email")} value={d.email_oggetto ? `${fData(d.email_data)} — ${d.email_oggetto}` : null}/>
+          <Riga label={t("Note")} value={d.note}/>
 
           <div style={{ fontSize:13, fontWeight:700, color:C.primary, margin:"12px 0 6px" }}>
             {t("Capi nel documento")} ({capi.reduce((s, c) => s + (c.numero_capi || 0), 0)})

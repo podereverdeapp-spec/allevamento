@@ -148,8 +148,8 @@ export function leggiModello4(t){
   }
   const iC = t.indexOf("C) DESTINAZIONE");
   const sezC = iC >= 0 ? t.slice(iC) : "";
-  const cod = (sezC.match(/Codice:\s*(?:Codice:\s*)?(\S+)/) || [])[1] || null;
-  const appr = (sezC.match(/Approval number:\s*([A-Z0-9]+)/) || [])[1] || null;
+  const cod = (sezC.match(/Codice:[ \t]*(?:Codice:[ \t]*)?(\S+)/) || [])[1] || null;
+  const appr = (sezC.match(/Approval number:[ \t]*([A-Z0-9]+)/) || [])[1] || null;
   const den = ((sezC.match(/Denominazione:\s*(.+)/) || [])[1] || "").trim().replace(/\s{2,}.*$/, "") || null;
   const ind = ((sezC.match(/Indirizzo:\s*(.+)/) || [])[1] || "").trim().replace(/\s{2,}.*$/, "") || null;
   let uscita = null;
@@ -219,5 +219,10 @@ export function leggiModello4(t){
     destinatario_indirizzo: ind, data_trasporto: tr ? isoData(tr[1]) : null, ora_partenza: tr ? tr[2] : null,
     trasportatore: trasp ? trasp[1].replace(/\s+/g, " ") : null, ditta_trasporto: ditta ? ditta[1].replace(/\s+/g, " ") : null,
   };
+  // v126 — trascrizione fatta dall'IA da una scansione: va controllata con l'originale
+  if (/TRASCRIZIONE DA SCANSIONE/.test(t)) {
+    const dv = (t.match(/DA VERIFICARE:\s*(.+)/) || [])[1];
+    documento.note = "Trascritto dall'intelligenza artificiale da una scansione: controllare con l'originale." + (dv ? " Da verificare: " + dv.trim() : "");
+  }
   return { documento, capi };
 }
