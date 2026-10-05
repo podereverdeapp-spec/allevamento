@@ -1968,6 +1968,10 @@ const D = {
 "Priorità": "ਤਰਜੀਹ",
 "Significato": "ਮਤਲਬ",
 "🔢 Numero di versione dell'app": "🔢 ਐਪ ਦਾ ਸੰਸਕਰਣ ਨੰਬਰ",
-"Toccando il proprio nome in alto a destra, sotto il ruolo compare la versione dell'app (per esempio v126). Serve a capire subito se un aggiornamento è arrivato davvero o se il browser mostra una copia vecchia: in quel caso basta ricaricare la pagina con Ctrl+F5 (sul telefono: chiudere e riaprire l'app).": "ਉੱਪਰ ਸੱਜੇ ਆਪਣੇ ਨਾਮ ਨੂੰ ਛੂਹਣ ਤੇ ਭੂਮਿਕਾ ਹੇਠ ਐਪ ਦਾ ਸੰਸਕਰਣ ਦਿਸਦਾ ਹੈ (ਜਿਵੇਂ v126)। ਇਸ ਨਾਲ ਤੁਰੰਤ ਪਤਾ ਲੱਗਦਾ ਹੈ ਕਿ ਅੱਪਡੇਟ ਸੱਚਮੁੱਚ ਆਇਆ ਹੈ ਜਾਂ ਬ੍ਰਾਊਜ਼ਰ ਪੁਰਾਣੀ ਕਾਪੀ ਦਿਖਾ ਰਿਹਾ ਹੈ: ਉਸ ਹਾਲਤ ਵਿੱਚ Ctrl+F5 ਨਾਲ ਪੰਨਾ ਦੁਬਾਰਾ ਲੋਡ ਕਰੋ (ਫ਼ੋਨ ਤੇ: ਐਪ ਬੰਦ ਕਰਕੇ ਦੁਬਾਰਾ ਖੋਲ੍ਹੋ)।"
+"Toccando il proprio nome in alto a destra, sotto il ruolo compare la versione dell'app (per esempio v126). Serve a capire subito se un aggiornamento è arrivato davvero o se il browser mostra una copia vecchia: in quel caso basta ricaricare la pagina con Ctrl+F5 (sul telefono: chiudere e riaprire l'app).": "ਉੱਪਰ ਸੱਜੇ ਆਪਣੇ ਨਾਮ ਨੂੰ ਛੂਹਣ ਤੇ ਭੂਮਿਕਾ ਹੇਠ ਐਪ ਦਾ ਸੰਸਕਰਣ ਦਿਸਦਾ ਹੈ (ਜਿਵੇਂ v126)। ਇਸ ਨਾਲ ਤੁਰੰਤ ਪਤਾ ਲੱਗਦਾ ਹੈ ਕਿ ਅੱਪਡੇਟ ਸੱਚਮੁੱਚ ਆਇਆ ਹੈ ਜਾਂ ਬ੍ਰਾਊਜ਼ਰ ਪੁਰਾਣੀ ਕਾਪੀ ਦਿਖਾ ਰਿਹਾ ਹੈ: ਉਸ ਹਾਲਤ ਵਿੱਚ Ctrl+F5 ਨਾਲ ਪੰਨਾ ਦੁਬਾਰਾ ਲੋਡ ਕਰੋ (ਫ਼ੋਨ ਤੇ: ਐਪ ਬੰਦ ਕਰਕੇ ਦੁਬਾਰਾ ਖੋਲ੍ਹੋ)।",
+  "senza matricola": "ਬਿਨਾਂ ਕੰਨ-ਟੈਗ",
+  "nato il {0}": "{0} ਨੂੰ ਜਨਮਿਆ",
+  "Nessun vitello collegato a questo parto": "ਇਸ ਸੂਏ ਨਾਲ ਕੋਈ ਵੱਛਾ ਜੁੜਿਆ ਨਹੀਂ",
+  "storico": "ਇਤਿਹਾਸਕ",
 };
 export default D;

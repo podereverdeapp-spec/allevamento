@@ -1968,6 +1968,10 @@ const D = {
 "Priorità": "Priority",
 "Significato": "Meaning",
 "🔢 Numero di versione dell'app": "🔢 App version number",
-"Toccando il proprio nome in alto a destra, sotto il ruolo compare la versione dell'app (per esempio v126). Serve a capire subito se un aggiornamento è arrivato davvero o se il browser mostra una copia vecchia: in quel caso basta ricaricare la pagina con Ctrl+F5 (sul telefono: chiudere e riaprire l'app).": "Tapping your name at the top right, under the role you see the app version (for example v126). It tells you at once whether an update has really arrived or the browser is showing an old copy: in that case just reload the page with Ctrl+F5 (on the phone: close and reopen the app)."
+"Toccando il proprio nome in alto a destra, sotto il ruolo compare la versione dell'app (per esempio v126). Serve a capire subito se un aggiornamento è arrivato davvero o se il browser mostra una copia vecchia: in quel caso basta ricaricare la pagina con Ctrl+F5 (sul telefono: chiudere e riaprire l'app).": "Tapping your name at the top right, under the role you see the app version (for example v126). It tells you at once whether an update has really arrived or the browser is showing an old copy: in that case just reload the page with Ctrl+F5 (on the phone: close and reopen the app).",
+  "senza matricola": "no ear tag",
+  "nato il {0}": "born on {0}",
+  "Nessun vitello collegato a questo parto": "No calf linked to this calving",
+  "storico": "historical",
 };
 export default D;

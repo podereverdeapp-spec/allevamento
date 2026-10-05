@@ -1118,6 +1118,9 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
       _colore: p.nati_vivi>1?"#D9628F":C.accent, _tipo:"Parto",
       _titolo: t("Parto")+(p.tipo_parto?" ("+t(p.tipo_parto)+")":""),
       _dettaglio: t("{0} nati vivi",{0:p.nati_vivi||0})+(p.nati_morti>0?" · "+t("{0} morti",{0:p.nati_morti}):"")+(p.nati_mummificati>0?" · "+t("{0} mummificati",{0:p.nati_mummificati}):""),
+      // v127 — matricole dei figli nati da questo parto (stessa madre, nati entro 3 giorni dalla data del parto)
+      _figli: animali.filter(f=>f.madre_id===a.id&&f.nascita&&p.data_evento
+        &&Math.abs(new Date(f.nascita)-new Date(p.data_evento))<=3*86400000),
       _originale: p,
     }));
     // Eventi sanitari
@@ -1796,6 +1799,23 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
                                 {ev._dettaglio&&(
                                   <div style={{fontSize:12,color:C.muted}}>
                                     {ev._dettaglio}
+                                  </div>
+                                )}
+                                {ev._cat==="riproduzione"&&ev._figli&&ev._figli.length>0&&(
+                                  <div style={{fontSize:12,color:C.text,marginTop:3}}>
+                                    {ev._figli.map(f=>(
+                                      <div key={f.id}>
+                                        🐮 <strong>{f.bdn||t("senza matricola")}</strong>
+                                        {f.nome?" · "+f.nome:""}{f.sesso?" · "+(f.sesso==="M"?"♂":"♀"):""}
+                                        {f.nascita!==ev._data?" · "+t("nato il {0}",{0:f.nascita}):""}
+                                        {f.stato&&f.stato!=="attivo"?" · "+t(f.stato):""}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                                {ev._cat==="riproduzione"&&a.specie==="bovino"&&(ev._originale?.nati_vivi||0)>0&&(!ev._figli||ev._figli.length===0)&&(
+                                  <div style={{fontSize:11,color:"#B26A00",marginTop:3}}>
+                                    ⚠️ {t("Nessun vitello collegato a questo parto")}
                                   </div>
                                 )}
                                 {ev._originale?.note&&(
