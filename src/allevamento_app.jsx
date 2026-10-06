@@ -662,6 +662,22 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
   // ── Parto rapido ────────────────────────────────────────────────────────────
   const salvaParto=async()=>{
     if(!formParto.data_evento){setSavingParto(false);return;}
+    // v128 — blocco parti troppo vicini della stessa madre (doppioni di operatori diversi)
+    {
+      const sp=(dettaglio.specie||"").toLowerCase();
+      const mesiMin=sp.startsWith("bovin")?9:sp.startsWith("ovin")?5:4;
+      const dNuova=new Date(formParto.data_evento);
+      const lim=(d,m)=>{const x=new Date(d);x.setMonth(x.getMonth()+m);return x;};
+      const vicino=(eventiRiproduttivi||[]).find(e=>
+        e.animale_id===dettaglio.id&&(e.tipo_evento||"").toLowerCase().startsWith("parto")&&
+        e.id!==formParto.id&&e.data_evento&&
+        new Date(e.data_evento)>lim(dNuova,-mesiMin)&&new Date(e.data_evento)<lim(dNuova,mesiMin));
+      if(vicino){
+        alert(t("⚠️ PARTO NON REGISTRATO\n\nLa madre {0} ha già un parto registrato il {1}.\nTra due parti della stessa madre devono passare almeno {2} mesi.\n\nControllare che il parto non sia già stato inserito da un altro operatore o che la madre sia quella giusta.",
+          {0:dettaglio.bdn||dettaglio.nome||"",1:new Date(vicino.data_evento).toLocaleDateString("it-IT"),2:mesiMin}));
+        setSavingParto(false);return;
+      }
+    }
     setSavingParto(true);
     const totali=parseInt(formParto.nati_totali)||0;
     const morti=parseInt(formParto.nati_morti)||0;
@@ -720,7 +736,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
     // ── MODALITÀ MODIFICA: aggiorna evento + propaga padre_id ai figli ──────
     if(formParto.id){
       const{error}=await aggiornaEvento(formParto.id,payload);
-      if(error){setSavingParto(false);return;}
+      if(error){alert(t("⚠️ Parto non salvato:\n\n{0}",{0:error.message}));setSavingParto(false);return;}
 
       // Propago il padre_id sui figli di questo parto SE è stato specificato un padre
       if(padreIdRisolto){
@@ -757,7 +773,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
 
     // ── MODALITÀ NUOVO: crea evento + schede figli / lotto ──────────────────
     const{data:evData,error}=await aggiungiEvento(payload);
-    if(error){setSavingParto(false);return;}
+    if(error){alert(t("⚠️ Parto non salvato:\n\n{0}",{0:error.message}));setSavingParto(false);return;}
 
     if(!formParto.storico){
       const nati=formParto.nati||[];
@@ -814,7 +830,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
           padre?.razza_calcolata||padre?.razza,
           dettaglio.bdn
         );
-        const{data:nuovoLotto}=await supabase.from("lotti_suini").insert([{
+        const{data:nuovoLotto,error:errLottoParto}=await supabase.from("lotti_suini").insert([{
           codice:codLotto,
           codice_lotto:codLotto,
           anno:new Date(formParto.data_evento).getFullYear(),
@@ -830,6 +846,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
           specie:"suino",
           note:formParto.note||null,
         }]).select("id").single();
+        if(errLottoParto)alert(t("⚠️ Il parto è stato registrato, ma il lotto dei suinetti non è stato creato:\n\n{0}",{0:errLottoParto.message}));
 
         if(nuovoLotto){
           const righeUnita=unitaLotto.map(u=>({

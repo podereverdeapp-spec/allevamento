@@ -1973,5 +1973,8 @@ const D = {
   "nato il {0}": "born on {0}",
   "Nessun vitello collegato a questo parto": "No calf linked to this calving",
   "storico": "historical",
+  "⚠️ PARTO NON REGISTRATO\n\nLa madre {0} ha già un parto registrato il {1}.\nTra due parti della stessa madre devono passare almeno {2} mesi.\n\nControllare che il parto non sia già stato inserito da un altro operatore o che la madre sia quella giusta.": "⚠️ BIRTH NOT RECORDED\n\nThe mother {0} already has a birth recorded on {1}.\nAt least {2} months must pass between two births of the same mother.\n\nCheck that the birth has not already been entered by another operator, or that the mother is the right one.",
+  "⚠️ Parto non salvato:\n\n{0}": "⚠️ Birth not saved:\n\n{0}",
+  "⚠️ Il parto è stato registrato, ma il lotto dei suinetti non è stato creato:\n\n{0}": "⚠️ The birth was recorded, but the piglet batch was not created:\n\n{0}",
 };
 export default D;

@@ -1973,5 +1973,8 @@ const D = {
   "nato il {0}": "{0} ਨੂੰ ਜਨਮਿਆ",
   "Nessun vitello collegato a questo parto": "ਇਸ ਸੂਏ ਨਾਲ ਕੋਈ ਵੱਛਾ ਜੁੜਿਆ ਨਹੀਂ",
   "storico": "ਇਤਿਹਾਸਕ",
+  "⚠️ PARTO NON REGISTRATO\n\nLa madre {0} ha già un parto registrato il {1}.\nTra due parti della stessa madre devono passare almeno {2} mesi.\n\nControllare che il parto non sia già stato inserito da un altro operatore o che la madre sia quella giusta.": "⚠️ ਜਣੇਪਾ ਦਰਜ ਨਹੀਂ ਹੋਇਆ\n\nਮਾਂ {0} ਦਾ {1} ਨੂੰ ਪਹਿਲਾਂ ਹੀ ਇੱਕ ਜਣੇਪਾ ਦਰਜ ਹੈ।\nਇੱਕੋ ਮਾਂ ਦੇ ਦੋ ਜਣੇਪਿਆਂ ਵਿਚਕਾਰ ਘੱਟੋ-ਘੱਟ {2} ਮਹੀਨੇ ਹੋਣੇ ਚਾਹੀਦੇ ਹਨ।\n\nਜਾਂਚ ਕਰੋ ਕਿ ਕਿਸੇ ਹੋਰ ਕਰਮਚਾਰੀ ਨੇ ਇਹ ਜਣੇਪਾ ਪਹਿਲਾਂ ਹੀ ਦਰਜ ਤਾਂ ਨਹੀਂ ਕੀਤਾ, ਜਾਂ ਮਾਂ ਸਹੀ ਹੈ।",
+  "⚠️ Parto non salvato:\n\n{0}": "⚠️ ਜਣੇਪਾ ਸੇਵ ਨਹੀਂ ਹੋਇਆ:\n\n{0}",
+  "⚠️ Il parto è stato registrato, ma il lotto dei suinetti non è stato creato:\n\n{0}": "⚠️ ਜਣੇਪਾ ਦਰਜ ਹੋ ਗਿਆ, ਪਰ ਬੱਚਿਆਂ ਦਾ ਲਾਟ ਨਹੀਂ ਬਣਿਆ:\n\n{0}",
 };
 export default D;
