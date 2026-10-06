@@ -735,8 +735,88 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
 
     // ── MODALITÀ MODIFICA: aggiorna evento + propaga padre_id ai figli ──────
     if(formParto.id){
+      // v130 — per i suini la modifica del parto aggiorna anche il suo lotto
+      // (padre, numeri dei nati e unità dei suinetti), così parto e lotto restano allineati.
+      const evPrima=(eventiRiproduttivi||[]).find(e=>e.id===formParto.id);
+      let lottoParto=null, unitaParto=[], unitaDaTogliere=[], unitaDaAggiungere=0;
+      if((dettaglio.specie||"").toLowerCase().startsWith("suin")&&evPrima){
+        const{data:lt,error:errLt}=await supabase.from("lotti_suini")
+          .select("id,codice").eq("madre_id",evPrima.animale_id)
+          .eq("data_parto",evPrima.data_evento).eq("tipo_provenienza","nato");
+        if(errLt){alert(t("⚠️ Parto non salvato:\n\n{0}",{0:errLt.message}));setSavingParto(false);return;}
+        if(lt&&lt.length>1){
+          alert(t("⚠️ PARTO NON SALVATO\n\nPer questa madre e questa data ci sono {0} lotti di suinetti: {1}.\nPrima va eliminato il lotto in più, poi si può correggere il parto.",
+            {0:lt.length,1:lt.map(l=>l.codice).join(", ")}));
+          setSavingParto(false);return;
+        }
+        lottoParto=lt&&lt.length===1?lt[0]:null;
+        if(lottoParto){
+          const{data:us}=await supabase.from("suini_lotto")
+            .select("id,nr,stato,data_uscita,peso_attuale").eq("lotto_id",lottoParto.id).order("nr");
+          unitaParto=us||[];
+          // i figli con matricola hanno una scheda propria e non sono unità del lotto
+          const{count:nIndividuali}=await supabase.from("animali")
+            .select("id",{count:"exact",head:true})
+            .eq("madre_id",evPrima.animale_id).eq("nascita",evPrima.data_evento);
+          const unitaAttese=Math.max(0,vivi-(nIndividuali||0));
+          if(unitaParto.length>unitaAttese){
+            const quante=unitaParto.length-unitaAttese;
+            unitaDaTogliere=unitaParto
+              .filter(u=>u.stato==="attivo"&&!u.data_uscita&&u.peso_attuale==null)
+              .sort((a,b)=>b.nr-a.nr).slice(0,quante);
+            if(unitaDaTogliere.length<quante){
+              alert(t("⚠️ PARTO NON SALVATO\n\nIl lotto {0} ha {1} suinetti, ma con {2} nati vivi ne devono restare {3}.\nNon ci sono abbastanza suinetti ancora attivi e senza dati da togliere.\nCorreggere prima il lotto dalla sezione Lotti suini.",
+                {0:lottoParto.codice,1:unitaParto.length,2:vivi,3:unitaAttese}));
+              setSavingParto(false);return;
+            }
+            if(!window.confirm(t("Il lotto {0} passa da {1} a {2} suinetti: verranno tolti i suinetti n. {3}. Confermi?",
+              {0:lottoParto.codice,1:unitaParto.length,2:unitaAttese,3:unitaDaTogliere.map(u=>u.nr).sort((a,b)=>a-b).join(", ")}))){
+              setSavingParto(false);return;
+            }
+          } else if(unitaParto.length<unitaAttese){
+            unitaDaAggiungere=unitaAttese-unitaParto.length;
+            if(!window.confirm(t("Il lotto {0} passa da {1} a {2} suinetti: verranno aggiunti {3} suinetti. Confermi?",
+              {0:lottoParto.codice,1:unitaParto.length,2:unitaAttese,3:unitaDaAggiungere}))){
+              setSavingParto(false);return;
+            }
+          }
+        } else if(vivi>0&&!formParto.storico){
+          alert(t("⚠️ Attenzione: per questo parto non esiste il lotto dei suinetti. Il parto viene salvato, ma il lotto va controllato."));
+        }
+      }
+
       const{error}=await aggiornaEvento(formParto.id,payload);
       if(error){alert(t("⚠️ Parto non salvato:\n\n{0}",{0:error.message}));setSavingParto(false);return;}
+
+      if(lottoParto){
+        const padreL=padreObjRisolto||(padreIdRisolto?animali.find(a=>a.id===padreIdRisolto):null);
+        const{error:errUpdL}=await supabase.from("lotti_suini").update({
+          data_parto:formParto.data_evento,
+          padre_id:padreIdRisolto,
+          razza_padre:padreL?.razza_calcolata||padreL?.razza||null,
+          nati_totali:totali,
+          nati_vivi:vivi,
+          nati_morti:morti,
+        }).eq("id",lottoParto.id);
+        if(errUpdL)alert(t("⚠️ Il parto è stato salvato, ma il lotto {0} non è stato aggiornato:\n\n{1}",{0:lottoParto.codice,1:errUpdL.message}));
+        if(!errUpdL&&unitaDaTogliere.length>0){
+          const{error:errDel}=await supabase.from("suini_lotto").delete().in("id",unitaDaTogliere.map(u=>u.id));
+          if(errDel)alert(t("⚠️ Il parto è stato salvato, ma i suinetti in più del lotto {0} non sono stati tolti:\n\n{1}",{0:lottoParto.codice,1:errDel.message}));
+        }
+        if(!errUpdL&&unitaDaAggiungere>0){
+          const maxNr=unitaParto.reduce((m,u)=>Math.max(m,u.nr||0),0);
+          const nuove=Array.from({length:unitaDaAggiungere},(_,i)=>({
+            lotto_id:lottoParto.id,
+            nr:maxNr+i+1,
+            codice_completo:`${lottoParto.codice}${String(maxNr+i+1).padStart(2,"0")}`,
+            vivo:true,
+            stato:"attivo",
+            destinazione:"ingrasso",
+          }));
+          const{error:errIns}=await supabase.from("suini_lotto").insert(nuove);
+          if(errIns)alert(t("⚠️ Il parto è stato salvato, ma i suinetti mancanti del lotto {0} non sono stati aggiunti:\n\n{1}",{0:lottoParto.codice,1:errIns.message}));
+        }
+      }
 
       // Propago il padre_id sui figli di questo parto SE è stato specificato un padre
       if(padreIdRisolto){
@@ -886,7 +966,29 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
 
   const eliminaParto=async(eventoId)=>{
     if(!window.confirm(t("Eliminare questo evento parto? I dati statistici verranno persi. Le schede dei nati già create NON vengono cancellate."))) return;
-    await eliminaEvento(eventoId);
+    // v130 — per i suini il lotto del parto non deve restare senza parto
+    const ev=(eventiRiproduttivi||[]).find(e=>e.id===eventoId);
+    let lottoDaEliminare=null;
+    if(ev&&(dettaglio?.specie||"").toLowerCase().startsWith("suin")){
+      const{data:lt}=await supabase.from("lotti_suini").select("id,codice")
+        .eq("madre_id",ev.animale_id).eq("data_parto",ev.data_evento).eq("tipo_provenienza","nato");
+      if(lt&&lt.length===1){
+        const{data:us}=await supabase.from("suini_lotto").select("id,stato,data_uscita").eq("lotto_id",lt[0].id);
+        const usciti=(us||[]).filter(u=>u.stato!=="attivo"||u.data_uscita).length;
+        if(usciti>0){
+          alert(t("⚠️ PARTO NON ELIMINATO\n\nIl lotto {0} di questo parto ha {1} suinetti già usciti o registrati: il parto non si può eliminare dall'app.",{0:lt[0].codice,1:usciti}));
+          return;
+        }
+        if(!window.confirm(t("Insieme al parto verrà eliminato il lotto {0} con i suoi {1} suinetti. Confermi?",{0:lt[0].codice,1:(us||[]).length}))) return;
+        lottoDaEliminare=lt[0];
+      }
+    }
+    if(lottoDaEliminare){
+      const{error:errL}=await supabase.from("lotti_suini").delete().eq("id",lottoDaEliminare.id);
+      if(errL){alert(t("⚠️ PARTO NON ELIMINATO\n\nIl lotto {0} non si può eliminare:\n\n{1}",{0:lottoDaEliminare.codice,1:errL.message}));return;}
+    }
+    const r=await eliminaEvento(eventoId);
+    if(r?.error)alert(t("⚠️ Parto non eliminato:\n\n{0}",{0:r.error.message}));
     ricaricaEventi();
   };
 
@@ -1419,6 +1521,20 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
                     <div style={{fontWeight:700,marginBottom:4}}>
                       {formParto.id?t("✏️ Modifica parto"):t("🐣 Registra parto")}
                     </div>
+                    {/* v129 — avviso agli operatori prima di registrare un parto */}
+                    {(()=>{
+                      const sp=(a.specie||"").toLowerCase();
+                      const mesiMin=sp.startsWith("bovin")?9:sp.startsWith("ovin")?5:4;
+                      return(
+                        <div style={{background:"#FFF6DD",border:`2px solid ${C.yellow}`,borderRadius:10,
+                          padding:"10px 12px",marginBottom:12,fontSize:12.5,lineHeight:1.5,color:C.text}}>
+                          <div style={{fontWeight:700,marginBottom:4}}>{t("⚠️ Prima di registrare il parto, controlla bene")}</div>
+                          <div>{t("1. Che la madre sia quella giusta: confronta la matricola dell'animale con quella scritta in alto.")}</div>
+                          <div>{t("2. Che il parto non sia già stato registrato da un collega: guarda gli eventi di questa madre.")}</div>
+                          <div style={{marginTop:6}}>{t("L'app non accetta un secondo parto della stessa madre prima di {0} mesi. Se registri il parto sulla madre sbagliata, poi l'app bloccherà la registrazione del parto vero di quella madre.",{0:mesiMin})}</div>
+                        </div>
+                      );
+                    })()}
                     {/* Figli collegati a QUESTO parto — solo in modifica, per non sbagliare
                         parto quando la fattrice ne ha più di uno in timeline */}
                     {formParto.id&&(()=>{
