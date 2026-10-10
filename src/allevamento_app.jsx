@@ -11,6 +11,7 @@ import { supabase } from "./supabase";
 import { ProposteModello4, salvaAbbinamento, MOTIVI_CON_MODELLO4 } from "./modelli4_abbina";   // v123
 import { AvvisoPesoVivo, confermaPesoVivo } from "./avviso_peso";   // v124
 import { AvvisoConsegne, ConsegnaInScheda } from "./consegne";   // v125
+import { MortiCausaMadre } from "./lotti_suini";   // v136
 
 const C = {
   bg:"#F5F0E8", card:"#FFFFFF", primary:"#5C3D1E", accent:"#A0522D",
@@ -678,6 +679,15 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
         setSavingParto(false);return;
       }
     }
+    // v135 — suini: il sesso di ogni nato vivo è obbligatorio, altrimenti il parto non si registra
+    if(!formParto.id&&!formParto.storico&&dettaglio.specie==="suino"){
+      const senzaSesso=(formParto.nati||[]).map((n,i)=>(!n.sesso||!String(n.sesso).trim())?i+1:null).filter(Boolean);
+      if(senzaSesso.length>0){
+        alert(t("⚠️ PARTO NON REGISTRATO\n\nManca il sesso di {0} suinetti (nati n. {1}).\nInserire il sesso di ogni suinetto nato vivo: senza il sesso il parto non si registra.",
+          {0:senzaSesso.length,1:senzaSesso.join(", ")}));
+        setSavingParto(false);return;
+      }
+    }
     setSavingParto(true);
     const totali=parseInt(formParto.nati_totali)||0;
     const morti=parseInt(formParto.nati_morti)||0;
@@ -822,8 +832,9 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
         }
       }
 
-      // Crea lotto se ci sono unità senza BDN (solo suini)
-      if(dettaglio.specie==="suino"&&unitaLotto.length>0){
+      // v135 — ogni parto di suini genera il suo lotto, anche se tutti i nati sono morti
+      // o hanno la scheda individuale (in quel caso il lotto ha 0 suinetti)
+      if(dettaglio.specie==="suino"){
         const codLotto=generaCodLotto(
           formParto.data_evento,
           dettaglio.razza_calcolata||dettaglio.razza,
@@ -848,7 +859,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
         }]).select("id").single();
         if(errLottoParto)alert(t("⚠️ Il parto è stato registrato, ma il lotto dei suinetti non è stato creato:\n\n{0}",{0:errLottoParto.message}));
 
-        if(nuovoLotto){
+        if(nuovoLotto&&unitaLotto.length>0){
           const righeUnita=unitaLotto.map(u=>({
             lotto_id:nuovoLotto.id,
             nr:u.nr,
@@ -1216,6 +1227,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
           {/* TAB INFO */}
           {tabDettaglio==="info"&&(
             <>
+              {a.specie==="suino"&&a.sesso==="F"&&<MortiCausaMadre madreId={a.id}/>}
               {a.provenienza==="Acquistato"&&!a.prezzo_acquisto&&(
                 <div style={{background:C.red,color:"#FFF",borderRadius:10,padding:"10px 14px",
                   marginBottom:12,fontWeight:700,fontSize:13,display:"flex",alignItems:"center",gap:8}}>
@@ -1650,6 +1662,18 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
                         </div>
                       );
                     })()}
+                    {/* v135 — avviso: sesso obbligatorio per i suinetti */}
+                    {!formParto.id&&!formParto.storico&&a.specie==="suino"&&(formParto.nati||[]).length>0&&(()=>{
+                      const mancano=(formParto.nati||[]).filter(n=>!n.sesso||!String(n.sesso).trim()).length;
+                      return(
+                        <div style={{background:(mancano?C.red:C.green)+"15",border:`1.5px solid ${mancano?C.red:C.green}`,
+                          borderRadius:10,padding:"8px 12px",marginBottom:10,fontSize:13,fontWeight:700,color:mancano?C.red:C.green}}>
+                          {mancano
+                            ?t("⚠️ Inserire il SESSO di ogni suinetto nato vivo: senza il sesso il parto NON si registra. Mancano {0} su {1}.",{0:mancano,1:(formParto.nati||[]).length})
+                            :t("✅ Sesso inserito per tutti i {0} suinetti",{0:(formParto.nati||[]).length})}
+                        </div>
+                      );
+                    })()}
                     {/* Campi per ogni nato vivo (solo creazione, non storico) */}
                     {!formParto.id&&!formParto.storico&&(formParto.nati||[]).map((n,i)=>{
                       const codLottoPreview=(()=>{
@@ -1659,7 +1683,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
                       const nrLotto=String(i+1-(formParto.nati||[]).slice(0,i+1).filter(x=>x.bdn_nato&&x.bdn_nato.trim()).length).padStart(2,"0");
                       return(
                       <div key={i} style={{background:C.bg,borderRadius:10,padding:10,marginBottom:8,
-                        border:`1.5px solid ${n.bdn_nato?C.green:C.suini}44`}}>
+                        border:(a.specie==="suino"&&!n.sesso)?`2px solid ${C.red}`:`1.5px solid ${n.bdn_nato?C.green:C.suini}44`}}>
                         <div style={{fontSize:12,fontWeight:700,marginBottom:8,
                           color:n.bdn_nato?C.green:C.suini}}>
                           {a.specie==="suino"
@@ -1671,7 +1695,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
                               :t("🐾 Nato vivo — inserisci matricola")}
                         </div>
                         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-                          <Field label={t("Sesso")} value={n.sesso}
+                          <Field label={t("Sesso")} required={a.specie==="suino"} value={n.sesso}
                             onChange={v=>setFormParto(f=>({...f,nati:f.nati.map((x,j)=>j===i?{...x,sesso:v}:x)}))}
                             options={a.specie==="suino"?["M","F","Castrato"]:SESSO_OPT(a.specie)}/>
                           <Field label={t("Peso nascita (kg)")} value={n.peso_nascita}

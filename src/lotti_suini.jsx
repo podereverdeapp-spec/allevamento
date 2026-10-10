@@ -40,6 +40,39 @@ export const generaCodLotto = (dataParto, razzaMadre, razzaPadre, bdnMadre) => {
 };
 const codiceUnita = (codLotto, nr) => `${codLotto}${String(nr).padStart(2,"0")}`;
 
+// v136 — cause di morte del suinetto (decisione del Dott. Bizzarri, 10/10/2026)
+export const CAUSE_MORTE = ["Schiacciato dalla madre","Ucciso dalla madre","Diarrea","Debole e sottopeso","Altra malattia"];
+export const CAUSE_DELLA_MADRE = ["Schiacciato dalla madre","Ucciso dalla madre"];
+// regola: la madre va al macello con 1 suinetto ucciso, oppure 2 o piu' schiacciati (sommando tutti i parti)
+export const madreDaMacello = (uccisi, schiacciati) => uccisi >= 1 || schiacciati >= 2;
+// conteggio per madre dai lotti nati in azienda
+export const contaMortiPerMadre = (lotti, suini) => {
+  const out = {};
+  (lotti||[]).filter(l=>l.tipo_provenienza==="nato"&&l.madre_id).forEach(l=>{
+    (suini||[]).filter(u=>u.lotto_id===l.id&&u.stato==="morto").forEach(u=>{
+      const c = (u.causa_morte||"").trim();
+      if(!CAUSE_DELLA_MADRE.includes(c)) return;
+      const m = out[l.madre_id] = out[l.madre_id] || {schiacciati:0, uccisi:0, lotti:{}};
+      if(c==="Schiacciato dalla madre") m.schiacciati++; else m.uccisi++;
+      const k = l.codice_lotto||l.codice;
+      m.lotti[k] = m.lotti[k] || {schiacciati:0, uccisi:0, data:l.data_parto};
+      if(c==="Schiacciato dalla madre") m.lotti[k].schiacciati++; else m.lotti[k].uccisi++;
+    });
+  });
+  return out;
+};
+// v136 — castrazione: evento sanitario sul singolo suinetto (tipo «intervento»)
+const DESCR_CASTRAZIONE = "Castrazione";
+async function registraCastrazioni(ids, data) {
+  if(!ids.length) return { error:null };
+  const r1 = await supabase.from("suini_lotto").update({ sesso:"Castrato" }).in("id", ids);
+  if(r1.error) return r1;
+  return await supabase.from("eventi_sanitari").insert(ids.map(id=>({
+    suini_lotto_id:id, animale_id:null, tipo:"intervento", descrizione:DESCR_CASTRAZIONE, data,
+    collettivo: ids.length>1, n_capi_coinvolti: ids.length,
+  })));
+}
+
 // ─── UI BASE ──────────────────────────────────────────────────────────────────
 const inputStyle = {width:"100%",boxSizing:"border-box",border:`1.5px solid ${C.border}`,
   borderRadius:10,padding:"10px 12px",fontSize:15,background:"#FAFAF8",color:C.text,outline:"none"};
@@ -202,17 +235,36 @@ function FormAssegnaBDN({unita, lotto, animali, onSave, onCancel}) {
 // ─── FORM USCITA UNITÀ ────────────────────────────────────────────────────────
 function FormUscitaUnita({unita, lotto, onSave, onCancel}) {
   const giaUscita = unita.vivo===false || (unita.stato&&unita.stato!=="attivo");
+  // v136 — elenco: Macellato · Morto · Venduto vivo · Altro (da specificare)
+  const MOTIVI = [
+    {label:"Macellato",stato:"macellato"},
+    {label:"Morto",stato:"morto"},
+    {label:"Venduto vivo",stato:"venduto"},
+    {label:"Altro",stato:"uscito"},
+  ];
+  // un'uscita vecchia con un motivo non piu' in elenco resta visibile cosi' com'e'
+  const motivoVecchio = unita.motivo_uscita && !MOTIVI.some(m=>m.label===unita.motivo_uscita) ? unita.motivo_uscita : null;
+  const causaIniz = (()=>{
+    const c=(unita.causa_morte||"").trim();
+    if(c.startsWith("Altra malattia: ")) return {causa:"Altra malattia", testo:c.slice(16)};
+    if(CAUSE_MORTE.includes(c)) return {causa:c, testo:""};
+    return {causa:"", testo:c};
+  })();
+  const notaAltro = (unita.note||"").startsWith("Altro: ") ? unita.note.slice(7) : "";
   const [form,setForm] = useState({
-    motivo: unita.motivo_uscita || "Macellato",
-    stato: giaUscita ? unita.stato : "macellato",
+    motivo: unita.motivo_uscita || "",            // v136 — nessun motivo gia' scelto: va scelto
+    stato: giaUscita ? unita.stato : "",
     data_uscita: unita.data_uscita || today(),
-    causa_morte: unita.causa_morte || "",
+    causa: causaIniz.causa,
+    causa_testo: causaIniz.testo,
+    altro_testo: notaAltro,
     peso_vivo_uscita: unita.peso_vivo_uscita ?? "",
     peso_carcassa: unita.peso_carcassa ?? "",
   });
   const [saving,setSaving] = useState(false);
   const [m4,setM4] = useState(undefined);   // v123 — modello 4 abbinato
   const codice = unita.codice_completo||codiceUnita(lotto.codice_lotto||lotto.codice, unita.nr);
+  const morto = form.motivo==="Morto";
 
   // Accrescimento giornaliero
   const giorni = lotto.data_parto&&form.data_uscita
@@ -223,28 +275,31 @@ function FormUscitaUnita({unita, lotto, onSave, onCancel}) {
   const resa = form.peso_carcassa&&form.peso_vivo_uscita
     ? Math.round(parseFloat(form.peso_carcassa)/parseFloat(form.peso_vivo_uscita)*1000)/10 : null;
 
-  const MOTIVI = [
-    {label:"Macellato",stato:"macellato"},
-    {label:"Morto (malattia)",stato:"morto"},
-    {label:"Morto (causa naturale)",stato:"morto"},
-    {label:"Venduto vivo",stato:"venduto"},
-    {label:"Predato",stato:"morto"},
-    {label:"Smarrito",stato:"disperso"},
-    {label:"Altro",stato:"uscito"},
-  ];
-
   const salva = async () => {
+    if(!form.motivo){ alert(t("⚠️ Scegliere il motivo dell'uscita.")); return; }
+    if(!form.data_uscita){ alert(t("⚠️ Inserire la data.")); return; }
+    if(morto&&!form.causa){ alert(t("⚠️ Scegliere la causa della morte.")); return; }
+    if(morto&&form.causa==="Altra malattia"&&!form.causa_testo.trim()){ alert(t("⚠️ Scrivere quale malattia nella casella «Causa».")); return; }
+    if(form.motivo==="Altro"&&!form.altro_testo.trim()){ alert(t("⚠️ Con «Altro» va specificato il motivo dell'uscita.")); return; }
     if(!confermaPesoVivo(form.motivo, form.peso_vivo_uscita)) return;   // v124
+    const statoNuovo = MOTIVI.find(m=>m.label===form.motivo)?.stato || form.stato || "uscito";
+    const causaMorte = morto
+      ? (form.causa==="Altra malattia" ? "Altra malattia: "+form.causa_testo.trim() : form.causa)
+      : (form.motivo===motivoVecchio ? (unita.causa_morte||null) : null);
+    let note = unita.note||null;
+    if(form.motivo==="Altro") note = "Altro: "+form.altro_testo.trim();
+    else if((note||"").startsWith("Altro: ")) note = null;
     setSaving(true);
     const {error} = await supabase.from("suini_lotto").update({
-      stato: form.stato,
+      stato: statoNuovo,
       vivo: false,
       motivo_uscita: form.motivo,
-      causa_morte: form.motivo==="Morto (malattia)"?(form.causa_morte||null):null,
+      causa_morte: causaMorte,
       data_uscita: form.data_uscita||null,
-      peso_vivo_uscita: form.peso_vivo_uscita?parseFloat(form.peso_vivo_uscita):null,
-      peso_carcassa: form.peso_carcassa?parseFloat(form.peso_carcassa):null,
-      resa_percent: resa,
+      note,
+      peso_vivo_uscita: !morto&&form.peso_vivo_uscita?parseFloat(form.peso_vivo_uscita):null,
+      peso_carcassa: form.motivo==="Macellato"&&form.peso_carcassa?parseFloat(form.peso_carcassa):null,
+      resa_percent: form.motivo==="Macellato"?resa:null,
     }).eq("id", unita.id);
     if(!error&&m4!==undefined){
       const {error:e2} = await salvaAbbinamento({documentoId:MOTIVI_CON_MODELLO4.includes(form.motivo)?m4:null, suinoLottoId:unita.id});
@@ -264,25 +319,38 @@ function FormUscitaUnita({unita, lotto, onSave, onCancel}) {
       <div style={{fontWeight:700,color:C.red,marginBottom:10,fontSize:14}}>
         📤 {giaUscita?t("Modifica"):t("Registra")} {t("uscita —")} {codice}
       </div>
-      <AvvisoPesoVivo motivo={form.motivo} peso={form.peso_vivo_uscita}/>
-      <Field label={t("Motivo uscita")} value={form.motivo}
-        onChange={v=>{
-          const m=MOTIVI.find(x=>x.label===v);
-          setForm(f=>({...f,motivo:v,stato:m?.stato||"uscito"}));
-        }}
-        options={MOTIVI.map(m=>m.label)}/>
-      {form.motivo==="Morto (malattia)"&&
-        <Field label={t("Causa (malattia/diagnosi)")} value={form.causa_morte}
-          onChange={v=>setForm(f=>({...f,causa_morte:v}))} placeholder={t("Es. Polmonite, PRRS, setticemia...")}/>}
-      <Field label={t("Data uscita")} value={form.data_uscita}
-        onChange={v=>setForm(f=>({...f,data_uscita:v}))} type="date"/>
+      {!morto&&<AvvisoPesoVivo motivo={form.motivo} peso={form.peso_vivo_uscita}/>}
+      <Field label={t("Motivo uscita")} required value={form.motivo}
+        onChange={v=>setForm(f=>({...f,motivo:v}))}
+        options={[...MOTIVI.map(m=>m.label), ...(motivoVecchio?[motivoVecchio]:[])]}/>
+      {morto&&(<>
+        <Field label={t("Data della morte")} required value={form.data_uscita}
+          onChange={v=>setForm(f=>({...f,data_uscita:v}))} type="date"/>
+        <Field label={t("Causa della morte")} required value={form.causa}
+          onChange={v=>setForm(f=>({...f,causa:v}))} options={CAUSE_MORTE}/>
+        {form.causa==="Altra malattia"&&
+          <Field label={t("Causa")} required value={form.causa_testo}
+            onChange={v=>setForm(f=>({...f,causa_testo:v}))} placeholder={t("Es. Polmonite, PRRS, setticemia...")}/>}
+        {CAUSE_DELLA_MADRE.includes(form.causa)&&(
+          <div style={{background:C.red+"15",border:`1px solid ${C.red}55`,borderRadius:8,padding:"6px 10px",
+            fontSize:12,color:C.red,fontWeight:700,marginBottom:10}}>
+            {t("⚠️ Questa causa viene registrata anche nella scheda della madre, per la selezione.")}
+          </div>
+        )}
+      </>)}
+      {!morto&&form.motivo&&
+        <Field label={t("Data uscita")} required value={form.data_uscita}
+          onChange={v=>setForm(f=>({...f,data_uscita:v}))} type="date"/>}
+      {form.motivo==="Altro"&&
+        <Field label={t("Specificare il motivo")} required value={form.altro_testo}
+          onChange={v=>setForm(f=>({...f,altro_testo:v}))} placeholder={t("Es. trasferito in altra azienda")}/>}
       {MOTIVI_CON_MODELLO4.includes(form.motivo)&&
         <ProposteModello4 specie="suino" dataUscita={form.data_uscita}
           suinoLottoId={unita.id} valore={m4} onChange={setM4}/>}
-      {giorni>0&&<div style={{fontSize:12,color:C.blue,marginBottom:8}}>
-        📅 {giorni} {t("giorni di permanenza")}
+      {giorni>0&&form.motivo&&<div style={{fontSize:12,color:C.blue,marginBottom:8}}>
+        📅 {giorni} {morto?t("giorni di vita"):t("giorni di permanenza")}
       </div>}
-      {(form.motivo==="Macellato"||form.motivo==="Venduto vivo")&&(
+      {!morto&&form.motivo&&(
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
           <Field label={t("Peso vivo (kg)")} value={form.peso_vivo_uscita}
             onChange={v=>setForm(f=>({...f,peso_vivo_uscita:v}))} type="number"/>
@@ -291,10 +359,10 @@ function FormUscitaUnita({unita, lotto, onSave, onCancel}) {
               onChange={v=>setForm(f=>({...f,peso_carcassa:v}))} type="number"/>}
         </div>
       )}
-      {resa&&<div style={{fontSize:12,color:C.green,marginBottom:8}}>
+      {resa&&form.motivo==="Macellato"&&<div style={{fontSize:12,color:C.green,marginBottom:8}}>
         {t("⚖️ Resa:")} <strong>{resa}%</strong>
       </div>}
-      {accrescimento&&<div style={{fontSize:12,color:C.primary,marginBottom:8}}>
+      {accrescimento&&!morto&&<div style={{fontSize:12,color:C.primary,marginBottom:8}}>
         {t("📈 Accrescimento:")} <strong>{accrescimento} {t("kg/giorno")}</strong>
         {pesoNascita>0&&t(" (da {0}kg)",{0:(pesoNascita)})}
       </div>}
@@ -311,16 +379,21 @@ function FormUscitaUnita({unita, lotto, onSave, onCancel}) {
 function FormPesoUnita({unita, lotto, onSave, onCancel}) {
   const [peso,setPeso] = useState(unita.peso_nascita ?? "");
   const [sesso,setSesso] = useState(unita.sesso ?? "");
+  const [dataCastr,setDataCastr] = useState(today());   // v136 — data della castrazione
   const [saving,setSaving] = useState(false);
+  const nuovaCastrazione = sesso==="Castrato" && unita.sesso!=="Castrato";
   const codice = unita.codice_completo||codiceUnita(lotto.codice_lotto||lotto.codice, unita.nr);
   const acquistato = lotto.tipo_provenienza==="acquistato";
 
   const salva = async () => {
+    if(!sesso){ alert(t("⚠️ Scegliere il sesso del suinetto.")); return; }
+    if(nuovaCastrazione&&!dataCastr){ alert(t("⚠️ Inserire la data della castrazione.")); return; }
     setSaving(true);
-    const {error} = await supabase.from("suini_lotto").update({
+    let {error} = await supabase.from("suini_lotto").update({
       peso_nascita: peso!==""?parseFloat(peso):null,
-      sesso: sesso||null,
+      sesso: nuovaCastrazione ? (unita.sesso||null) : (sesso||null),
     }).eq("id", unita.id);
+    if(!error&&nuovaCastrazione) ({error} = await registraCastrazioni([unita.id], dataCastr));
     setSaving(false);
     if(error){
       alert(t("⚠️ Errore nel salvataggio:\n\n{0}",{0:(error.message)}));
@@ -335,9 +408,11 @@ function FormPesoUnita({unita, lotto, onSave, onCancel}) {
       <div style={{fontWeight:700,color:C.yellow,marginBottom:10,fontSize:14}}>
         {t("⚖️ Peso e sesso —")} {codice}
       </div>
-      <Field label={t("Sesso")} value={sesso} onChange={setSesso}
+      <Field label={t("Sesso")} required value={sesso} onChange={setSesso}
         options={[{value:"M",label:"♂ Maschio"},
                   {value:"F",label:"♀ Femmina"},{value:"Castrato",label:"✂ Castrato"}]}/>
+      {nuovaCastrazione&&
+        <Field label={t("Data della castrazione")} required value={dataCastr} onChange={setDataCastr} type="date"/>}
       <Field label={t("Peso {0} (kg)",{0:(acquistato?"in entrata":"alla nascita")})} value={peso}
         onChange={setPeso} type="number" placeholder={t("Es. 1.4")}/>
       <div style={{display:"flex",gap:8}}>
@@ -397,54 +472,50 @@ function CardUnita({u, lotto, animali, onUpdate}) {
             </div>
           )}
         </div>
-        <div style={{display:"flex",gap:6,flexShrink:0}}>
-          {vivo&&(<>
-            <button onClick={()=>setModal("peso")}
-              style={{background:C.yellow+"20",border:"none",borderRadius:8,
-                padding:"6px 8px",cursor:"pointer",fontSize:12,fontWeight:700,color:C.yellow}}>
-              ⚖️
-            </button>
-            <button onClick={()=>setModal("bdn")}
-              style={{background:C.blue+"20",border:"none",borderRadius:8,
-                padding:"6px 8px",cursor:"pointer",fontSize:12,fontWeight:700,color:C.blue}}>
-              {t("🏷️ BDN")}
-            </button>
-          </>)}
-          <button onClick={()=>setModal("uscita")}
-            style={{background:C.red+"20",border:"none",borderRadius:8,
-              padding:"6px 8px",cursor:"pointer",fontSize:12,fontWeight:700,color:C.red}}>
-            📤{!vivo&&" ✏️"}
-          </button>
-          {!vivo&&u.stato!=="registrato_individuale"&&(
-            <button onClick={async()=>{
-                if(!window.confirm(t("Annullare l'uscita di {0} e riportarla ad \"attivo\"?\nI dati di uscita (data, motivo, pesi) verranno cancellati.",{0:(codice)}))) return;
-                const {error} = await supabase.from("suini_lotto").update({
-                  stato:"attivo", vivo:true,
-                  motivo_uscita:null, causa_morte:null, data_uscita:null,
-                  peso_vivo_uscita:null, peso_carcassa:null, resa_percent:null,
-                }).eq("id", u.id);
-                if(error){ alert(t("⚠️ Errore nell'annullamento:\n\n{0}",{0:(error.message)})); return; }
-                await salvaAbbinamento({documentoId:null, suinoLottoId:u.id});   // v123
-                onUpdate();
-              }}
-              style={{background:C.green+"20",border:"none",borderRadius:8,
-                padding:"6px 8px",cursor:"pointer",fontSize:12,fontWeight:700,color:C.green}}>
-              ↩️
-            </button>
-          )}
-          <button onClick={async()=>{
-              if(!window.confirm(t("Eliminare definitivamente l'unità {0}?\nQuesta operazione NON è reversibile.",{0:(codice)}))) return;
-              const {error} = await supabase.from("suini_lotto").delete().eq("id", u.id);
-              if(error){ alert(t("⚠️ Errore nell'eliminazione:\n\n{0}",{0:(error.message)})); return; }
+      </div>
+      {/* v136 — pulsanti con la scritta sotto, in una riga a tutta larghezza */}
+      <div style={{display:"grid",gridTemplateColumns:`repeat(${vivo?4:(u.stato!=="registrato_individuale"?3:2)},1fr)`,gap:6,marginTop:10}}>
+        {vivo&&(<>
+          <PulsanteUnita icona="⚖️" scritta={u.sesso?t("Sesso e peso"):t("MANCA IL SESSO")}
+            colore={u.sesso?C.yellow:C.red} pieno={!u.sesso} onClick={()=>setModal("peso")}/>
+          <PulsanteUnita icona="🏷️" scritta={t("Assegna matricola razza o riproduttore")} colore={C.blue} onClick={()=>setModal("bdn")}/>
+        </>)}
+        <PulsanteUnita icona={vivo?"📤":"📤✏️"} scritta={vivo?t("Morto o uscito"):t("Correggi uscita")}
+          colore={C.red} onClick={()=>setModal("uscita")}/>
+        {!vivo&&u.stato!=="registrato_individuale"&&(
+          <PulsanteUnita icona="↩️" scritta={t("Annulla uscita")} colore={C.green} onClick={async()=>{
+              if(!window.confirm(t("Annullare l'uscita di {0} e riportarla ad \"attivo\"?\nI dati di uscita (data, motivo, pesi) verranno cancellati.",{0:(codice)}))) return;
+              const {error} = await supabase.from("suini_lotto").update({
+                stato:"attivo", vivo:true,
+                motivo_uscita:null, causa_morte:null, data_uscita:null,
+                peso_vivo_uscita:null, peso_carcassa:null, resa_percent:null,
+              }).eq("id", u.id);
+              if(error){ alert(t("⚠️ Errore nell'annullamento:\n\n{0}",{0:(error.message)})); return; }
+              await salvaAbbinamento({documentoId:null, suinoLottoId:u.id});   // v123
               onUpdate();
-            }}
-            style={{background:"#00000015",border:"none",borderRadius:8,
-              padding:"6px 8px",cursor:"pointer",fontSize:12,fontWeight:700,color:C.muted}}>
-            🗑️
-          </button>
-        </div>
+            }}/>
+        )}
+        <PulsanteUnita icona="🗑️" scritta={t("Elimina se errato")} colore={C.muted} onClick={async()=>{
+            if(!window.confirm(t("Eliminare definitivamente l'unità {0}?\nQuesta operazione NON è reversibile.",{0:(codice)}))) return;
+            await supabase.from("eventi_sanitari").delete().eq("suini_lotto_id", u.id);   // v136
+            const {error} = await supabase.from("suini_lotto").delete().eq("id", u.id);
+            if(error){ alert(t("⚠️ Errore nell'eliminazione:\n\n{0}",{0:(error.message)})); return; }
+            onUpdate();
+          }}/>
       </div>
     </div>
+  );
+}
+
+// v136 — pulsante della riga del suinetto: simbolo sopra, scritta sotto
+function PulsanteUnita({icona, scritta, colore, pieno=false, onClick}) {
+  return (
+    <button onClick={onClick}
+      style={{background:pieno?colore:colore+"20",border:pieno?`2px solid ${colore}`:"none",borderRadius:10,
+        padding:"6px 4px",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3,minWidth:0}}>
+      <span style={{fontSize:18,lineHeight:1}}>{icona}</span>
+      <span style={{fontSize:11,fontWeight:800,lineHeight:1.15,color:pieno?"#FFF":colore,textAlign:"center"}}>{scritta}</span>
+    </button>
   );
 }
 
@@ -454,6 +525,7 @@ function SchedaLotto({lotto, suini, animali, onBack, onUpdate, onDelete}) {
   const [form,setForm] = useState(null);
   const [saving,setSaving] = useState(false);
   const [eliminando,setEliminando] = useState(false);
+  const [castraTutti,setCastraTutti] = useState(null);   // v136 — null | data della castrazione
 
   const unita = useMemo(()=>
     suini.filter(s=>s.lotto_id===lotto.id).sort((a,b)=>a.nr-b.nr)
@@ -468,6 +540,7 @@ function SchedaLotto({lotto, suini, animali, onBack, onUpdate, onDelete}) {
     )) return;
     if(!window.confirm(t("Confermi? Non si può tornare indietro."))) return;
     setEliminando(true);
+    if(unita.length) await supabase.from("eventi_sanitari").delete().in("suini_lotto_id", unita.map(u=>u.id));   // v136
     const {error: errUnita} = await supabase.from("suini_lotto").delete().eq("lotto_id", lotto.id);
     if(errUnita){
       setEliminando(false);
@@ -647,6 +720,35 @@ function SchedaLotto({lotto, suini, animali, onBack, onUpdate, onDelete}) {
               background:"none",border:"none",cursor:"pointer",fontSize:16}}>✕</button>}
         </div>
 
+        {/* v136 — castrazione di tutti i maschi vivi del lotto */}
+        {(()=>{
+          const maschiVivi = unita.filter(u=>u.sesso==="M"&&u.vivo!==false&&u.stato==="attivo");
+          if(!maschiVivi.length) return null;
+          return castraTutti===null ? (
+            <div style={{marginBottom:12}}>
+              <Btn label={t("✂ Castra tutti i maschi ({0})",{0:maschiVivi.length})} onClick={()=>setCastraTutti(today())} variant="blue" full/>
+            </div>
+          ) : (
+            <div style={{background:C.blue+"12",border:`2px solid ${C.blue}`,borderRadius:14,padding:14,marginBottom:12}}>
+              <div style={{fontWeight:800,color:C.blue,marginBottom:8,fontSize:14}}>
+                {t("✂ Castrazione di {0} maschi:",{0:maschiVivi.length})} {maschiVivi.map(u=>String(u.nr).padStart(2,"0")).join(", ")}
+              </div>
+              <Field label={t("Data della castrazione")} required value={castraTutti} onChange={setCastraTutti} type="date"/>
+              <div style={{display:"flex",gap:8}}>
+                <Btn label={saving?"...":t("✓ Conferma")} small variant="blue" disabled={saving} onClick={async()=>{
+                  if(!castraTutti){ alert(t("⚠️ Inserire la data della castrazione.")); return; }
+                  setSaving(true);
+                  const {error} = await registraCastrazioni(maschiVivi.map(u=>u.id), castraTutti);
+                  setSaving(false);
+                  if(error){ alert(t("⚠️ Errore nel salvataggio:\n\n{0}",{0:error.message})); return; }
+                  setCastraTutti(null); onUpdate();
+                }}/>
+                <Btn label={t("Annulla")} small variant="ghost" onClick={()=>setCastraTutti(null)}/>
+              </div>
+            </div>
+          );
+        })()}
+
         <div style={{fontSize:12,fontWeight:700,color:C.muted,marginBottom:8}}>
           {t("UNITÀ DEL LOTTO —")} {unitaFiltrate.length} / {unita.length}
           {castrati>0&&t(" · {0} castrati",{0:(castrati)})}
@@ -663,6 +765,35 @@ function SchedaLotto({lotto, suini, animali, onBack, onUpdate, onDelete}) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ─── v136 — SCHEDA DELLA MADRE: suinetti morti per causa sua ──────────────────
+export function MortiCausaMadre({ madreId }) {
+  const [dati,setDati] = useState(null);
+  useEffect(()=>{
+    let vivo = true;
+    (async()=>{
+      const {data:lot} = await supabase.from("lotti_suini").select("id,codice,codice_lotto,data_parto,tipo_provenienza,madre_id,nati_vivi").eq("madre_id", madreId);
+      const ids = (lot||[]).map(l=>l.id);
+      const {data:sui} = ids.length ? await supabase.from("suini_lotto").select("id,lotto_id,stato,causa_morte").in("lotto_id", ids) : {data:[]};
+      if(vivo) setDati(contaMortiPerMadre(lot||[], sui||[])[madreId] || null);
+    })();
+    return ()=>{ vivo=false; };
+  },[madreId]);
+  if(!dati) return null;
+  const macello = madreDaMacello(dati.uccisi, dati.schiacciati);
+  return (
+    <div style={{background:macello?C.red:C.red+"12",color:macello?"#FFF":C.red,border:`2px solid ${C.red}`,
+      borderRadius:12,padding:"10px 14px",marginBottom:12,fontSize:13,fontWeight:700}}>
+      {macello&&<div style={{fontSize:16,fontWeight:900,marginBottom:6}}>🔴 {t("DA MANDARE AL MACELLO")}</div>}
+      <div style={{marginBottom:4}}>{t("Suinetti morti per causa della madre: {0} schiacciati, {1} uccisi",{0:dati.schiacciati,1:dati.uccisi})}</div>
+      {Object.entries(dati.lotti).sort((x,y)=>(y[1].data||"").localeCompare(x[1].data||"")).map(([cod,v])=>(
+        <div key={cod} style={{fontWeight:600,fontSize:12}}>
+          {t("Lotto")} {cod} ({v.data}): {t("{0} schiacciati, {1} uccisi",{0:v.schiacciati,1:v.uccisi})}
+        </div>
+      ))}
     </div>
   );
 }
@@ -918,6 +1049,7 @@ export default function LottiSuini() {
   const [loading,setLoading] = useState(true);
   const [view,setView]       = useState("lista");
   const [selLottoId,setSelLottoId] = useState(null);
+  const [avvisoChiuso,setAvvisoChiuso] = useState(false);   // v136 — avviso a ogni apertura della sezione
   const selLotto = lotti.find(l=>l.id===selLottoId)||null;
 
   const carica = async () => {
@@ -939,9 +1071,48 @@ export default function LottiSuini() {
       minHeight:"100vh",maxWidth:480,margin:"0 auto"}}><Spinner/></div>
   );
 
+  // v136 — all'apertura della sezione Lotti: avviso a tutto schermo
+  const viviSenzaSesso = suini.filter(u=>u.vivo!==false&&u.stato==="attivo"&&!u.sesso);
+  const lottiSenzaSesso = new Set(viviSenzaSesso.map(u=>u.lotto_id)).size;
+  const perMadre = contaMortiPerMadre(lotti, suini);
+  const madriMacello = Object.entries(perMadre)
+    .filter(([id,m])=>madreDaMacello(m.uccisi,m.schiacciati))
+    .map(([id,m])=>({m, a:animali.find(x=>x.id===parseInt(id))}))
+    .filter(x=>x.a&&x.a.stato==="attivo");
+  const avviso = !avvisoChiuso&&(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.55)",zIndex:500,
+      display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+      <div style={{background:"#FFF",borderRadius:18,padding:20,maxWidth:420,width:"100%",
+        border:`3px solid ${C.red}`,boxShadow:"0 8px 30px rgba(0,0,0,0.3)"}}>
+        <div style={{fontSize:20,fontWeight:900,color:C.red,textAlign:"center",marginBottom:12,lineHeight:1.3}}>
+          ⚠️ {t("REGISTRARE IL SESSO E LE MORTI DEI SUINETTI")}
+        </div>
+        <div style={{fontSize:14,color:C.text,lineHeight:1.5,marginBottom:10}}>
+          {t("Per ogni suinetto del lotto: il sesso con il pulsante ⚖️ e, se è morto, la morte con il pulsante 📤 (motivo «Morto»).")}
+        </div>
+        <div style={{fontSize:14,fontWeight:700,color:viviSenzaSesso.length?C.red:C.green,marginBottom:16}}>
+          {viviSenzaSesso.length
+            ?t("Suinetti vivi senza sesso: {0} in {1} lotti.",{0:viviSenzaSesso.length,1:lottiSenzaSesso})
+            :t("✅ Tutti i suinetti vivi hanno il sesso.")}
+        </div>
+        {madriMacello.length>0&&(
+          <div style={{background:C.red,color:"#FFF",borderRadius:12,padding:"10px 12px",marginBottom:16,fontSize:13,fontWeight:700}}>
+            🔴 {t("DA MANDARE AL MACELLO")}:
+            {madriMacello.map(({m,a})=>(
+              <div key={a.id} style={{marginTop:4}}>
+                {a.bdn||a.nome} — {t("{0} schiacciati, {1} uccisi",{0:m.schiacciati,1:m.uccisi})}
+              </div>
+            ))}
+          </div>
+        )}
+        <Btn label={t("Ho capito")} onClick={()=>setAvvisoChiuso(true)} variant="danger" full/>
+      </div>
+    </div>
+  );
+
   const wrap = ch => (
     <div style={{fontFamily:"'Segoe UI',system-ui,sans-serif",background:C.bg,
-      minHeight:"100vh",maxWidth:480,margin:"0 auto"}}>{ch}</div>
+      minHeight:"100vh",maxWidth:480,margin:"0 auto"}}>{avviso}{ch}</div>
   );
 
   if(view==="acquisto") return wrap(
