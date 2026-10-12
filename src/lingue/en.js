@@ -2118,5 +2118,8 @@ const D = {
   "Scegli il motivo: Macellato, Morto, Venduto vivo o Altro. Con «Morto» segui i passi della sezione «✝️ Morte di un suinetto». Con «Altro» è obbligatorio scrivere il motivo nella casella «Specificare il motivo»": "Choose the reason: Slaughtered, Dead, Sold alive or Other. With «Dead» follow the steps in the section «✝️ Death of a piglet». With «Other» you must write the reason in the «Specify the reason» box",
   "Macellato, Venduto vivo o Altro: compare l'avviso «⚖️ Ricordati di pesare l'animale vivo!»: pesa il maiale e scrivi il peso vivo": "Slaughtered, Sold alive or Other: the warning «⚖️ Remember to weigh the live animal!» appears: weigh the pig and write the live weight",
   "Tocca 🏷️ «Assegna matricola razza o riproduttore» sull'unità, scrivi la matricola BDN e, se vuoi, un nome": "Tap 🏷️ «Assign ear tag number for breed or breeder» on the unit, write the BDN ear tag number and, if you want, a name",
+  // v137 — sezione Sanità e benessere dei suini (il testo del quaderno per ora è solo in italiano)
+  "Sanità e benessere dei suini": "Pig health and welfare",
+  "Quaderno non caricato:": "Handbook not loaded:",
 };
 export default D;

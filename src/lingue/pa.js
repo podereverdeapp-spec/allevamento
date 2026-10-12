@@ -2118,5 +2118,8 @@ const D = {
   "Scegli il motivo: Macellato, Morto, Venduto vivo o Altro. Con «Morto» segui i passi della sezione «✝️ Morte di un suinetto». Con «Altro» è obbligatorio scrivere il motivo nella casella «Specificare il motivo»": "ਕਾਰਨ ਚੁਣੋ: ਬੁੱਚੜਖ਼ਾਨੇ ਗਿਆ, ਮਰਿਆ, ਜਿਉਂਦਾ ਵੇਚਿਆ ਜਾਂ ਹੋਰ। «ਮਰਿਆ» ਨਾਲ «✝️ ਬੱਚੇ ਦੀ ਮੌਤ» ਭਾਗ ਦੇ ਕਦਮ ਮੰਨੋ। «ਹੋਰ» ਨਾਲ «ਕਾਰਨ ਲਿਖੋ» ਖ਼ਾਨੇ ਵਿੱਚ ਕਾਰਨ ਲਿਖਣਾ ਜ਼ਰੂਰੀ ਹੈ",
   "Macellato, Venduto vivo o Altro: compare l'avviso «⚖️ Ricordati di pesare l'animale vivo!»: pesa il maiale e scrivi il peso vivo": "ਬੁੱਚੜਖ਼ਾਨੇ ਗਿਆ, ਜਿਉਂਦਾ ਵੇਚਿਆ ਜਾਂ ਹੋਰ: «⚖️ ਜਿਉਂਦੇ ਜਾਨਵਰ ਦਾ ਭਾਰ ਤੋਲਣਾ ਯਾਦ ਰੱਖੋ!» ਸੁਨੇਹਾ ਆਉਂਦਾ ਹੈ: ਸੂਰ ਤੋਲੋ ਅਤੇ ਜਿਉਂਦਾ ਭਾਰ ਲਿਖੋ",
   "Tocca 🏷️ «Assegna matricola razza o riproduttore» sull'unità, scrivi la matricola BDN e, se vuoi, un nome": "ਯੂਨਿਟ ਤੇ 🏷️ «ਨਸਲ ਜਾਂ ਪ੍ਰਜਨਕ ਲਈ ਨੰਬਰ ਦਿਓ» ਦਬਾਓ, BDN ਨੰਬਰ ਲਿਖੋ ਅਤੇ ਚਾਹੋ ਤਾਂ ਇੱਕ ਨਾਮ",
+  // v137 — sezione Sanità e benessere dei suini (il testo del quaderno per ora è solo in italiano)
+  "Sanità e benessere dei suini": "ਸੂਰਾਂ ਦੀ ਸਿਹਤ ਅਤੇ ਭਲਾਈ",
+  "Quaderno non caricato:": "ਕਿਤਾਬਚਾ ਲੋਡ ਨਹੀਂ ਹੋਇਆ:",
 };
 export default D;

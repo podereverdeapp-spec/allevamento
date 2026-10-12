@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { t } from "./i18n";   // v119 — guida in tre lingue
 
 const C = {
@@ -241,6 +241,8 @@ const SEZIONI = [
       {tipo:"nota",testo:"Il pulsante «📊 Excel» scarica l'elenco dei lotti e delle unità."},
     ]
   },
+  // v137 — quaderno del Tenente Contabilità, caricato solo quando si apre la sezione
+  { id:"sanita_suini", icon:"🩺", titolo:"Sanità e benessere dei suini", quaderno:true, contenuto:[] },
   {
     id:"sanitario", icon:"💉", titolo:"Registro sanitario",
     contenuto:[
@@ -622,8 +624,35 @@ const SEZIONI = [
   },
 ];
 
+// v137 — grassetto, corsivo e collegamenti dentro il testo (usati dal quaderno)
+function Testo({ s }) {
+  const out = [];
+  const re = /\*\*(.+?)\*\*|\*(.+?)\*|\[([^\]]+)\]\((https?:[^)\s]+)\)|(https?:\/\/[^\s·)]+)/g;
+  let last = 0, m, k = 0;
+  const str = String(s ?? "");
+  while ((m = re.exec(str))) {
+    if (m.index > last) out.push(str.slice(last, m.index));
+    if (m[1] !== undefined) out.push(<b key={k++}>{m[1]}</b>);
+    else if (m[2] !== undefined) out.push(<i key={k++}>{m[2]}</i>);
+    else if (m[3] !== undefined) out.push(<a key={k++} href={m[4]} target="_blank" rel="noreferrer" style={{color:C.blue}}>{m[3]}</a>);
+    else out.push(<a key={k++} href={m[5]} target="_blank" rel="noreferrer" style={{color:C.blue,wordBreak:"break-all"}}>{m[5]}</a>);
+    last = re.lastIndex;
+  }
+  if (last < str.length) out.push(str.slice(last));
+  return <>{out}</>;
+}
+
 export default function Guida() {
   const [aperta, setAperta] = useState(null);
+  const [capitolo, setCapitolo] = useState(null);   // v137 — capitolo aperto del quaderno
+  const [quaderno, setQuaderno] = useState(null);   // v137 — dati del quaderno, caricati a richiesta
+  const [erroreQuaderno, setErroreQuaderno] = useState(null);
+  useEffect(() => {
+    if (aperta !== "sanita_suini" || quaderno) return;
+    import("./guida_sanita_suini")
+      .then(m => setQuaderno(m.default))
+      .catch(e => setErroreQuaderno(e.message || String(e)));
+  }, [aperta, quaderno]);
 
   const Card = ({children, style={}}) => (
     <div style={{background:C.card,borderRadius:16,padding:16,marginBottom:12,
@@ -640,7 +669,7 @@ export default function Guida() {
     );
     if (item.tipo==="p") return (
       <p key={i} style={{fontSize:14,color:C.text,margin:"0 0 10px",lineHeight:1.6}}>
-        {t(item.testo)}
+        <Testo s={t(item.testo)}/>
       </p>
     );
     if (item.tipo==="steps") return (
@@ -675,8 +704,90 @@ export default function Guida() {
         ))}
       </div>
     );
+    // v137 — blocchi del quaderno
+    if (item.tipo==="h4") return (
+      <div key={i} style={{fontWeight:700,fontSize:13,color:C.accent,margin:"12px 0 6px"}}>
+        <Testo s={t(item.testo)}/>
+      </div>
+    );
+    if (item.tipo==="elenco") {
+      const Lista = item.numerato ? "ol" : "ul";
+      return (
+        <Lista key={i} style={{paddingLeft:20,margin:"0 0 12px"}}>
+          {item.voci.map((v,j)=>(
+            <li key={j} style={{fontSize:14,color:C.text,marginBottom:6,lineHeight:1.5}}>
+              <Testo s={t(v.testo)}/>
+              {v.sotto&&<ul style={{paddingLeft:18,margin:"4px 0 0"}}>
+                {v.sotto.map((x,h)=><li key={h} style={{fontSize:13,marginBottom:4,lineHeight:1.5}}><Testo s={t(x)}/></li>)}
+              </ul>}
+            </li>
+          ))}
+        </Lista>
+      );
+    }
+    if (item.tipo==="griglia") return (
+      <div key={i} style={{overflowX:"auto",margin:"0 0 14px",border:`1px solid ${C.border}`,borderRadius:8}}>
+        <table style={{borderCollapse:"collapse",fontSize:12,minWidth:item.intestazione.length>3?item.intestazione.length*130:"100%"}}>
+          <thead>
+            <tr>{item.intestazione.map((h,j)=>(
+              <th key={j} style={{background:C.primary,color:"#FFF",textAlign:"left",padding:"6px 8px",verticalAlign:"top"}}><Testo s={t(h)}/></th>
+            ))}</tr>
+          </thead>
+          <tbody>
+            {item.righe.map((r,j)=>(
+              <tr key={j} style={{background:j%2?"#FAF7F2":"#FFF"}}>
+                {r.map((c,h)=>(
+                  <td key={h} style={{padding:"6px 8px",borderTop:`1px solid ${C.border}`,verticalAlign:"top",color:C.text,lineHeight:1.45}}><Testo s={t(c)}/></td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+    if (item.tipo==="immagine") return (
+      <figure key={i} style={{margin:"0 0 14px"}}>
+        <img src={item.src} alt={t(item.didascalia)} loading="lazy"
+          style={{width:"100%",height:"auto",borderRadius:8,border:`1px solid ${C.border}`,background:"#FFF"}}/>
+        <figcaption style={{fontSize:12,color:C.muted,marginTop:4,lineHeight:1.4}}>{t(item.didascalia)}</figcaption>
+      </figure>
+    );
     return null;
   });
+
+  // v137 — sezione «Sanità e benessere dei suini»: elenco dei capitoli, poi il capitolo
+  if (aperta && SEZIONI.find(x=>x.id===aperta)?.quaderno) {
+    const s = SEZIONI.find(x=>x.id===aperta);
+    const cap = quaderno && capitolo ? quaderno.capitoli.find(c=>c.id===capitolo) : null;
+    return (
+      <div style={{fontFamily:"'Segoe UI',system-ui,sans-serif",background:C.bg,
+        minHeight:"100vh",maxWidth:480,margin:"0 auto",padding:"16px 16px 80px"}}>
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
+          <button onClick={()=>{ if(capitolo) setCapitolo(null); else setAperta(null); }}
+            style={{background:"none",border:"none",cursor:"pointer",fontSize:22}}>←</button>
+          <span style={{fontSize:18,fontWeight:800}}>{s.icon} {t(cap ? cap.titolo : s.titolo)}</span>
+        </div>
+        {erroreQuaderno && <Card><div style={{color:C.red,fontSize:14}}>⚠️ {t("Quaderno non caricato:")} {erroreQuaderno}</div></Card>}
+        {!quaderno && !erroreQuaderno && <Card><div style={{fontSize:14,color:C.muted}}>{t("Caricamento...")}</div></Card>}
+        {quaderno && cap && <Card>{renderContenuto(cap.contenuto)}</Card>}
+        {quaderno && !cap && (<>
+          <Card>
+            <div style={{fontWeight:800,fontSize:15,color:C.primary,marginBottom:8}}>{t(quaderno.titolo)}</div>
+            {renderContenuto(quaderno.intro)}
+          </Card>
+          {quaderno.capitoli.map(c=>(
+            <button key={c.id} onClick={()=>{ setCapitolo(c.id); window.scrollTo&&window.scrollTo(0,0); }}
+              style={{display:"flex",alignItems:"center",gap:12,width:"100%",
+                background:C.card,border:`1px solid ${C.border}`,borderRadius:14,
+                padding:"12px 14px",marginBottom:8,cursor:"pointer",textAlign:"left"}}>
+              <div style={{flex:1,fontWeight:700,fontSize:14,color:C.text}}>{t(c.titolo)}</div>
+              <span style={{color:C.muted,fontSize:18}}>›</span>
+            </button>
+          ))}
+        </>)}
+      </div>
+    );
+  }
 
   if (aperta) {
     const s = SEZIONI.find(x=>x.id===aperta);
@@ -710,7 +821,7 @@ export default function Guida() {
           {t("Tutti i dati vengono salvati automaticamente nel database condiviso. Ogni operatore vede gli stessi dati in tempo reale da qualsiasi dispositivo.")}
         </div>
         {SEZIONI.map(s=>(
-          <button key={s.id} onClick={()=>setAperta(s.id)}
+          <button key={s.id} onClick={()=>{ setAperta(s.id); setCapitolo(null); }}
             style={{display:"flex",alignItems:"center",gap:14,width:"100%",
               background:C.card,border:`1px solid ${C.border}`,borderRadius:16,
               padding:"14px 16px",marginBottom:10,cursor:"pointer",textAlign:"left",
