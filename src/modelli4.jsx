@@ -13,6 +13,7 @@ import { t } from "./i18n";
 import { supabase } from "./supabase";
 import { caricaPdfjs, testoDaPdf, leggiModello4 } from "./modelli4_lettura";
 import { PROMPT_IA_MODELLO4 } from "./modelli4_prompt_ia";   // v126
+import { FinestraUscite } from "./modelli4_finestra";   // v140
 
 const C = {
   bg:"#F5F0E8", card:"#FFFFFF", primary:"#5C3D1E", accent:"#A0522D",
@@ -181,6 +182,7 @@ function Caricamento({ onFine }) {
 // ─── SCHEDA DOCUMENTO ─────────────────────────────────────────────────────────
 function Documento({ d, doppio, admin, onElimina, animaliPerMatricola, onAggiorna }) {
   const [aperto, setAperto] = useState(false);
+  const [finestra, setFinestra] = useState(false);   // v140 — finestra delle uscite
   const capi = d.modelli4_capi || [];
   const col = specieColor(d.specie);
   const altro = d.tipo_movimento !== USCITA_PV;
@@ -287,6 +289,18 @@ function Documento({ d, doppio, admin, onElimina, animaliPerMatricola, onAggiorn
             </div>
           ))}
 
+          {daRegistrare && (
+            <div style={{ marginTop:10 }}>
+              <Btn icon="📤" label={t("Registra le uscite di questo modello 4")} variant="success" onClick={() => setFinestra(true)}/>
+            </div>
+          )}
+          {finestra && (
+            <div style={{ position:"fixed", inset:0, background:C.bg, zIndex:400, overflowY:"auto" }}>
+              <div style={{ maxWidth:480, margin:"0 auto", padding:"16px 16px 100px" }}>
+                <FinestraUscite documento={d} onChiudi={() => { setFinestra(false); onAggiorna(); }} onSalvato={() => {}}/>
+              </div>
+            </div>
+          )}
           <div style={{ display:"flex", gap:8, marginTop:10, flexWrap:"wrap" }}>
             {d.file_percorso
               ? <Btn icon="📄" label={t("Apri PDF")} onClick={apriPdf} small/>

@@ -11,6 +11,7 @@ import { supabase } from "./supabase";
 import { ProposteModello4, salvaAbbinamento, MOTIVI_CON_MODELLO4 } from "./modelli4_abbina";   // v123
 import { AvvisoPesoVivo, confermaPesoVivo } from "./avviso_peso";   // v124
 import { AvvisoConsegne, ConsegnaInScheda } from "./consegne";   // v125
+import { AvvisoModelli4 } from "./modelli4_finestra";   // v140
 import { MortiCausaMadre } from "./lotti_suini";   // v136
 
 const C = {
@@ -296,6 +297,8 @@ function Dashboard({animali,eventi_sanitari,magazzino,onNav,suiniLotto}){
     <div style={{padding:"16px 16px 80px"}}>
       <div style={{fontSize:22,fontWeight:800,marginBottom:4}}>{t("Buongiorno 👋")}</div>
       <div style={{fontSize:14,color:C.muted,marginBottom:20}}>{new Date().toLocaleDateString("it-IT",{weekday:"long",day:"numeric",month:"long"})}</div>
+      {/* v140 — modelli 4 arrivati: animali da far uscire (finestra di compilazione) */}
+      <AvvisoModelli4/>
       {/* v125 — capi usciti per la macellazione da completare (carcassa, partita, cliente) */}
       <AvvisoConsegne/>
       {/* Alert scadenze richiami */}

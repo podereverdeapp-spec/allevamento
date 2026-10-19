@@ -20,6 +20,7 @@ import Modelli4            from "./modelli4";           // v121 — archivio mod
 // import CostiComplessivi from "./costi_complessivi";  // v107 — tab Costi nascosta
 import Coltivazione, { Gasolio } from "./coltivazione";
 import Guida               from "./Guida";
+import RazioniBovini       from "./razioni_bovini";     // v139 — calcolo razioni bovini, condiviso con la Contabilità Industriale
 import ExportManager       from "./ExportManager";
 import UBAReport            from "./UBAReport";
 import Destinatari          from "./destinatari";
@@ -32,12 +33,13 @@ const C = { primary:"#5C3D1E", border:"#D4C4A8", muted:"#8B7355", bg:"#F5F0E8", 
 // v104 — versione visibile nel menu utente. Serve a capire in un secondo se il
 // deploy Vercel e' arrivato davvero o se il browser sta servendo una copia
 // vecchia dalla cache: basta aprire il menu e leggere il numero.
-const VERSIONE = "v137";
+const VERSIONE = "v141";
 
 const TABS = [
   { id:"gestione",    label:"Gestione",   icon:"🐄" },
   { id:"pedigree",    label:"Pedigree",   icon:"🧬" },
   { id:"lotti",       label:"Lotti",      icon:"🐷" },
+  { id:"razioni",     label:"Razioni",    icon:"🥣" },   // v139 — calcolo razioni bovini
   { id:"coltivazione",label:"Coltivazione",icon:"🌾" },
   { id:"gasolio",     label:"Gasolio",    icon:"⛽" },   // v112 — registro rifornimenti
   { id:"selezione",   label:"Selezione",  icon:"🏆" },
@@ -167,6 +169,7 @@ export default function App() {
         {tab==="gestione"    && <AllevamentoApp    supabase={supabase}/>}
         {tab==="pedigree"    && <Pedigree          supabase={supabase}/>}
         {tab==="lotti"       && <LottiSuini        supabase={supabase}/>}
+        {tab==="razioni"     && <RazioniBovini/>}
         {tab==="coltivazione"&& <Coltivazione/>}
         {tab==="gasolio"     && <Gasolio/>}
         {tab==="selezione"   && <SelezioneGenetica supabase={supabase}/>}
@@ -178,7 +181,7 @@ export default function App() {
         {tab==="uba"       && <UBAReport/>}
         {tab==="export"     && <ExportManager/>}
         {tab==="email"       && <Destinatari/>}
-        {tab==="guida"       && <Guida/>}
+        {tab==="guida"       && <Guida ruolo={profilo?.ruolo}/>}
       </div>
 
       <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,background:"#FFF",borderTop:`1.5px solid ${C.border}`,display:"flex",overflowX:"auto",padding:"6px 4px 8px",zIndex:100,boxShadow:"0 -4px 20px rgba(0,0,0,0.1)"}}>

@@ -153,6 +153,8 @@ const SEZIONI = [
       {tipo:"p",testo:"Nel form animale e nel form parto, accanto al menu genitori aziendali, ora c'è un campo per inserire la matricola di un padre esterno (non registrato in azienda). Al salvataggio l'app crea automaticamente una scheda minima per quel padre esterno, con la razza scelta. Comparirà nel Pedigree e sarà disponibile per parti futuri."},
     ]
   },
+  // v139 — report del Tenente Contabilità: contiene prezzi d'acquisto, per ora visibile solo all'amministratore
+  { id:"piccioni", icon:"🕊️", titolo:"Piccioni ai box bovini", quaderno:()=>import("./guida_piccioni"), soloAdmin:true, contenuto:[] },
   {
     id:"parto_suini", icon:"🐷", titolo:"Lotti suini — perché, codice, tatuaggio, uscite e passaggio alla matricola",
     contenuto:[
@@ -242,7 +244,7 @@ const SEZIONI = [
     ]
   },
   // v137 — quaderno del Tenente Contabilità, caricato solo quando si apre la sezione
-  { id:"sanita_suini", icon:"🩺", titolo:"Sanità e benessere dei suini", quaderno:true, contenuto:[] },
+  { id:"sanita_suini", icon:"🩺", titolo:"Sanità e benessere dei suini", quaderno:()=>import("./guida_sanita_suini"), contenuto:[] },
   {
     id:"sanitario", icon:"💉", titolo:"Registro sanitario",
     contenuto:[
@@ -297,6 +299,8 @@ const SEZIONI = [
       ]},
     ]
   },
+  // v139 — testo del Tenente Contabilità (messaggio del 19/10/2026)
+  { id:"razioni", icon:"🥣", titolo:"Calcolo razioni bovini", contenuto:[/* v141 — testo del Capitano Contabilità (messaggio 20261019-1110) */ {"tipo": "p", "testo": "**Razioni Bovini.** Tre pagine."}, {"tipo": "p", "testo": "**Razioni di riferimento:** scegli il tipo di alimentazione (naturale: foraggi e farine; con mangimi: foraggi, orzo e mangimi) e la classe. Vedi la razione da dare per capo al giorno e il suo costo. Scrivi il numero di capi e scegli il box: il totale del costo si calcola per tutti i capi. Se compare la scritta rossa «proteina non coperta», con quei mangimi serve una fonte proteica."}, {"tipo": "p", "testo": "**Report fabbisogni:** per ogni classe, il fabbisogno al giorno e da quale alimento viene. In alto le anomalie. «non analizzato» = il fieno non è analizzato; «non dichiarato» = il produttore del mangime non lo dichiara."}, {"tipo": "p", "testo": "**Costruisci razione:** scegli il tipo di alimentazione. Le tendine mostrano solo gli alimenti ammessi. Con «Carica la razione di riferimento» parti dalla razione della classe e la modifichi; poi salvi con un nome."}, {"tipo": "p", "testo": "**A cosa serve.** Costruire la razione di una classe di bovini alimento per alimento e vedere subito tre cose: quanto del fabbisogno è coperto, dove manca o eccede, quanto costa per capo e per il gruppo. Le razioni salvate sono condivise con il programma di Contabilità Industriale: quelle salvate nell'app si aprono anche nel programma, e viceversa."}, {"tipo": "p", "testo": "**Come si usa**"}, {"tipo": "elenco", "numerato": true, "voci": [{"testo": "Scegli la **classe** (per esempio «Box 3 – femmine 10–16 mesi»). Lavora prima su **un capo**: lascia il numero di capi a 1."}, {"testo": "Negli otto righi degli alimenti scegli dalla tendina l'alimento del gruppo — foraggio 1 e 2, energetico 1 e 2, proteico 1 e 2, mangime composto, integratore minerale — e scrivi la **quantità al giorno per capo**: in kg, oppure in **grammi** per l'integratore minerale (Codibloc)."}, {"testo": "Guarda il grafico: ogni barra si allunga verso il **100% del fabbisogno** (linea tratteggiata).", "sotto": ["**rosso** = il fabbisogno non è coperto;", "**verde** = coperto;", "**arancione «ECCESSIVO»** = energia o proteine oltre il 110% del fabbisogno;", "«dati incompleti» = un alimento della razione non ha quel valore (fieno non analizzato o mangime che non lo dichiara)."]}, {"testo": "Quando la razione va bene, scrivi il **numero di capi** e scegli il **box**."}, {"testo": "Leggi il **TOTALE DEL COSTO**: per capo al giorno e all'anno, per tutti i capi al giorno, al mese (30 giorni) e all'anno, e per kg di crescita."}, {"testo": "Scrivi il **nome della razione** e premi **«Salva razione»**. Per riaprirla sceglila dall'elenco «Razioni salvate»: «Salva modifiche» la aggiorna, «Salva come nuova» ne fa una copia, «Elimina» la cancella anche dal programma."}]}, {"tipo": "p", "testo": "**Da dove vengono i numeri**"}, {"tipo": "elenco", "numerato": false, "voci": [{"testo": "**Prezzi**: media delle fatture dell'anno in corso, pesata sulle quantità acquistate. Il fieno in rotoballe si calcola con la rotoballa da 340 kg; la farina d'orzo comprende il trasporto della Cooperativa Ceri. Dove non ci sono fatture si usa il prezzo di listino (scritto in giallo); se manca anche quello compare «prezzo mancante» e il totale è incompleto."}, {"testo": "**Fabbisogni**: formula Chianina dell'Università di Firenze (crescita), valori approvati dal Dott. Bizzarri il 14/10/2026 (vacche, manza, toro), NASEM 2016 per proteina grezza e minerali, Agroscope per calcio e fosforo delle vacche."}, {"testo": "**Alimenti**: tabelle INRA e Feedipedia; mangimi dal cartellino del produttore; Codibloc dalla scheda Martens (non contiene rame). Il **fieno misto non è analizzato**: rame, vitamina A e, per le vacche, magnesio e manganese dipendono da lui."}]}, {"tipo": "p", "testo": "**Esempio.** Box 3: fieno misto 5,93 kg, farina d'orzo 2,5 kg, crusca 0,9 kg, farina di soia 0,62 kg, Codibloc 73 g → energia 118% (ECCESSIVO: troppo orzo), rame 53% e vitamina A 42% (mancano, il fieno non è analizzato); 2,22 € per capo al giorno con i prezzi del 2026, 22,18 € per 10 capi."}, {"tipo": "p", "testo": "**Da sapere.** Non c'è ancora il controllo di quanto il capo riesce davvero a mangiare (capacità di ingestione)."}] },
   {
     id:"pesate", icon:"⚖️", titolo:"Pesate — lo storico dei pesi",
     contenuto:[
@@ -477,11 +481,15 @@ const SEZIONI = [
     contenuto:[
       {tipo:"p",testo:"Il modello 4 è il documento di accompagnamento della Banca Dati Nazionale che segue ogni animale che esce dall'azienda, verso il macello o un altro allevamento. Lo prepara Stefano Cortesi prima dell'uscita, di solito il giorno prima. Nella sezione 📄 Modelli 4 (barra in basso, dopo Uscite) c'è l'archivio di tutti i modelli 4 dal 2021 a oggi, con il PDF originale di ciascuno: serve a sapere quando, dove e con quale documento è uscito ogni capo, a chiudere correttamente le schede degli animali usciti e a preparare i dati per la fatturazione."},
       {tipo:"h3",testo:"Come arrivano i modelli 4"},
-      {tipo:"bullets",voci:["In automatico: ogni ora l'app controlla la casella email aziendale. Quando arriva un modello 4 di Cortesi lo legge e lo salva da sola, con tutti i dati e il PDF; in Gmail l'email prende l'etichetta «Modelli4-caricati». Non bisogna fare niente","A mano, per i modelli 4 che arrivano da altre persone: tocca «📥 Carica PDF», scegli uno o più PDF (anche tutti insieme). L'app legge ogni documento e mostra l'esito: ✅ nuovo modello 4 salvato, 🔗 già in archivio (PDF collegato), ⚠️ non è un modello 4","Modello 4 su carta o scansionato: l'app non sa leggere le immagini. Scansiona o fotografa BENE il documento (tutto il foglio, dritto, a fuoco, con buona luce, tutte le pagine), poi in «Carica PDF» apri il riquadro «🤖 Modello 4 su carta o scansionato? Fallo leggere all'IA»: tocca «📋 Copia il prompt», incollalo in un'intelligenza artificiale (per esempio Claude) insieme alla scansione e carica nell'app il PDF che l'IA restituisce. Controlla prima che numeri e matricole siano giusti: nel documento resterà la nota «Trascritto dall'intelligenza artificiale da una scansione»"]},
+      {tipo:"bullets",voci:["In automatico: ogni giorno alle 7:52 si controlla la casella email aziendale. Quando arriva un modello 4 di Cortesi viene salvato da solo, con tutti i dati e il PDF, e nella prima pagina dell'app compare l'avviso «📄 Modelli 4 arrivati — animali da far uscire». Se il salvataggio non riesce, il Dott. Bizzarri riceve un avviso. Non bisogna fare niente","A mano, per i modelli 4 che arrivano da altre persone: tocca «📥 Carica PDF», scegli uno o più PDF (anche tutti insieme). L'app legge ogni documento e mostra l'esito: ✅ nuovo modello 4 salvato, 🔗 già in archivio (PDF collegato), ⚠️ non è un modello 4","Modello 4 su carta o scansionato: l'app non sa leggere le immagini. Scansiona o fotografa BENE il documento (tutto il foglio, dritto, a fuoco, con buona luce, tutte le pagine), poi in «Carica PDF» apri il riquadro «🤖 Modello 4 su carta o scansionato? Fallo leggere all'IA»: tocca «📋 Copia il prompt», incollalo in un'intelligenza artificiale (per esempio Claude) insieme alla scansione e carica nell'app il PDF che l'IA restituisce. Controlla prima che numeri e matricole siano giusti: nel documento resterà la nota «Trascritto dall'intelligenza artificiale da una scansione»"]},
       {tipo:"h3",testo:"Consultare i modelli 4"},
       {tipo:"bullets",voci:["Ricerca 🔍: si può scrivere una matricola, il numero del documento, il nome del macello o del trasportatore","Filtri: specie (Tutti, Bovini, Suini, Ovini), anno e movimento (Uscite da Podere Verde, Uscite da registrare nell'app, Altri movimenti come gli ingressi da altre aziende, Tutti i movimenti)","Il riquadro marrone riassume documenti e capi del filtro scelto, divisi per specie","Toccando un modello 4 si apre il dettaglio: data del documento, progressivo, codice di controllo, destinazione con codice e indirizzo, trasporto, email di arrivo, l'elenco dei capi (matricola per bovini, ovini e caprini; marchio aziendale e insieme per suini e agnelli) e il pulsante «📄 Apri PDF» per vedere l'originale","Riga gialla: lo stesso numero di documento è stato emesso due volte con codice di controllo diverso (di solito annullato e riemesso). Si controlla nella Banca Dati Nazionale quale vale","Solo l'amministratore può eliminare un modello 4 caricato per errore (🗑️ Elimina): si cancellano anche i capi e il PDF"]},
+      // v140 — finestra delle uscite del modello 4 (procedura del 19/10/2026)
+      {tipo:"h3",testo:"📤 Registrare le uscite di un modello 4"},
+      {tipo:"steps",passi:["Nella prima pagina tocca l'avviso rosso «📄 Modelli 4 arrivati — animali da far uscire». Se i modelli 4 sono più di uno, scegli quello giusto","Si apre la finestra di compilazione: in alto numero del documento, specie, capi, macello e data di uscita prevista","Se il modello 4 riporta la matricola (bovini, ovini con marca), l'animale è già inserito. Se la matricola non è registrata nell'app, o l'animale risulta già uscito, compare un avviso rosso: va sistemata l'anagrafica prima di salvare","Se il modello 4 non riporta la matricola (suini, agnelli), per ogni capo scegli l'animale dall'elenco: per i bovini tra i bovini, per i suini tra i suini e le unità dei lotti, per gli ovini tra gli ovini","Gli animali devono essere esattamente i capi del modello 4: in alto si legge «Inseriti 1 di 2». Finché il numero non coincide non si può salvare","Per ogni animale scrivi il peso vivo in kg: è obbligatorio. Se manca compare l'avviso «⚠️ Peso vivo mancante: non si può salvare»","Controlla la data di uscita (è già quella del modello 4) e tocca «✓ Salva»: ogni animale viene registrato in uscita (motivo «Macellato» se va al macello, «Venduto vivo» se va a un altro allevamento) e abbinato al modello 4, che diventa verde","Dopo la macellazione gli animali compaiono tra gli «🔪 Animali usciti per la macellazione» per peso della carcassa, cliente e numeri di partita"]},
+      {tipo:"nota",testo:"Le uscite di animali che non sono nel modello 4 si registrano come sempre dal Registro uscite o dai Lotti suini."},
       {tipo:"h3",testo:"Modello 4 e animali usciti"},
-      {tipo:"bullets",voci:["Avviso rosso in alto «⏳ N modelli 4 con uscite ancora da registrare nell'app»: toccandolo si vedono solo quei documenti","Su ogni modello 4 recente: «Uscite registrate nell'app: 1 di 3» in rosso se mancano capi, in verde quando sono tutti registrati. Il numero dei capi può non coincidere (per esempio un modello 4 di prelievo): l'importante è chiudere la scheda di ogni animale","Nel dettaglio, per ogni capo con matricola: ✅ «Uscita registrata nell'app»; ⏳ «Ancora attivo nell'app» con il pulsante «📤 Registra uscita», che chiude il capo con data, motivo e modello 4 in un tocco; ⚠️ «Matricola non registrata nell'app»: il capo va inserito in anagrafica","Nella scheda dei bovini usciti, sezione Gestione, compare la riga «Modello 4» con il numero del documento e il pulsante «📄 Apri PDF»"]},
+      {tipo:"bullets",voci:["Avviso rosso in alto «⏳ N modelli 4 con uscite ancora da registrare nell'app»: toccandolo si vedono solo quei documenti","Su ogni modello 4 recente: «Uscite registrate nell'app: 1 di 3» in rosso se mancano capi, in verde quando sono tutti registrati","Nel dettaglio di un modello 4 con uscite da registrare c'è il pulsante «📤 Registra le uscite di questo modello 4»: apre la stessa finestra dell'avviso nella prima pagina","Nel dettaglio, per ogni capo con matricola: ✅ «Uscita registrata nell'app»; ⏳ «Ancora attivo nell'app» con il pulsante «📤 Registra uscita», che chiude il capo con data, motivo e modello 4 in un tocco; ⚠️ «Matricola non registrata nell'app»: il capo va inserito in anagrafica","Nella scheda dei bovini usciti, sezione Gestione, compare la riga «Modello 4» con il numero del documento e il pulsante «📄 Apri PDF»"]},
     ]
   },
   {
@@ -642,17 +650,21 @@ function Testo({ s }) {
   return <>{out}</>;
 }
 
-export default function Guida() {
+export default function Guida({ ruolo } = {}) {
   const [aperta, setAperta] = useState(null);
   const [capitolo, setCapitolo] = useState(null);   // v137 — capitolo aperto del quaderno
-  const [quaderno, setQuaderno] = useState(null);   // v137 — dati del quaderno, caricati a richiesta
-  const [erroreQuaderno, setErroreQuaderno] = useState(null);
+  const [quaderni, setQuaderni] = useState({});      // v139 — dati dei quaderni, caricati a richiesta (uno per sezione)
+  const [erroriQuaderni, setErroriQuaderni] = useState({});
+  const sezioniVisibili = SEZIONI.filter(s => !s.soloAdmin || ruolo === "admin");
+  const quaderno = aperta ? quaderni[aperta] : null;
+  const erroreQuaderno = aperta ? erroriQuaderni[aperta] : null;
   useEffect(() => {
-    if (aperta !== "sanita_suini" || quaderno) return;
-    import("./guida_sanita_suini")
-      .then(m => setQuaderno(m.default))
-      .catch(e => setErroreQuaderno(e.message || String(e)));
-  }, [aperta, quaderno]);
+    const s = SEZIONI.find(x => x.id === aperta);
+    if (!s || !s.quaderno || quaderni[aperta]) return;
+    s.quaderno()
+      .then(m => setQuaderni(q => ({ ...q, [aperta]: m.default })))
+      .catch(e => setErroriQuaderni(x => ({ ...x, [aperta]: e.message || String(e) })));
+  }, [aperta, quaderni]);
 
   const Card = ({children, style={}}) => (
     <div style={{background:C.card,borderRadius:16,padding:16,marginBottom:12,
@@ -756,7 +768,7 @@ export default function Guida() {
   });
 
   // v137 — sezione «Sanità e benessere dei suini»: elenco dei capitoli, poi il capitolo
-  if (aperta && SEZIONI.find(x=>x.id===aperta)?.quaderno) {
+  if (aperta && sezioniVisibili.find(x=>x.id===aperta)?.quaderno) {
     const s = SEZIONI.find(x=>x.id===aperta);
     const cap = quaderno && capitolo ? quaderno.capitoli.find(c=>c.id===capitolo) : null;
     return (
@@ -789,8 +801,8 @@ export default function Guida() {
     );
   }
 
-  if (aperta) {
-    const s = SEZIONI.find(x=>x.id===aperta);
+  if (aperta && sezioniVisibili.find(x=>x.id===aperta)) {
+    const s = sezioniVisibili.find(x=>x.id===aperta);
     return (
       <div style={{fontFamily:"'Segoe UI',system-ui,sans-serif",background:C.bg,
         minHeight:"100vh",maxWidth:480,margin:"0 auto",padding:"16px 16px 80px"}}>
@@ -820,7 +832,7 @@ export default function Guida() {
           color:C.text,lineHeight:1.6}}>
           {t("Tutti i dati vengono salvati automaticamente nel database condiviso. Ogni operatore vede gli stessi dati in tempo reale da qualsiasi dispositivo.")}
         </div>
-        {SEZIONI.map(s=>(
+        {sezioniVisibili.map(s=>(
           <button key={s.id} onClick={()=>{ setAperta(s.id); setCapitolo(null); }}
             style={{display:"flex",alignItems:"center",gap:14,width:"100%",
               background:C.card,border:`1px solid ${C.border}`,borderRadius:16,
