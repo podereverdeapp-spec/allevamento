@@ -2237,5 +2237,9 @@ const D = {
   "Razioni di riferimento": "ਹਵਾਲਾ ਰਾਸ਼ਨ",
   "Report fabbisogni": "ਲੋੜਾਂ ਦੀ ਰਿਪੋਰਟ",
   "Costruisci razione": "ਰਾਸ਼ਨ ਬਣਾਓ",
+  // v142
+  "Prezzi": "ਕੀਮਤਾਂ",
+  "Preventivi": "ਕੋਟੇਸ਼ਨਾਂ",
+  "Calcolo razioni (bovini, suini e ovini)": "ਰਾਸ਼ਨ ਦੀ ਗਿਣਤੀ (ਪਸ਼ੂ, ਸੂਰ ਅਤੇ ਭੇਡਾਂ)",
 };
 export default D;

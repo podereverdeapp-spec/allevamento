@@ -2237,5 +2237,9 @@ const D = {
   "Razioni di riferimento": "Reference rations",
   "Report fabbisogni": "Requirements report",
   "Costruisci razione": "Build a ration",
+  // v142
+  "Prezzi": "Prices",
+  "Preventivi": "Quotes",
+  "Calcolo razioni (bovini, suini e ovini)": "Ration calculation (cattle, pigs and sheep)",
 };
 export default D;
