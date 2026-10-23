@@ -338,7 +338,8 @@ function foglio_lotti_riepilogo(lotti, suiniLotto, animali, costoNascitaPerLotto
       maschi:      us.filter(u=>u.sesso==="M").length,
       femmine:     us.filter(u=>u.sesso==="F").length,
       prezzo_acquisto:          l.prezzo_acquisto||"",
-      prezzo_acquisto_per_capo: l.prezzo_acquisto&&nTotale?Math.round(l.prezzo_acquisto/nTotale*100)/100:"",
+      // v143 — il prezzo del lotto si divide solo per i capi rimasti (esclusi quelli passati a BDN)
+      prezzo_acquisto_per_capo: (()=>{const n=nTotale-us.filter(u=>u.stato==="registrato_individuale").length; return l.prezzo_acquisto&&n>0?Math.round(l.prezzo_acquisto/n*100)/100:"";})(),
       costo_nascita_stimato:          cn?cn.costoTotale:"",
       costo_nascita_stimato_per_capo: cn?cn.costoPerCapo:"",
       note:        l.note||"",
@@ -477,7 +478,7 @@ function foglio_costi_acquisto(animali, lotti, suiniLotto) {
   });
 
   // Unità di lotti acquistati
-  const ESCLUSI_DIVISORE = ["morto","disperso"];
+  const ESCLUSI_DIVISORE = ["morto","disperso","registrato_individuale"]; // v143: i passati a BDN hanno il costo nella scheda
   lotti.filter(l=>l.tipo_provenienza==="acquistato").forEach(l=>{
     const codLotto = l.codice_lotto||l.codice||"";
     const unita = suiniLotto.filter(u=>u.lotto_id===l.id);
@@ -498,8 +499,8 @@ function foglio_costi_acquisto(animali, lotti, suiniLotto) {
         numero_fattura: l.numero_fattura||"",
         fornitore: l.fornitore||"",
         costo_acquisto: escluso?"":costoUnitario,
-        nota: escluso?`Perdita — costo redistribuito sulle altre ${denominatore} unità del lotto`
-             : u.stato==="registrato_individuale"?`Passato a BDN individuale (da ${codLotto})`:"",
+        nota: u.stato==="registrato_individuale"?`Passato a BDN individuale (da ${codLotto}): costo d'acquisto nella scheda individuale`
+             : escluso?`Perdita — costo redistribuito sulle altre ${denominatore} unità del lotto`:"",
       });
     });
   });
@@ -938,7 +939,8 @@ function fogli_uba(animali, lotti, suiniLotto, prezziRiforma, annoRif, costiGene
     if(!l.data_parto) continue;
     const codLotto = l.codice_lotto||l.codice||"";
     const unitaLotto = suiniLotto.filter(x=>x.lotto_id===l.id);
-    const nTotaleLotto = l.nati_totali||unitaLotto.length;
+    // v143 — esclusi i capi passati a BDN: il loro costo d'acquisto è nella scheda individuale
+    const nTotaleLotto = (l.nati_totali||unitaLotto.length) - unitaLotto.filter(x=>x.stato==="registrato_individuale").length;
     // Per i lotti acquistati, il prezzo pagato va allocato pro-capite come costo iniziale
     const costoInizPerCapo = (l.tipo_provenienza==="acquistato" && l.prezzo_acquisto && nTotaleLotto)
       ? Math.round(l.prezzo_acquisto / nTotaleLotto * 100) / 100

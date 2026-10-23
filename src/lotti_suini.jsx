@@ -139,6 +139,19 @@ function FormAssegnaBDN({unita, lotto, animali, onSave, onCancel}) {
     setSaving(true);
     // 1. Crea scheda animale individuale con dati ereditati
     const acquistato = lotto.tipo_provenienza==="acquistato";
+    // v143 — regola del Dott. Bizzarri (23/10/2026): il capo di un lotto ACQUISTATO che passa a
+    // scheda individuale si porta dietro il suo costo d'acquisto, e il lotto scende della stessa somma.
+    // Quota = prezzo attuale del lotto ÷ (unità del lotto − unità già passate a BDN), letti ora dal database.
+    let quotaAcquisto = null, prezzoLottoLetto = null;
+    if (acquistato) {
+      const {data: lottoOra} = await supabase.from("lotti_suini").select("prezzo_acquisto").eq("id", lotto.id).single();
+      prezzoLottoLetto = lottoOra?.prezzo_acquisto!=null ? parseFloat(lottoOra.prezzo_acquisto) : null;
+      if (prezzoLottoLetto && prezzoLottoLetto > 0) {
+        const {data: unitaLotto} = await supabase.from("suini_lotto").select("id,stato").eq("lotto_id", lotto.id);
+        const rimaste = (unitaLotto||[]).filter(x=>x.stato!=="registrato_individuale").length;
+        if (rimaste > 0) quotaAcquisto = Math.round(prezzoLottoLetto / rimaste * 100) / 100;
+      }
+    }
     const {data: nuovoAnimale, error: errInsert} = await supabase.from("animali").insert([{
       bdn: bdn.trim(),
       nome: nome||null,
@@ -155,6 +168,16 @@ function FormAssegnaBDN({unita, lotto, animali, onSave, onCancel}) {
       data_ingresso: lotto.data_parto||null,
       stato: "attivo", vivo: true,
       note: `Da lotto ${lotto.codice_lotto||lotto.codice} unità ${codice}`,
+      ...(quotaAcquisto!=null ? {
+        prezzo_acquisto: quotaAcquisto,
+        costo_iniziale: quotaAcquisto,
+        tipo_costo_iniziale: "acquisto",
+        data_costo_iniziale: lotto.data_parto||null,
+        note_costo_iniziale: `Quota del lotto ${lotto.codice_lotto||lotto.codice}: ${prezzoLottoLetto} ÷ unità rimaste`,
+        fornitore: lotto.fornitore||null,
+        numero_fattura: lotto.numero_fattura||null,
+        data_fattura: lotto.data_fattura||null,
+      } : {}),
     }]).select("id").single();
     if(errInsert){
       setSaving(false);
@@ -175,6 +198,19 @@ function FormAssegnaBDN({unita, lotto, animali, onSave, onCancel}) {
       setSaving(false);
       alert(t("⚠️ La scheda animale è stata creata, ma l'aggiornamento del lotto ha dato errore:\n\n{0}",{0:(errUpdate.message)}));
       return;
+    }
+    // 2b. v143 — toglie dal lotto acquistato la quota d'acquisto passata alla scheda individuale
+    if (quotaAcquisto!=null) {
+      const nuovoPrezzo = Math.round((prezzoLottoLetto - quotaAcquisto) * 100) / 100;
+      const {data: lottoNota} = await supabase.from("lotti_suini").select("note").eq("id", lotto.id).single();
+      const riga = `${today()}: ${bdn.trim()} passato a BDN, tolti ${quotaAcquisto} € (lotto da ${prezzoLottoLetto} a ${nuovoPrezzo} €)`;
+      const {error: errLotto} = await supabase.from("lotti_suini").update({
+        prezzo_acquisto: nuovoPrezzo,
+        note: lottoNota?.note ? `${lottoNota.note} — ${riga}` : riga,
+      }).eq("id", lotto.id).eq("prezzo_acquisto", prezzoLottoLetto);
+      if (errLotto) {
+        alert(t("⚠️ Scheda creata e unità trasferita, ma il prezzo del lotto non è stato diminuito:\n\n{0}\n\nAvvisa il Dott. Bizzarri.",{0:(errLotto.message)}));
+      }
     }
     // 3. Traghetta i costi già calcolati dalla Contabilità Industriale (ci_costo_animale_annuale)
     // dalla chiave lotto_id+unita_nr alla nuova chiave animale_id — senza questo passaggio la
