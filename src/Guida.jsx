@@ -429,6 +429,84 @@ const SEZIONI = [
       {tipo:"nota",testo:"Registra il prelievo subito, quando sei ancora alla cisterna. Leggi sempre il contalitri dopo il prelievo e scrivilo. Scegli sempre il mezzo giusto e il motivo giusto: da qui si capisce quanto consuma ogni macchina e quanto gasolio va alla coltivazione e all'allevamento."},
     ]
   },
+  // v144 — pagina «Uscite degli animali: dal modello 4 alla fatturazione» (testo del Capitano Contabilità, messaggio 20261026-1150; ordine del Dott. Bizzarri del 26/10/2026)
+  {
+    id:"uscite_fatturazione", icon:"📤", titolo:"Uscite degli animali: dal modello 4 alla fatturazione",
+    contenuto:[
+      {tipo:"p",testo:"Questa pagina spiega che cosa fare nell'app quando gli animali escono dall'azienda per il macello o per un altro allevamento. Sono tre passi. Dopo il terzo, i dati passano da soli al programma di contabilità, che prepara la fattura di vendita."},
+      {tipo:"p",testo:"Gli avvisi dei passi 2 e 3 compaiono nella prima pagina: Gestione → Home. Compaiono solo quando c'è qualcosa da fare."},
+      {tipo:"h3",testo:"Passo 1. Arriva il modello 4"},
+      {tipo:"p",testo:"*Che cos'è.* Il modello 4 è il documento ufficiale che accompagna gli animali quando escono dall'azienda, verso il macello o verso un altro allevamento. Si compila nella Banca Dati Nazionale dell'anagrafe zootecnica. Riporta il numero del documento, la data, la specie, il numero dei capi, la destinazione e, per i bovini, le matricole."},
+      {tipo:"p",testo:"*Come arriva.* Stefano Cortesi prepara il modello 4 e lo manda per mail. L'app legge da sola quelle mail e archivia il documento, con il suo PDF, nella cartella «Modelli 4». Non bisogna fare niente."},
+      {tipo:"p",testo:"*Attenzione:* l'arrivo non è sempre immediato. I modelli 4 mandati il 16/10/2026 sono entrati nell'app il 19/10/2026. Se gli animali sono già usciti e il modello 4 non compare, nella cartella «Modelli 4» il PDF si può caricare a mano."},
+      {tipo:"h3",testo:"Passo 2. Far uscire gli animali del modello 4, con il peso vivo"},
+      {tipo:"p",testo:"Quando arriva un modello 4 di uscita, nella prima pagina compare l'avviso rosso «📄 … modelli 4 arrivati — animali da far uscire». Per ogni modello 4 indica la specie, la data e quanti capi sono già stati registrati: «0/2» vuol dire nessuno su due."},
+      {tipo:"immagine",src:"/guida/uscite/guida_uscite_01_avviso_modelli4.png",didascalia:"La prima pagina dell'app il 26/10/2026: tre modelli 4 aspettano ancora che gli animali siano fatti uscire."},
+      {tipo:"steps",passi:[
+        "Toccare l'avviso: si apre l'elenco dei modelli 4 con animali da far uscire.",
+        "Toccare il modello 4: si apre la finestra «Uscite del modello 4».",
+        "Controllare il riquadro giallo: numero del documento, specie, capi, macello o allevamento di destinazione, data di uscita prevista e motivo.",
+        "Controllare la «Data uscita»: è quella del modello 4. Va cambiata solo se gli animali sono partiti in un altro giorno.",
+        "Inserire gli animali. Per i bovini le matricole scritte nel modello 4 sono già inserite. Per i suini, che nel modello 4 non hanno la matricola, scegliere ogni animale dall'elenco «— Scegli l'animale —»: ci sono gli animali e le unità dei lotti della stessa specie ancora in azienda.",
+        "Scrivere il «Peso vivo (kg)» di ogni animale. È obbligatorio: il riquadro resta arancione finché manca.",
+        "Quando in alto compare «✅ Inseriti 2 di 2» (il numero dei capi del modello 4), premere «✓ Salva».",
+      ]},
+      {tipo:"immagine",src:"/guida/uscite/guida_uscite_02_finestra_bovini.png",didascalia:"Il modello 4 IT091RMA90202600011, uscita del 19/10/2026: 2 bovini per Centro Carni Comune di Roma. Le matricole sono già inserite; manca il peso vivo."},
+      {tipo:"immagine",src:"/guida/uscite/guida_uscite_03_finestra_suini.png",didascalia:"Il modello 4 dei suini: le matricole non ci sono, ogni animale si sceglie dall'elenco."},
+      {tipo:"p",testo:"*Che cosa succede salvando.* Ogni animale viene registrato in uscita: stato «macellato» (o «venduto» se il modello 4 va a un allevamento), data di uscita e peso vivo. Ogni animale viene anche collegato al modello 4. Compare la scritta «✅ Uscite registrate e abbinate al modello 4» con l'elenco degli animali."},
+      {tipo:"p",testo:"*Quando non si può salvare.* La finestra si ferma, e dice perché, se:"},
+      {tipo:"bullets",voci:[
+        "gli animali inseriti sono più o meno dei capi del modello 4;",
+        "lo stesso animale è inserito due volte;",
+        "manca il peso vivo di un animale;",
+        "una matricola del modello 4 non è registrata nell'app: va prima inserita in anagrafica;",
+        "un animale è già collegato a un altro modello 4, oppure risulta uscito con dati diversi: va controllato prima di salvare.",
+      ]},
+      {tipo:"p",testo:"*Se con lo stesso modello 4 sono usciti più capi di quelli scritti*, nella finestra si registrano i capi del modello 4; quelli in più si registrano dalla cartella «Uscite» (o dai «Lotti» per le unità dei lotti) e si abbinano allo stesso modello 4: l'app lo propone anche quando risulta già «pieno» (per esempio 3 abbinati su 3)."},
+      {tipo:"p",testo:"Le uscite che non hanno un modello 4 (morte, furto, animale scappato) si registrano come sempre dalla cartella «Uscite» o dai «Lotti»."},
+      {tipo:"h3",testo:"Perché questa procedura va rispettata"},
+      {tipo:"elenco",numerato:false,voci:[
+        {testo:"*Il modello 4 è il documento ufficiale.* Nell'app devono uscire gli animali del modello 4: le matricole scritte nel documento, nel giorno del documento, ognuno collegato al suo modello 4. Così l'app coincide con la Banca Dati Nazionale. Gli eventuali capi in più si collegano allo stesso modello 4, come spiegato sopra."},
+        {testo:"*Senza modello 4 il capo non si fattura.* Il numero del modello 4 va scritto in ogni riga della fattura. Un capo non collegato al suo modello 4 resta fuori dalle fatture."},
+        {testo:"*La data di uscita ferma i costi.* Finché l'uscita non è registrata, per il programma di contabilità il capo è ancora in stalla. Riceve una parte dei costi di mantenimento, che vengono tolti agli altri capi: così il costo dei capi rimasti risulta più basso di quello vero."},
+        {testo:"*Il peso vivo serve a misurare l'allevamento.* Con il peso vivo l'app calcola la resa alla macellazione e l'accrescimento giornaliero. Senza, questi controlli non si possono fare."},
+        {testo:"*Un esempio di oggi.* Il 26/10/2026 tre modelli 4 aspettano ancora: 2 bovini e 2 suini usciti il 19/10/2026, 11 suini usciti il 24/10/2026. Per l'app e per il programma quei 15 capi sono ancora in azienda e non si possono fatturare."},
+      ]},
+      {tipo:"h3",testo:"Passo 3. Dopo la macellazione: carcassa, cliente e numeri di partita"},
+      {tipo:"p",testo:"Dopo la macellazione arrivano i dati del capo macellato: il peso della carcassa, il peso dei pezzi e il numero di partita che il cliente dà a ogni pezzo. Il capo si divide in pezzi: il bovino in 4 quarti, il suino in 2 mezzene, l'ovino resta una carcassa intera. Ogni pezzo ha il suo numero di partita."},
+      {tipo:"p",testo:"Nella prima pagina compare l'avviso rosso «🔪 Animali usciti per la macellazione — … capi da completare: peso della carcassa, cliente e partite dei pezzi»."},
+      {tipo:"immagine",src:"/guida/uscite/guida_uscite_04_avviso_macellazione.png",didascalia:"Il secondo avviso della prima pagina: un capo da completare."},
+      {tipo:"steps",passi:[
+        "Toccare l'avviso: si apre l'elenco dei capi. Il bordo rosso indica un capo da completare, il bordo verde un capo completo.",
+        "Toccare il capo: si apre la sua scheda. In alto, in verde, il modello 4 collegato e il macello.",
+        "Controllare il «Peso vivo (kg)», già scritto al passo 2.",
+        "Scrivere il «Peso carcassa (kg)». Sotto compare la resa.",
+        "Scegliere il «Cliente» dall'elenco. Se il cliente non c'è, scegliere «✏️ Altro: scrivi il nome» e scriverlo: nel programma di contabilità andrà assegnato.",
+        "Per ogni pezzo (Quarto 1…4, Mezzena 1 e 2, Carcassa intera) scrivere il «Numero di partita» e il «Peso del pezzo (kg)».",
+        "Solo se un pezzo va a un altro cliente, sceglierlo in «Cliente di questo pezzo (se diverso)».",
+        "Premere «✓ Salva».",
+      ]},
+      {tipo:"immagine",src:"/guida/uscite/guida_uscite_05_scheda_compilata.png",didascalia:"La scheda del bovino IT058990442922, compilata con i dati veri della consegna del 28/09/2026. In fondo l'avviso arancione: la somma dei quarti (345,6 kg) non torna con la carcassa (347,01 kg)."},
+      {tipo:"p",testo:"Obbligatori sono il peso della carcassa, il cliente e il numero di partita di ogni pezzo: senza, la scheda non si salva. Il peso dei pezzi non è obbligatorio, ma è importante:"},
+      {tipo:"bullets",voci:[
+        "con i pesi di tutti i pezzi, la fattura ha una riga per ogni pezzo, con i suoi chili;",
+        "senza i pesi dei pezzi, la fattura ha una sola riga per il capo, con i chili della carcassa e tutti i numeri di partita nella descrizione;",
+        "se i pezzi vanno a clienti diversi, i pesi di tutti i pezzi sono indispensabili.",
+      ]},
+      {tipo:"p",testo:"*L'avviso arancione* «La somma dei pesi dei pezzi … non torna con il peso della carcassa …» non blocca il salvataggio. Va però controllato sul documento del macello: in fattura vanno i chili dei pezzi."},
+      {tipo:"p",testo:"*Dopo la fattura la scheda si blocca.* Quando il capo è in una fattura emessa, la scheda mostra «🧾 fatturato» e non si può più cambiare: «Capo già fatturato: per cambiare carcassa, cliente, partite o pesi va prima annullata la fattura»."},
+      {tipo:"p",testo:"Nell'elenco compaiono i capi usciti con motivo «Macellato» dal 24/09/2026 in poi."},
+      {tipo:"h3",testo:"Se qualcosa non torna"},
+      {tipo:"elenco",numerato:false,voci:[
+        {testo:"*Gli animali sono usciti ma non c'è l'avviso dei modelli 4:* il modello 4 non è ancora arrivato nell'app, oppure gli animali sono già tutti registrati. Controllare la cartella «Modelli 4»; se manca, caricare il PDF a mano."},
+        {testo:"*«Matricola … non registrata nell'app»:* inserire l'animale in anagrafica, poi riaprire il modello 4."},
+        {testo:"*«… è già abbinato a un altro modello 4»:* controllare quale modello 4 è giusto."},
+        {testo:"*Nella scheda del capo «Nessun modello 4 abbinato»:* nella cartella «Uscite» aprire il capo con «✏️ Modifica» e scegliere il modello 4."},
+        {testo:"*Un capo macellato non compare tra quelli da completare:* è uscito prima del 24/09/2026, oppure con un motivo diverso da «Macellato». Controllare data e motivo dell'uscita."},
+        {testo:"*Avviso arancione sui pesi dei pezzi:* controllare i pesi sul documento del macello e correggerli prima della fattura."},
+      ]},
+    ]
+  },
   {
     id:"uscite", icon:"📤", titolo:"Registro uscite",
     contenuto:[
@@ -650,8 +728,10 @@ function Testo({ s }) {
   return <>{out}</>;
 }
 
-export default function Guida({ ruolo } = {}) {
-  const [aperta, setAperta] = useState(null);
+export default function Guida({ ruolo, sezioneIniziale } = {}) {
+  const [aperta, setAperta] = useState(sezioneIniziale || null);
+  // v144 — rinvio da altre pagine dell'app (per esempio «📖 Come si registrano le uscite»)
+  useEffect(() => { if (sezioneIniziale) { setAperta(sezioneIniziale); window.scrollTo && window.scrollTo(0,0); } }, [sezioneIniziale]);
   const [capitolo, setCapitolo] = useState(null);   // v137 — capitolo aperto del quaderno
   const [quaderni, setQuaderni] = useState({});      // v139 — dati dei quaderni, caricati a richiesta (uno per sezione)
   const [erroriQuaderni, setErroriQuaderni] = useState({});

@@ -221,6 +221,15 @@ export function FinestraUscite({ documento, onChiudi, onSalvato }) {
       <div style={{ fontSize:18, fontWeight:800 }}>{ICONA[specie] || "📄"} {t("Uscite del modello 4")}</div>
     </div>
   );
+  // v144 — rinvio alla Guida
+  const rinvioGuida = (
+    <div style={{ marginBottom:12 }}>
+      <button onClick={() => window.dispatchEvent(new CustomEvent("apri-guida", { detail:{ sezione:"uscite_fatturazione" } }))}
+        style={{width:"100%", background:"#FFF", border:"1.5px solid #2C6E9B", color:"#2C6E9B", borderRadius:10, padding:"8px 12px", fontSize:13, fontWeight:700, cursor:"pointer", textAlign:"left"}}>
+        📖 {t("Come si registrano le uscite: leggi la Guida")}
+      </button>
+    </div>
+  );
   const riquadroDoc = (
     <div style={{ background:"#FFF8E1", border:`1.5px solid ${C.yellow}`, borderRadius:12, padding:12, marginBottom:12, fontSize:13 }}>
       <div style={{ fontWeight:800, color:C.primary }}>{d.numero_documento}</div>
@@ -244,7 +253,7 @@ export function FinestraUscite({ documento, onChiudi, onSalvato }) {
 
   return (
     <div>
-      {testa}{riquadroDoc}
+      {testa}{rinvioGuida}{riquadroDoc}
       {candidati === null ? <div style={{ textAlign:"center", color:C.muted, padding:30 }}>⏳ {t("Caricamento...")}</div> : (<>
         <div style={{ fontSize:14, fontWeight:800, marginBottom:8,
           color: inseriti === servono ? C.green : C.red }}>

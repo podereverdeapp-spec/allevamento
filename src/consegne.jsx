@@ -340,6 +340,13 @@ export function AvvisoConsegne() {
             <button onClick={() => setAperto(false)} style={{ background:"none", border:"none", fontSize:22, cursor:"pointer" }}>←</button>
             <div style={{ fontSize:18, fontWeight:800 }}>🔪 {t("Animali usciti per la macellazione")}</div>
           </div>
+          {/* v144 — rinvio alla Guida */}
+          <div style={{ marginBottom:12 }}>
+          <button onClick={() => window.dispatchEvent(new CustomEvent("apri-guida", { detail:{ sezione:"uscite_fatturazione" } }))}
+        style={{width:"100%", background:"#FFF", border:"1.5px solid #2C6E9B", color:"#2C6E9B", borderRadius:10, padding:"8px 12px", fontSize:13, fontWeight:700, cursor:"pointer", textAlign:"left"}}>
+        📖 {t("Come si registrano le uscite: leggi la Guida")}
+      </button>
+          </div>
           {erroreCarica && <div style={{ color:C.red, fontSize:13, marginBottom:10 }}>⚠️ {t("Errore nel caricamento delle consegne")}: {erroreCarica}</div>}
           <div style={{ fontSize:12, color:C.muted, marginBottom:10 }}>
             {t("Tocca un capo per inserire peso della carcassa, cliente e il numero di partita di ogni pezzo: 2 mezzene per i suini, 4 quarti per i bovini, la carcassa intera per gli ovini.")}

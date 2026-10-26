@@ -308,6 +308,14 @@ export default function RegistroUscite() {
         </div>
       </div>
 
+      {/* v144 — rinvio alla Guida */}
+      <div style={{padding:"10px 16px 0"}}>
+      <button onClick={() => window.dispatchEvent(new CustomEvent("apri-guida", { detail:{ sezione:"uscite_fatturazione" } }))}
+        style={{width:"100%",background:"#FFF",border:`1.5px solid ${C.blue}`,color:C.blue,borderRadius:10,padding:"8px 12px",fontSize:13,fontWeight:700,cursor:"pointer",textAlign:"left"}}>
+        📖 {t("Come si registrano le uscite: leggi la Guida")}
+      </button>
+      </div>
+
       {/* Sub tab */}
       <div style={{display:"flex",background:C.card,borderBottom:`1.5px solid ${C.border}`}}>
         {[["attivi",`📋 In stalla (${totAttivi})`],

@@ -66,6 +66,13 @@ export default function App() {
   const [profilo,    setProfilo]    = useState(null);
   const [tab,        setTab]        = useState("gestione");
   const [menuAperto, setMenuAperto] = useState(false);
+  // v144 — rinvio alla Guida da altre pagine: window.dispatchEvent(new CustomEvent("apri-guida",{detail:{sezione:"…"}}))
+  const [guidaSezione, setGuidaSezione] = useState(null);
+  useEffect(() => {
+    const apri = (e) => { setGuidaSezione({ id: e.detail?.sezione || null, n: Date.now() }); setTab("guida"); };
+    window.addEventListener("apri-guida", apri);
+    return () => window.removeEventListener("apri-guida", apri);
+  }, []);
   const [loading,    setLoading]    = useState(true);
   // v119 — lingua: si carica il dizionario prima di mostrare qualsiasi testo
   const [lingua,     setLingua]     = useState(null);
@@ -155,7 +162,7 @@ export default function App() {
           <button onClick={esportaTutto} style={{width:"100%",padding:"12px 16px",background:"none",border:"none",textAlign:"left",fontSize:14,cursor:"pointer",borderBottom:`1px solid ${C.border}`}}>
             📊 {t("Esporta tutto in Excel")}
           </button>
-          <button onClick={()=>{setTab("guida");setMenuAperto(false);}} style={{width:"100%",padding:"12px 16px",background:"none",border:"none",textAlign:"left",fontSize:14,cursor:"pointer",borderBottom:`1px solid ${C.border}`}}>
+          <button onClick={()=>{setGuidaSezione(null);setTab("guida");setMenuAperto(false);}} style={{width:"100%",padding:"12px 16px",background:"none",border:"none",textAlign:"left",fontSize:14,cursor:"pointer",borderBottom:`1px solid ${C.border}`}}>
             📖 {t("Guida per allevatori")}
           </button>
           <button onClick={logout} style={{width:"100%",padding:"12px 16px",background:"none",border:"none",textAlign:"left",fontSize:14,color:C.red,cursor:"pointer",fontWeight:600}}>
@@ -181,12 +188,12 @@ export default function App() {
         {tab==="uba"       && <UBAReport/>}
         {tab==="export"     && <ExportManager/>}
         {tab==="email"       && <Destinatari/>}
-        {tab==="guida"       && <Guida ruolo={profilo?.ruolo}/>}
+        {tab==="guida"       && <Guida key={guidaSezione?.n || 0} ruolo={profilo?.ruolo} sezioneIniziale={guidaSezione?.id}/>}
       </div>
 
       <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,background:"#FFF",borderTop:`1.5px solid ${C.border}`,display:"flex",overflowX:"auto",padding:"6px 4px 8px",zIndex:100,boxShadow:"0 -4px 20px rgba(0,0,0,0.1)"}}>
         {TABS.map(tb=>(
-          <button key={tb.id} onClick={()=>setTab(tb.id)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:1,background:"none",border:"none",cursor:"pointer",padding:"3px 8px",minWidth:46,flexShrink:0}}>
+          <button key={tb.id} onClick={()=>{ setGuidaSezione(null); setTab(tb.id); }} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:1,background:"none",border:"none",cursor:"pointer",padding:"3px 8px",minWidth:46,flexShrink:0}}>
             <div style={{background:tab===tb.id?C.primary+"18":"transparent",borderRadius:8,padding:"4px 5px"}}>
               <span style={{fontSize:15}}>{tb.icon}</span>
             </div>
