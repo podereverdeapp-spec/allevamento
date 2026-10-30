@@ -1,7 +1,8 @@
 import * as XLSX from 'xlsx';
+import { oggiRoma } from "./dateRoma";
 
 function scarica(wb, nomeFile) {
-  XLSX.writeFile(wb, `${nomeFile}_${new Date().toISOString().split('T')[0]}.xlsx`);
+  XLSX.writeFile(wb, `${nomeFile}_${oggiRoma()}.xlsx`);
 }
 
 // Foglio generico da array di oggetti

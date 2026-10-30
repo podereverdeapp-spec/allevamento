@@ -8,6 +8,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { t } from "./i18n";   // v119 — lingue
 import { supabase } from "./supabase";
+import { oggiRoma } from "./dateRoma";
 
 const C = {
   bg:"#F5F0E8", card:"#FFFFFF", primary:"#5C3D1E", accent:"#A0522D",
@@ -19,7 +20,7 @@ const C = {
 const specieColor=s=>({bovino:C.bovini,suino:C.suini,ovino:C.ovini}[s]||C.muted);
 const specieIcon=s=>({bovino:"🐄",suino:"🐷",ovino:"🐑"}[s]||"🐾");
 const daysBetween=(d1,d2)=>Math.max(1,Math.round((new Date(d2)-new Date(d1))/86400000));
-const today=()=>new Date().toISOString().split("T")[0];
+const today=()=>oggiRoma();
 
 // ─── UI BASE ──────────────────────────────────────────────────────────────────
 const Card=({children,style={}})=>(

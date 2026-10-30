@@ -21,13 +21,14 @@ import { supabase } from "./supabase";
 import ReportColtivazione from "./coltivazione_report"; // v115
 import StoricoColtivazione from "./coltivazione_storico"; // v116
 import ProgrammaColtivazione from "./coltivazione_programma"; // v117
+import { oggiRoma } from "./dateRoma";
 
 const C = {
   bg:"#F5F0E8", card:"#FFFFFF", primary:"#5C3D1E", accent:"#A0522D",
   green:"#4A7C59", red:"#C0392B", yellow:"#D4A017", blue:"#2C6E9B",
   text:"#2D1B0E", muted:"#8B7355", border:"#D4C4A8",
 };
-const today = () => new Date().toISOString().split("T")[0];
+const today = () => oggiRoma();
 
 // --- Campagna agraria -------------------------------------------------------
 // Il confine e' il 1 settembre: cosi' il grano seminato a novembre e trebbiato

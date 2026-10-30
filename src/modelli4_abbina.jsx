@@ -11,6 +11,7 @@
 import { useState, useEffect } from "react";
 import { t } from "./i18n";
 import { supabase } from "./supabase";
+import { oggiRoma, dataRoma } from "./dateRoma";
 
 const fData = d => d ? d.split("-").reverse().join("/") : "—";
 export const SPECIE_MODELLI4 = { bovino:["Bovini"], suino:["Suini"], ovino:["Ovini","Ovicaprini","Caprini"] };
@@ -18,9 +19,9 @@ export const MOTIVI_CON_MODELLO4 = ["Macellato","Macellazione","Venduto vivo","T
 const GIORNI = 10;   // finestra di ricerca intorno alla data di uscita
 
 const spostaGiorni = (iso, n) => {
-  const d = new Date((iso || new Date().toISOString().slice(0, 10)) + "T12:00:00");
+  const d = new Date((iso || oggiRoma()) + "T12:00:00");
   d.setDate(d.getDate() + n);
-  return d.toISOString().slice(0, 10);
+  return dataRoma(d);
 };
 
 // Salva (o toglie) l'abbinamento di un animale / unita' di lotto

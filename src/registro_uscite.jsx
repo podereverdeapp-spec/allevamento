@@ -3,6 +3,7 @@ import { t } from "./i18n";   // v119 — lingue
 import { supabase } from "./supabase";
 import { ProposteModello4, salvaAbbinamento, MOTIVI_CON_MODELLO4 } from "./modelli4_abbina";   // v123
 import { AvvisoPesoVivo, confermaPesoVivo } from "./avviso_peso";   // v124
+import { oggiRoma } from "./dateRoma";
 
 const C = {
   bg:"#F5F0E8", card:"#FFFFFF", primary:"#5C3D1E", accent:"#A0522D",
@@ -32,7 +33,7 @@ const motivoIcon = m=>{
   if(ml.includes("scappat"))  return "🏃";
   return "📤";
 };
-const today=()=>new Date().toISOString().split("T")[0];
+const today=()=>oggiRoma();
 
 // ─── UI BASE ──────────────────────────────────────────────────────────────────
 const inputStyle={width:"100%",boxSizing:"border-box",border:`1.5px solid ${C.border}`,

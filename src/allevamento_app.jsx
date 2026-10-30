@@ -13,6 +13,7 @@ import { AvvisoPesoVivo, confermaPesoVivo } from "./avviso_peso";   // v124
 import { AvvisoConsegne, ConsegnaInScheda } from "./consegne";   // v125
 import { AvvisoModelli4 } from "./modelli4_finestra";   // v140
 import { MortiCausaMadre } from "./lotti_suini";   // v136
+import { oggiRoma, dataRoma } from "./dateRoma";
 
 const C = {
   bg:"#F5F0E8", card:"#FFFFFF", primary:"#5C3D1E", accent:"#A0522D",
@@ -23,7 +24,7 @@ const C = {
 const specieColor = s=>({bovino:C.bovini,suino:C.suini,ovino:C.ovini}[s]||C.muted);
 const specieLabel = s=>t({bovino:"Bovino",suino:"Suino",ovino:"Ovino"}[s]||s);
 const specieIcon  = s=>({bovino:"🐄",suino:"🐷",ovino:"🐑"}[s]||"🐾");
-const today = ()=>new Date().toISOString().split("T")[0];
+const today = ()=>oggiRoma();
 
 // ─── DATI PER SPECIE ──────────────────────────────────────────────────────────
 const RAZZE = {
@@ -1541,7 +1542,7 @@ function Anagrafica({animali,loading,aggiungi,aggiorna,elimina,ricaricaAnimali,e
                               const d=new Date(v);
                               d.setMonth(d.getMonth()+3);
                               d.setDate(d.getDate()+24); // 3 settimane + 3 giorni
-                              prevista=d.toISOString().split("T")[0];
+                              prevista=dataRoma(d);
                             }
                             setFormParto(f=>({...f,data_accoppiamento:v,_data_prevista:prevista}));
                           }}

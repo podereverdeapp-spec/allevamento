@@ -11,13 +11,14 @@ import * as XLSX from "xlsx";
 import { supabase } from "./supabase";
 import { ProposteModello4, salvaAbbinamento, MOTIVI_CON_MODELLO4 } from "./modelli4_abbina";   // v123
 import { AvvisoPesoVivo, confermaPesoVivo } from "./avviso_peso";   // v124
+import { oggiRoma } from "./dateRoma";
 
 const C = {
   bg:"#F5F0E8", card:"#FFFFFF", primary:"#5C3D1E", accent:"#A0522D",
   green:"#4A7C59", red:"#C0392B", yellow:"#D4A017", blue:"#2C6E9B",
   text:"#2D1B0E", muted:"#8B7355", border:"#D4C4A8", suini:"#B5547A",
 };
-const today = () => new Date().toISOString().split("T")[0];
+const today = () => oggiRoma();
 
 const RAZZA_LETTERA = {
   "Nero Apucalabro":"A","Cinta Senese":"C","Duroc":"D","Mora Romagnola":"G",
@@ -1074,7 +1075,7 @@ function esportaExcel(lotti, suini, animali) {
       "Peso carcassa":u.peso_carcassa||"","Resa %":u.resa_percent||""};
   });
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(righeU),"Unità");
-  XLSX.writeFile(wb,`Lotti_Suini_${new Date().toISOString().split("T")[0]}.xlsx`);
+  XLSX.writeFile(wb,`Lotti_Suini_${oggiRoma()}.xlsx`);
 }
 
 // ─── APP ROOT ─────────────────────────────────────────────────────────────────

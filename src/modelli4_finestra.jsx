@@ -19,6 +19,7 @@ import { useState, useEffect } from "react";
 import { t } from "./i18n";
 import { supabase } from "./supabase";
 import { salvaAbbinamento } from "./modelli4_abbina";
+import { oggiRoma, dataRoma } from "./dateRoma";
 
 const C = {
   bg:"#F5F0E8", card:"#FFFFFF", primary:"#5C3D1E", green:"#4A7C59", red:"#C0392B",
@@ -36,9 +37,9 @@ const ICONA = { Bovini:"🐄", Suini:"🐷", Ovini:"🐑" };
 // un animale uscito ma non abbinato si propone se l'uscita e' entro 10 giorni dalla data del modello 4
 const GIORNI_USCITI = 10;
 const spostaGiorni = (iso, n) => {
-  const x = new Date((iso || new Date().toISOString().slice(0, 10)) + "T12:00:00");
+  const x = new Date((iso || oggiRoma()) + "T12:00:00");
   x.setDate(x.getDate() + n);
-  return x.toISOString().slice(0, 10);
+  return dataRoma(x);
 };
 
 // Un modello 4 ha ancora uscite da registrare nell'app?

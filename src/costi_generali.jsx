@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { supabase } from "./supabase";
+import { oggiRoma } from "./dateRoma";
 
 const C = {
   bg:"#F5F0E8", card:"#FFFFFF", primary:"#5C3D1E", accent:"#A0522D",
   green:"#4A7C59", red:"#C0392B", yellow:"#D4A017", blue:"#2C6E9B",
   text:"#2D1B0E", muted:"#8B7355", border:"#D4C4A8",
 };
-const today=()=>new Date().toISOString().split("T")[0];
+const today=()=>oggiRoma();
 const annoCorrente=new Date().getFullYear();
 
 const inputStyle={width:"100%",boxSizing:"border-box",border:`1.5px solid ${C.border}`,

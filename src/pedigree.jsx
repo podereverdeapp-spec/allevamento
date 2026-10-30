@@ -9,6 +9,7 @@ import { useState, useEffect, useMemo } from "react";
 import { t } from "./i18n";   // v119 — lingue
 import { supabase } from "./supabase";
 import * as XLSX from "xlsx-js-style";
+import { oggiRoma } from "./dateRoma";
 
 const C = {
   bg:"#F5F0E8", card:"#FFFFFF", primary:"#5C3D1E", accent:"#A0522D",
@@ -19,7 +20,7 @@ const C = {
 };
 const specieColor = s=>({bovino:C.bovini,suino:C.suini,ovino:C.ovini}[s]||C.muted);
 const specieIcon  = s=>({bovino:"🐄",suino:"🐷",ovino:"🐑"}[s]||"🐾");
-const today = ()=>new Date().toISOString().split("T")[0];
+const today = ()=>oggiRoma();
 
 // ─── UI BASE ──────────────────────────────────────────────────────────────────
 const Card=({children,style={}})=>(
@@ -736,7 +737,7 @@ function esportaConsanguineita(rischi, capi) {
   wsB["!cols"] = [{wch:20},{wch:16},{wch:10},{wch:18},{wch:8},{wch:12},{wch:26},{wch:20},{wch:16},{wch:20},{wch:16}];
   XLSX.utils.book_append_sheet(wb, wsB, "Capi con consanguineità");
 
-  XLSX.writeFile(wb, `Consanguineita_Podere_Verde_${new Date().toISOString().split("T")[0]}.xlsx`);
+  XLSX.writeFile(wb, `Consanguineita_Podere_Verde_${oggiRoma()}.xlsx`);
 }
 
 // Vista report consanguineità
