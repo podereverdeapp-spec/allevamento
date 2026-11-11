@@ -29,6 +29,8 @@ const USCITA_PV = "Uscita da Podere Verde";
 const BUCKET = "modelli4";
 // v123 — da questa data in poi le uscite vanno abbinate ai modelli 4 (prima no)
 const INIZIO_ABBINAMENTI = "2026-09-24";
+// v147 — ordine del Dott. Bizzarri 11/11/2026 20:15: nella scheda del modello 4 si possono registrare le uscite anche dei modelli 4 del 2026 precedenti al 24/09 (l'avviso della prima pagina resta dal 24/09)
+const INIZIO_REGISTRABILI = "2026-01-01";
 const numAbbinati = d => (d.modelli4_abbinamenti || []).length;
 
 const inputStyle = { width:"100%", boxSizing:"border-box", border:`1.5px solid ${C.border}`,
@@ -187,7 +189,7 @@ function Documento({ d, doppio, admin, onElimina, animaliPerMatricola, onAggiorn
   const col = specieColor(d.specie);
   const altro = d.tipo_movimento !== USCITA_PV;
   const abbinati = numAbbinati(d);
-  const daRegistrare = !altro && d.data_uscita >= INIZIO_ABBINAMENTI && abbinati < (d.numero_capi || 0);
+  const daRegistrare = !altro && d.data_uscita >= INIZIO_REGISTRABILI && abbinati < (d.numero_capi || 0);
 
   // v123 — registra l'uscita nell'app di un capo con matricola scritto nel modello 4
   const registraUscita = async (a) => {
@@ -231,7 +233,7 @@ function Documento({ d, doppio, admin, onElimina, animaliPerMatricola, onAggiorn
           </div>
         </div>
         {altro && <div style={{ fontSize:11, fontWeight:700, color:C.blue, marginTop:4 }}>↔️ {d.tipo_movimento}</div>}
-        {!altro && d.data_uscita >= INIZIO_ABBINAMENTI && (
+        {!altro && d.data_uscita >= INIZIO_REGISTRABILI && (
           <div style={{ fontSize:11, fontWeight:700, marginTop:4, color: daRegistrare ? C.red : C.green }}>
             {daRegistrare ? "⏳ " : "✅ "}{t("Uscite registrate nell'app: {0} di {1}", { 0:abbinati, 1:d.numero_capi ?? "?" })}
           </div>

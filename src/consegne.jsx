@@ -22,6 +22,9 @@ import { supabase } from "./supabase";
 const C = { primary:"#5C3D1E", border:"#D4C4A8", muted:"#8B7355", text:"#2D1B0E", red:"#C0392B", green:"#4A7C59", bg:"#F5F0E8", yellow:"#D4A017", orange:"#D35400" };
 const MACELLAZIONE = ["Macellato", "Macellazione"];
 export const INIZIO_CONSEGNE = "2026-09-24";   // le uscite da questa data in poi vanno completate
+// v147 — ordine del Dott. Bizzarri 11/11/2026 20:15: dal 01/01/2026 compaiono anche le uscite precedenti al 24/09
+// se il capo è stato abbinato a un modello 4 a mano o dalla finestra delle uscite (abbinamento non automatico)
+const INIZIO_RECUPERO = "2026-01-01";
 export const PEZZI = {
   suino:  ["mezzena 1", "mezzena 2"],
   bovino: ["quarto 1", "quarto 2", "quarto 3", "quarto 4"],
@@ -63,12 +66,12 @@ async function fattureAttive(idsCapi) {
 async function caricaUscite() {
   const [an, un, co, pz, ab] = await Promise.all([
     supabase.from("animali").select("id,bdn,nome,specie,data_uscita,motivo_uscita,peso_vivo_uscita,peso_carcassa")
-      .neq("stato", "attivo").gte("data_uscita", INIZIO_CONSEGNE).in("motivo_uscita", MACELLAZIONE),
+      .neq("stato", "attivo").gte("data_uscita", INIZIO_RECUPERO).in("motivo_uscita", MACELLAZIONE),
     supabase.from("suini_lotto").select("id,nr,codice_completo,lotto_id,data_uscita,motivo_uscita,peso_vivo_uscita,peso_carcassa,lotti_suini(codice_lotto,codice)")
-      .eq("vivo", false).gte("data_uscita", INIZIO_CONSEGNE).in("motivo_uscita", MACELLAZIONE),
+      .eq("vivo", false).gte("data_uscita", INIZIO_RECUPERO).in("motivo_uscita", MACELLAZIONE),
     supabase.from("uscite_consegne").select("*"),
     supabase.from("uscite_consegne_pezzi").select("*"),
-    supabase.from("modelli4_abbinamenti").select("animale_id,suino_lotto_id,modelli4_documenti(id,numero_documento,destinatario)"),
+    supabase.from("modelli4_abbinamenti").select("animale_id,suino_lotto_id,automatico,modelli4_documenti(id,numero_documento,destinatario)"),
   ]);
   const errore = [an, un, co, pz, ab].find(r => r.error);
   if (errore) throw errore.error;
@@ -76,15 +79,18 @@ async function caricaUscite() {
   const pezzi = pz.data || [];
   const abb = ab.data || [];
   const fatt = await fattureAttive(consegne.map(c => c.id));
+  // v147 — prima del 24/09 solo i capi abbinati a un modello 4 non in automatico
+  const abbManuale = (campo, id) => abb.some(x => x[campo] === id && !x.automatico);
+  const tieni = (campo, x) => (x.data_uscita || "") >= INIZIO_CONSEGNE || abbManuale(campo, x.id);
   const capi = [
-    ...(an.data || []).map(a => ({
+    ...(an.data || []).filter(a => tieni("animale_id", a)).map(a => ({
       chiave:"a" + a.id, animale_id:a.id, suino_lotto_id:null, specie:a.specie,
       matricola:a.bdn || a.nome, lotto:null, nome:a.nome, data_uscita:a.data_uscita,
       peso_vivo:a.peso_vivo_uscita, peso_carcassa:a.peso_carcassa,
       consegna:consegne.find(c => c.animale_id === a.id),
       doc:abb.find(x => x.animale_id === a.id)?.modelli4_documenti || null,
     })),
-    ...(un.data || []).map(u => {
+    ...(un.data || []).filter(u => tieni("suino_lotto_id", u)).map(u => {
       const lotto = u.lotti_suini?.codice_lotto || u.lotti_suini?.codice || null;
       return {
         chiave:"s" + u.id, animale_id:null, suino_lotto_id:u.id, specie:"suino",
