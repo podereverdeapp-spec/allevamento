@@ -165,6 +165,12 @@ export default function App() {
           <button onClick={()=>{setGuidaSezione(null);setTab("guida");setMenuAperto(false);}} style={{width:"100%",padding:"12px 16px",background:"none",border:"none",textAlign:"left",fontSize:14,cursor:"pointer",borderBottom:`1px solid ${C.border}`}}>
             📖 {t("Guida per allevatori")}
           </button>
+          {/* v146 — pagina di prova «scanner scontrini» (solo amministratore, 11/11/2026) */}
+          {profilo?.ruolo==="admin" && (
+            <a href="/prova-scanner.html" target="_blank" rel="noopener noreferrer" onClick={()=>setMenuAperto(false)} style={{display:"block",padding:"12px 16px",textAlign:"left",fontSize:14,color:"inherit",textDecoration:"none",borderBottom:`1px solid ${C.border}`}}>
+              🧾 Prova scanner scontrini
+            </a>
+          )}
           <button onClick={logout} style={{width:"100%",padding:"12px 16px",background:"none",border:"none",textAlign:"left",fontSize:14,color:C.red,cursor:"pointer",fontWeight:600}}>
             🚪 {t("Esci")}
           </button>
