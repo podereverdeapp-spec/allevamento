@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>Prova scanner nell'app</title>
+<style>
+/* Prova dello scanner DENTRO l'app Podere Verde (11/11/2026, ok del Dott. Bizzarri 17:46 e 17:50).
+   Pagina a sé: non usa Supabase, non salva niente, non manda niente fuori dal telefono.
+   Il riconoscimento dei bordi usa OpenCV (file opencv-4.10.0.js nella stessa cartella public dell'app). */
+:root{--bg:#f3f6f3;--fg:#1d2b22;--muted:#5d6b62;--card:#fff;--line:#d5ddd7;--accent:#2e5e3e;--ok:#1e7a46;--ko:#b3362b;--warn:#a86a00}
+@media (prefers-color-scheme:dark){:root{--bg:#121815;--fg:#e4ece6;--muted:#9fb0a5;--card:#1b231f;--line:#2e3a33;--accent:#7fbf93;--ok:#6fd39b;--ko:#ff8a7f;--warn:#e7b65a;color-scheme:dark}}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:16px;line-height:1.45;margin:0}
+.pag{max-width:640px;margin:0 auto;padding:16px max(16px,env(safe-area-inset-right)) 48px max(16px,env(safe-area-inset-left));display:flex;flex-direction:column;gap:14px}
+h1{font-size:22px;margin:4px 0 0;color:var(--accent)}
+.sotto{color:var(--muted);font-size:14px;margin:0}
+.scheda{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.scheda h2{font-size:17px;margin:0}
+.tasto{display:block;text-align:center;background:var(--accent);color:var(--card);border:0;border-radius:10px;padding:14px;font-size:17px;font-weight:700;cursor:pointer;width:100%;text-decoration:none}
+.tasto.secondo{background:transparent;color:var(--accent);border:2px solid var(--accent)}
+.tasto[disabled]{opacity:.45;cursor:default}
+.riga{display:flex;gap:8px}.riga>*{flex:1}
+input[type=file]{position:absolute;left:-9999px}
+.esito{border-left:4px solid var(--line);padding:6px 10px;font-size:14px;white-space:pre-wrap;word-break:break-word}
+.esito.ok{border-color:var(--ok)}.esito.ko{border-color:var(--ko)}.esito.attesa{border-color:var(--warn)}
+canvas{max-width:100%;display:block;border-radius:8px;border:1px solid var(--line)}
+#tela{touch-action:none;width:100%}
+.scelta{display:flex;gap:6px}.scelta button{flex:1;padding:10px 4px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--fg);font-size:15px}
+.scelta button.attivo{background:var(--accent);color:var(--card);border-color:var(--accent)}
+.nascosto{display:none!important}
+.nota{font-size:13px;color:var(--muted);margin:0}
+</style>
+</head>
+<body>
+<div class="pag">
+  <h1>Prova scanner nell'app</h1>
+  <p class="sotto">Pagina di prova per Podere Verde: la foto resta nel telefono, non si salva niente nell'app né nel programma. Alla fine fare una foto dello schermo della parte «Risultato».</p>
+
+  <div class="scheda">
+    <h2>1 – Foto dello scontrino</h2>
+    <div id="statoBordi" class="esito attesa">Riconoscimento dei bordi: in caricamento…</div>
+    <label class="tasto" for="foto">Fotografa lo scontrino</label>
+    <label class="tasto secondo" for="galleria">Scegli una foto dalla galleria</label>
+    <input id="foto" type="file" accept="image/*" capture="environment">
+    <input id="galleria" type="file" accept="image/*">
+    <div id="esitoFoto" class="esito">Nessuna foto ancora.</div>
+  </div>
+
+  <div class="scheda nascosto" id="schedaAngoli">
+    <h2>2 – Controlla gli angoli</h2>
+    <p class="nota">I 4 pallini vanno sugli angoli dello scontrino. Se uno è fuori posto, trascinarlo col dito.</p>
+    <canvas id="tela"></canvas>
+    <div class="riga">
+      <button class="tasto secondo" id="tuttaFoto" type="button">Tutta la foto</button>
+      <button class="tasto secondo" id="ritrova" type="button">Ritrova i bordi</button>
+    </div>
+    <button class="tasto" id="raddrizza" type="button">Raddrizza</button>
+  </div>
+
+  <div class="scheda nascosto" id="schedaPagina">
+    <h2>3 – Come si legge</h2>
+    <div class="scelta" id="resa">
+      <button type="button" data-r="bn" class="attivo">Bianco e nero</button>
+      <button type="button" data-r="grigio">Grigio</button>
+      <button type="button" data-r="colori">Colori</button>
+    </div>
+    <canvas id="risultato"></canvas>
+    <div id="esitoPagina" class="esito"></div>
+    <button class="tasto" id="aggiungi" type="button">Aggiungi questa pagina al PDF</button>
+  </div>
+
+  <div class="scheda">
+    <h2>4 – PDF</h2>
+    <div id="esitoPdf" class="esito">Pagine nel PDF: 0.</div>
+    <p class="nota">Per uno scontrino lungo o una fattura di più pagine: aggiungere una pagina, poi fotografare la successiva.</p>
+    <div class="riga">
+      <button class="tasto" id="faiPdf" type="button" disabled>Fai il PDF</button>
+      <button class="tasto secondo" id="svuota" type="button" disabled>Ricomincia</button>
+    </div>
+    <a class="tasto secondo nascosto" id="scarica" download="scontrino_prova.pdf">Scarica il PDF</a>
+  </div>
+
+  <div class="scheda">
+    <h2>Risultato</h2>
+    <div id="riassunto" class="esito"></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+// ---------------------------------------------------------------- stato
+const $ = (id) => document.getElementById(id);
+const kb = (n) => n >= 1048576 ? (n / 1048576).toFixed(2).replace(".", ",") + " MB" : Math.round(n / 1024) + " KB";
+const LATO_LAVORO = 2400;   // la foto si riduce a questo lato lungo prima di raddrizzarla (circa 200 punti per pollice su uno scontrino)
+const LATO_RICERCA = 700;   // lato lungo usato per trovare i bordi (più piccolo = più veloce)
+const DPI = 200;            // pagina PDF: 200 pixel = 1 pollice
+const S = {
+  cv: null, cvMs: null, cvErrore: null,
+  foto: null,               // canvas con la foto ridotta a LATO_LAVORO
+  fotoInfo: "", angoli: null, metodo: "", msRicerca: null,
+  pagina: null, resa: "bn", msRaddrizza: null,
+  pagine: [],               // { jpeg: Uint8Array, w, h }
+  pdfByte: null, pdfUrl: null,
+};
+const telefono = navigator.userAgent;
+function riassunto() {
+  const sistema = /iPhone|iPad|iPod/.test(telefono) ? "iPhone/iPad" : /Android/.test(telefono) ? "Android" : "computer o altro";
+  $("riassunto").textContent = [
+    `Telefono: ${sistema} – ${/CriOS|Chrome/.test(telefono) ? "Chrome" : /Safari/.test(telefono) ? "Safari" : "altro browser"}`,
+    `Riconoscimento bordi: ${S.cv ? `pronto in ${(S.cvMs / 1000).toFixed(1).replace(".", ",")} s` : S.cvErrore ? "NON disponibile (" + S.cvErrore + ")" : "in caricamento"}`,
+    `Foto: ${S.fotoInfo || "nessuna"}`,
+    `Bordi: ${S.metodo || "–"}${S.msRicerca != null ? ` (${S.msRicerca} ms)` : ""}`,
+    `Pagina raddrizzata: ${S.pagina ? `${S.pagina.width}×${S.pagina.height} px, ${S.msRaddrizza} ms, resa ${S.resa}` : "–"}`,
+    `PDF: ${S.pdfByte ? `${S.pagine.length} pagine, ${kb(S.pdfByte.length)}` : `${S.pagine.length} pagine pronte, PDF non ancora fatto`}`,
+    `Ora: ${new Date().toLocaleString("it-IT")}`,
+  ].join("\n");
+}
+
+// ---------------------------------------------------------------- OpenCV (file nella stessa cartella dell'app)
+(function caricaOpenCV() {
+  const t0 = performance.now();
+  const pronto = (m) => { S.cv = m; S.cvMs = performance.now() - t0; $("statoBordi").textContent = `Riconoscimento dei bordi: pronto (${(S.cvMs / 1000).toFixed(1).replace(".", ",")} s).`; $("statoBordi").className = "esito ok"; riassunto(); if (S.foto && !S.angoli) trova(); };
+  const fallito = (perche) => { S.cvErrore = perche; $("statoBordi").textContent = `Riconoscimento dei bordi non disponibile (${perche}): gli angoli si mettono a mano.`; $("statoBordi").className = "esito ko"; riassunto(); };
+  const s = document.createElement("script");
+  s.src = "opencv-4.10.0.js";
+  s.async = true;
+  s.onerror = () => fallito("file non caricato");
+  s.onload = () => {
+    const c = window.cv;
+    if (!c) return fallito("file caricato ma vuoto");
+    if (c.Mat && c.getBuildInformation) return pronto(c);
+    if (c instanceof Promise) return c.then((m) => { window.cv = m; pronto(m); }, () => fallito("avvio non riuscito"));
+    c.onRuntimeInitialized = () => pronto(window.cv);
+  };
+  setTimeout(() => { if (!S.cv && !S.cvErrore) fallito("troppo lento, oltre 60 secondi"); }, 60000);
+  document.head.appendChild(s);
+})();
+
+// ---------------------------------------------------------------- foto
+async function apriFoto(file) {
+  if (!file) return;
+  $("esitoFoto").className = "esito attesa"; $("esitoFoto").textContent = "Apro la foto…";
+  S.foto = null; S.angoli = null; S.pagina = null; S.dritta = null; S.metodo = ""; S.msRicerca = null;
+  $("schedaAngoli").classList.add("nascosto"); $("schedaPagina").classList.add("nascosto");
+  try {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.src = url;
+    await img.decode();               // il browser gira la foto secondo l'orientamento della fotocamera
+    const w0 = img.naturalWidth, h0 = img.naturalHeight;
+    const k = Math.min(1, LATO_LAVORO / Math.max(w0, h0));
+    const c = document.createElement("canvas");
+    c.width = Math.round(w0 * k); c.height = Math.round(h0 * k);
+    c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+    URL.revokeObjectURL(url);
+    S.foto = c; S.angoli = null; S.pagina = null;
+    S.fotoInfo = `${file.name || "(senza nome)"}, ${file.type || "tipo sconosciuto"}, ${kb(file.size)}, ${w0}×${h0} px`;
+    $("esitoFoto").className = "esito ok"; $("esitoFoto").textContent = "Arrivata: " + S.fotoInfo;
+    $("schedaAngoli").classList.remove("nascosto"); $("schedaPagina").classList.add("nascosto");
+    if (S.cv) trova(); else { tuttaFoto("riconoscimento non pronto: angoli ai bordi della foto"); }
+  } catch (e) {
+    $("esitoFoto").className = "esito ko"; $("esitoFoto").textContent = "La foto non si apre: " + e.message;
+  }
+  riassunto();
+}
+$("foto").addEventListener("change", (e) => { apriFoto(e.target.files[0]); e.target.value = ""; });
+$("galleria").addEventListener("change", (e) => { apriFoto(e.target.files[0]); e.target.value = ""; });
+
+function tuttaFoto(perche) {
+  const w = S.foto.width, h = S.foto.height, m = Math.round(Math.min(w, h) * 0.04);
+  S.angoli = [[m, m], [w - m, m], [w - m, h - m], [m, h - m]];
+  S.metodo = perche; S.msRicerca = null; disegna(); riassunto();
+}
+$("tuttaFoto").onclick = () => S.foto && tuttaFoto("messi a mano (tutta la foto)");
+$("ritrova").onclick = () => S.foto && (S.cv ? trova() : tuttaFoto("riconoscimento non disponibile"));
+
+// ---------------------------------------------------------------- ricerca dei bordi con OpenCV
+function ordina(p) {           // alto-sinistra, alto-destra, basso-destra, basso-sinistra
+  const s = p.map(([x, y]) => x + y), d = p.map(([x, y]) => y - x);
+  return [p[s.indexOf(Math.min(...s))], p[d.indexOf(Math.min(...d))], p[s.indexOf(Math.max(...s))], p[d.indexOf(Math.max(...d))]];
+}
+function areaQuad(q) { let a = 0; for (let i = 0; i < 4; i++) { const [x1, y1] = q[i], [x2, y2] = q[(i + 1) % 4]; a += x1 * y2 - x2 * y1; } return Math.abs(a) / 2; }
+function trova() {
+  const cv = S.cv, t0 = performance.now();
+  const k = Math.min(1, LATO_RICERCA / Math.max(S.foto.width, S.foto.height));
+  const c = document.createElement("canvas");
+  c.width = Math.round(S.foto.width * k); c.height = Math.round(S.foto.height * k);
+  c.getContext("2d").drawImage(S.foto, 0, 0, c.width, c.height);
+  const areaFoto = c.width * c.height;
+  const da = []; // matrici da liberare
+  const nuova = () => { const m = new cv.Mat(); da.push(m); return m; };
+  let migliore = null, comeTrovato = "";
+  try {
+    const src = cv.imread(c); da.push(src);
+    const grigio = nuova(); cv.cvtColor(src, grigio, cv.COLOR_RGBA2GRAY);
+    cv.GaussianBlur(grigio, grigio, new cv.Size(5, 5), 0);
+    const nucleo = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(5, 5)); da.push(nucleo);
+    // più modi: i contorni (Canny) con sensibilità diverse e la zona chiara (lo scontrino è più chiaro del piano).
+    // Vince il più grande con 4 angoli veri; il «rettangolo che lo contiene» si usa solo se nessun modo trova 4 angoli.
+    const prove = [];
+    for (const [lo, hi] of [[40, 120], [15, 45], [80, 200]]) { const b = nuova(); cv.Canny(grigio, b, lo, hi); cv.dilate(b, b, nucleo); prove.push([b, "contorni"]); }
+    const chiaro = nuova(); cv.threshold(grigio, chiaro, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
+    cv.morphologyEx(chiaro, chiaro, cv.MORPH_CLOSE, nucleo); prove.push([chiaro, "zona chiara"]);
+    let riserva = null;
+    for (const [img, nome] of prove) {
+      const contorni = new cv.MatVector(), gerarchia = nuova();
+      cv.findContours(img, contorni, gerarchia, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+      for (let i = 0; i < contorni.size(); i++) {
+        const cnt = contorni.get(i);
+        const a = cv.contourArea(cnt);
+        if (a < areaFoto * 0.08 || a > areaFoto * 0.985) { cnt.delete(); continue; }
+        const peri = cv.arcLength(cnt, true);
+        let q = null;
+        for (const eps of [0.02, 0.035, 0.05]) {
+          const appr = new cv.Mat(); cv.approxPolyDP(cnt, appr, eps * peri, true);
+          if (appr.rows === 4 && cv.isContourConvex(appr)) { q = []; for (let j = 0; j < 4; j++) q.push([appr.data32S[j * 2], appr.data32S[j * 2 + 1]]); }
+          appr.delete(); if (q) break;
+        }
+        if (q) {
+          const aq = areaQuad(q);
+          if (!migliore || aq > migliore.area) { migliore = { q, area: aq }; comeTrovato = `trovati da soli (${nome}, 4 angoli)`; }
+        } else if (nome === "contorni" && (!riserva || a > riserva.area)) {
+          const r = cv.minAreaRect(cnt); riserva = { q: cv.RotatedRect.points(r).map((p) => [p.x, p.y]), area: a };
+        }
+        cnt.delete();
+      }
+      contorni.delete();
+    }
+    if (!migliore && riserva) { migliore = riserva; comeTrovato = "trovati in modo incerto (rettangolo che lo contiene): controllarli"; }
+  } catch (e) {
+    comeTrovato = ""; migliore = null; S.cvErrore = null;
+    console.log("[scanner] errore nella ricerca:", e);
+  } finally { da.forEach((m) => m.delete()); }
+  if (!migliore) { tuttaFoto("NON trovati: angoli ai bordi della foto, spostarli a mano"); return; }
+  S.angoli = ordina(migliore.q.map(([x, y]) => [Math.max(0, Math.min(S.foto.width, x / k)), Math.max(0, Math.min(S.foto.height, y / k))]));
+  S.metodo = comeTrovato; S.msRicerca = Math.round(performance.now() - t0);
+  disegna(); riassunto();
+}
+
+// ---------------------------------------------------------------- angoli spostabili col dito
+const tela = $("tela");
+let preso = -1;
+function disegna() {
+  const f = S.foto; if (!f) return;
+  const k = Math.min(1, 1200 / Math.max(f.width, f.height));
+  tela.width = Math.round(f.width * k); tela.height = Math.round(f.height * k);
+  const g = tela.getContext("2d");
+  g.drawImage(f, 0, 0, tela.width, tela.height);
+  if (!S.angoli) return;
+  const p = S.angoli.map(([x, y]) => [x * k, y * k]);
+  g.fillStyle = "rgba(46,94,62,.18)"; g.strokeStyle = "#ffd400"; g.lineWidth = Math.max(3, tela.width / 250);
+  g.beginPath(); p.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.fill(); g.stroke();
+  const raggio = Math.max(10, tela.width / 45);
+  p.forEach(([x, y]) => { g.beginPath(); g.arc(x, y, raggio, 0, 7); g.fillStyle = "rgba(255,212,0,.85)"; g.fill(); g.lineWidth = 2; g.strokeStyle = "#1d2b22"; g.stroke(); });
+}
+function puntoTela(e) {
+  if (!S.foto) return [0, 0, 1];
+  const r = tela.getBoundingClientRect();
+  const sx = S.foto.width / r.width, sy = S.foto.height / r.height;
+  return [(e.clientX - r.left) * sx, (e.clientY - r.top) * sy, sx];
+}
+tela.addEventListener("pointerdown", (e) => {
+  if (!S.angoli) return;
+  const [x, y, sx] = puntoTela(e);
+  let meglio = -1, dist = 45 * sx; // 45 pixel dello schermo
+  S.angoli.forEach(([ax, ay], i) => { const d = Math.hypot(ax - x, ay - y); if (d < dist) { dist = d; meglio = i; } });
+  preso = meglio; if (preso >= 0) tela.setPointerCapture(e.pointerId);
+});
+tela.addEventListener("pointermove", (e) => {
+  if (preso < 0 || !S.foto) return;
+  const [x, y] = puntoTela(e);
+  S.angoli[preso] = [Math.max(0, Math.min(S.foto.width, x)), Math.max(0, Math.min(S.foto.height, y))];
+  disegna();
+});
+const lascia = () => { if (preso >= 0) { preso = -1; S.metodo = S.metodo.startsWith("corretti") ? S.metodo : "corretti a mano (" + S.metodo + ")"; riassunto(); } };
+tela.addEventListener("pointerup", lascia); tela.addEventListener("pointercancel", lascia);
+
+// ---------------------------------------------------------------- raddrizzare (calcolo proprio, senza OpenCV)
+function risolvi(A, b) {        // eliminazione di Gauss, 8 incognite
+  const n = b.length, M = A.map((r, i) => [...r, b[i]]);
+  for (let c = 0; c < n; c++) {
+    let p = c; for (let r = c + 1; r < n; r++) if (Math.abs(M[r][c]) > Math.abs(M[p][c])) p = r;
+    [M[c], M[p]] = [M[p], M[c]];
+    if (Math.abs(M[c][c]) < 1e-12) throw new Error("angoli non validi (tre sulla stessa linea)");
+    for (let r = 0; r < n; r++) if (r !== c) { const f = M[r][c] / M[c][c]; for (let k = c; k <= n; k++) M[r][k] -= f * M[c][k]; }
+  }
+  return M.map((r, i) => r[n] / r[i]);
+}
+function omografia(da, a) {     // trasforma i punti "da" nei punti "a"
+  const A = [], b = [];
+  for (let i = 0; i < 4; i++) {
+    const [x, y] = da[i], [u, v] = a[i];
+    A.push([x, y, 1, 0, 0, 0, -u * x, -u * y]); b.push(u);
+    A.push([0, 0, 0, x, y, 1, -v * x, -v * y]); b.push(v);
+  }
+  return [...risolvi(A, b), 1];
+}
+function raddrizza() {
+  const t0 = performance.now();
+  const [tl, tr, br, bl] = S.angoli;
+  const d = (p, q) => Math.hypot(p[0] - q[0], p[1] - q[1]);
+  let W = Math.max(d(tl, tr), d(bl, br)), H = Math.max(d(tl, bl), d(tr, br));
+  if (W < 20 || H < 20) throw new Error("angoli troppo vicini");
+  const k = Math.min(1, LATO_LAVORO / Math.max(W, H)); W = Math.round(W * k); H = Math.round(H * k);
+  const m = omografia([[0, 0], [W, 0], [W, H], [0, H]], S.angoli);  // dalla pagina dritta alla foto
+  const fw = S.foto.width, fh = S.foto.height;
+  const sorg = S.foto.getContext("2d").getImageData(0, 0, fw, fh).data;
+  const out = new ImageData(W, H), o = out.data;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const z = m[6] * x + m[7] * y + 1, sx = (m[0] * x + m[1] * y + m[2]) / z, sy = (m[3] * x + m[4] * y + m[5]) / z;
+    const x0 = Math.max(0, Math.min(fw - 2, Math.floor(sx))), y0 = Math.max(0, Math.min(fh - 2, Math.floor(sy)));
+    const ax = Math.max(0, Math.min(1, sx - x0)), ay = Math.max(0, Math.min(1, sy - y0));
+    const i00 = (y0 * fw + x0) * 4, i10 = i00 + 4, i01 = i00 + fw * 4, i11 = i01 + 4, j = (y * W + x) * 4;
+    for (let c = 0; c < 3; c++) o[j + c] = (sorg[i00 + c] * (1 - ax) + sorg[i10 + c] * ax) * (1 - ay) + (sorg[i01 + c] * (1 - ax) + sorg[i11 + c] * ax) * ay;
+    o[j + 3] = 255;
+  }
+  S.dritta = out; S.msRaddrizza = Math.round(performance.now() - t0);
+}
+function applicaResa() {
+  const src = S.dritta, W = src.width, H = src.height, s = src.data;
+  const out = new ImageData(W, H), o = out.data;
+  if (S.resa === "colori") o.set(s);
+  else {
+    const g = new Float32Array(W * H);
+    for (let i = 0; i < W * H; i++) g[i] = 0.299 * s[i * 4] + 0.587 * s[i * 4 + 1] + 0.114 * s[i * 4 + 2];
+    if (S.resa === "grigio") {          // contrasto: 2% più scuro → nero, 2% più chiaro → bianco
+      const ist = new Uint32Array(256); g.forEach((v) => ist[v | 0]++);
+      let acc = 0, lo = 0, hi = 255; for (let v = 0; v < 256; v++) { acc += ist[v]; if (acc < W * H * 0.02) lo = v; if (acc < W * H * 0.98) hi = v; }
+      const sc = 255 / Math.max(1, hi - lo);
+      for (let i = 0; i < W * H; i++) { const v = Math.max(0, Math.min(255, (g[i] - lo) * sc)); o[i * 4] = o[i * 4 + 1] = o[i * 4 + 2] = v; o[i * 4 + 3] = 255; }
+    } else {                            // bianco e nero: confronto con la media dei punti vicini (regge ombre e luce storta)
+      const I = new Float64Array((W + 1) * (H + 1));
+      for (let y = 0; y < H; y++) { let r = 0; for (let x = 0; x < W; x++) { r += g[y * W + x]; I[(y + 1) * (W + 1) + x + 1] = I[y * (W + 1) + x + 1] + r; } }
+      const R = Math.max(7, Math.round(Math.min(W, H) / 40));
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+        const x1 = Math.max(0, x - R), x2 = Math.min(W, x + R + 1), y1 = Math.max(0, y - R), y2 = Math.min(H, y + R + 1);
+        const media = (I[y2 * (W + 1) + x2] - I[y1 * (W + 1) + x2] - I[y2 * (W + 1) + x1] + I[y1 * (W + 1) + x1]) / ((x2 - x1) * (y2 - y1));
+        const v = g[y * W + x] < media - 12 ? 0 : 255;
+        const j = (y * W + x) * 4; o[j] = o[j + 1] = o[j + 2] = v; o[j + 3] = 255;
+      }
+    }
+  }
+  const c = $("risultato"); c.width = W; c.height = H; c.getContext("2d").putImageData(out, 0, 0);
+  S.pagina = c;
+  $("esitoPagina").className = "esito ok";
+  $("esitoPagina").textContent = `Pagina dritta: ${W}×${H} px (circa ${(W / DPI * 2.54).toFixed(1).replace(".", ",")} × ${(H / DPI * 2.54).toFixed(1).replace(".", ",")} cm a ${DPI} punti per pollice).`;
+  riassunto();
+}
+$("raddrizza").onclick = () => {
+  try { raddrizza(); $("schedaPagina").classList.remove("nascosto"); applicaResa(); $("schedaPagina").scrollIntoView({ behavior: "smooth" }); }
+  catch (e) { $("esitoFoto").className = "esito ko"; $("esitoFoto").textContent = "Non raddrizzata: " + e.message; }
+};
+$("resa").addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b || !S.dritta) return;
+  S.resa = b.dataset.r; [...$("resa").children].forEach((x) => x.classList.toggle("attivo", x === b)); applicaResa();
+});
+
+// ---------------------------------------------------------------- PDF scritto a mano (immagini JPEG, nessuna libreria)
+const jpegDa = (canvas, q) => new Promise((ok, ko) => canvas.toBlob(async (b) => b ? ok(new Uint8Array(await b.arrayBuffer())) : ko(new Error("JPEG non creato")), "image/jpeg", q));
+$("aggiungi").onclick = async () => {
+  const tela = S.pagina; if (!tela || $("aggiungi").disabled) return;
+  $("aggiungi").disabled = true;           // niente pagina doppia con due tocchi veloci
+  const w = tela.width, h = tela.height;   // si prendono prima: intanto può arrivare un'altra foto
+  let jpeg;
+  try { jpeg = await jpegDa(tela, S.resa === "colori" ? 0.8 : 0.7); }
+  catch (e) { $("esitoPdf").className = "esito ko"; $("esitoPdf").textContent = "Pagina non aggiunta: " + e.message; $("aggiungi").disabled = false; return; }
+  $("aggiungi").disabled = false;
+  S.pagine.push({ jpeg, w, h });
+  S.pdfByte = null; $("scarica").classList.add("nascosto");
+  $("esitoPdf").className = "esito ok";
+  $("esitoPdf").textContent = `Pagine nel PDF: ${S.pagine.length} (ultima ${kb(jpeg.length)}).`;
+  $("faiPdf").disabled = false; $("svuota").disabled = false;
+  $("schedaAngoli").classList.add("nascosto"); $("schedaPagina").classList.add("nascosto");
+  riassunto();
+};
+function creaPdf(pagine) {
+  const enc = new TextEncoder(), parti = [], pos = [];
+  let lung = 0;
+  const metti = (x) => { const b = typeof x === "string" ? enc.encode(x) : x; parti.push(b); lung += b.length; };
+  const ogg = (n, corpo) => { pos[n] = lung; metti(`${n} 0 obj\n`); corpo(); metti("\nendobj\n"); };
+  metti("%PDF-1.4\n%\xE2\xE3\xCF\xD3\n");
+  const n = pagine.length, kids = pagine.map((_, i) => `${3 + i * 3} 0 R`).join(" ");
+  ogg(1, () => metti("<< /Type /Catalog /Pages 2 0 R >>"));
+  ogg(2, () => metti(`<< /Type /Pages /Kids [${kids}] /Count ${n} >>`));
+  pagine.forEach((p, i) => {
+    const np = 3 + i * 3, nc = np + 1, ni = np + 2;
+    const W = +(p.w * 72 / DPI).toFixed(2), H = +(p.h * 72 / DPI).toFixed(2);
+    const cont = `q ${W} 0 0 ${H} 0 0 cm /Im0 Do Q`;
+    ogg(np, () => metti(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /XObject << /Im0 ${ni} 0 R >> >> /Contents ${nc} 0 R >>`));
+    ogg(nc, () => { metti(`<< /Length ${cont.length} >>\nstream\n${cont}\nendstream`); });
+    ogg(ni, () => { metti(`<< /Type /XObject /Subtype /Image /Width ${p.w} /Height ${p.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${p.jpeg.length} >>\nstream\n`); metti(p.jpeg); metti("\nendstream"); });
+  });
+  const tot = 3 + n * 3, xref = lung;
+  let x = `xref\n0 ${tot}\n0000000000 65535 f \n`;
+  for (let i = 1; i < tot; i++) x += String(pos[i]).padStart(10, "0") + " 00000 n \n";
+  metti(x + `trailer\n<< /Size ${tot} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+  const out = new Uint8Array(lung); let o = 0; for (const b of parti) { out.set(b, o); o += b.length; }
+  return out;
+}
+$("faiPdf").onclick = () => {
+  if (!S.pagine.length) return;
+  S.pdfByte = creaPdf(S.pagine);
+  if (S.pdfUrl) URL.revokeObjectURL(S.pdfUrl);
+  S.pdfUrl = URL.createObjectURL(new Blob([S.pdfByte], { type: "application/pdf" }));
+  const a = $("scarica"); a.href = S.pdfUrl; a.classList.remove("nascosto");
+  $("esitoPdf").textContent = `PDF pronto: ${S.pagine.length} pagine, ${kb(S.pdfByte.length)}.`;
+  riassunto();
+};
+$("svuota").onclick = () => {
+  S.pagine = []; S.pdfByte = null; $("scarica").classList.add("nascosto"); $("faiPdf").disabled = true; $("svuota").disabled = true;
+  $("esitoPdf").className = "esito"; $("esitoPdf").textContent = "Pagine nel PDF: 0."; riassunto();
+};
+riassunto();
+</script>
+</body>
+</html>
