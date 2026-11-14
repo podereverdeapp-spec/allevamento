@@ -24,6 +24,7 @@ import RazioniBovini       from "./razioni_bovini";     // v139 — calcolo razi
 import ExportManager       from "./ExportManager";
 import UBAReport            from "./UBAReport";
 import Destinatari          from "./destinatari";
+import SpesePagate          from "./spese_pagate";   // v148 — spese pagate (solo abilitati, tabella ci_spese_abilitati)
 import { exportCompleto }  from "./exportExcel";
 import { t, impostaLingua, linguaSalvata, SceltaLingua, Bandiera } from "./i18n";   // v119 — lingue
 import "./App.css";
@@ -33,7 +34,7 @@ const C = { primary:"#5C3D1E", border:"#D4C4A8", muted:"#8B7355", bg:"#F5F0E8", 
 // v104 — versione visibile nel menu utente. Serve a capire in un secondo se il
 // deploy Vercel e' arrivato davvero o se il browser sta servendo una copia
 // vecchia dalla cache: basta aprire il menu e leggere il numero.
-const VERSIONE = "v142";
+const VERSIONE = "v148";
 
 const TABS = [
   { id:"gestione",    label:"Gestione",   icon:"🐄" },
@@ -60,6 +61,8 @@ const TABS = [
   { id:"email",       label:"Email",      icon:"📮" },
   { id:"guida",       label:"Guida",      icon:"📖" },
 ];
+// v148 — scheda «Spese» in basso: compare solo a chi è abilitato nel programma di contabilità
+const TAB_SPESE = { id:"spese", label:"Spese", icon:"🧾" };
 
 export default function App() {
   const [sessione,   setSessione]   = useState(null);
@@ -74,6 +77,18 @@ export default function App() {
     return () => window.removeEventListener("apri-guida", apri);
   }, []);
   const [loading,    setLoading]    = useState(true);
+  // v148 — abilitazione alle «Spese pagate» (riga propria in ci_spese_abilitati) e spese «Da chiarire»
+  const [abilSpese,  setAbilSpese]  = useState(null);
+  const [chiarire,   setChiarire]   = useState(0);
+  const caricaSpese = async (userId) => {
+    const { data } = await supabase.from('ci_spese_abilitati').select('*').eq('profilo_id', userId).maybeSingle();
+    const ab = data && data.attivo ? data : null;
+    setAbilSpese(ab);
+    if (ab) {
+      const { count } = await supabase.from('ci_spese').select('id', { count:'exact', head:true }).eq('salvata_da', userId).eq('stato', 'Da chiarire');
+      setChiarire(count || 0);
+    } else setChiarire(0);
+  };
   // v119 — lingua: si carica il dizionario prima di mostrare qualsiasi testo
   const [lingua,     setLingua]     = useState(null);
   useEffect(() => { impostaLingua(linguaSalvata()).then(setLingua); }, []);
@@ -86,13 +101,13 @@ export default function App() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSessione(session);
-      if (session) caricaProfilo(session.user.id);
+      if (session) { caricaProfilo(session.user.id); caricaSpese(session.user.id); }
       setLoading(false);
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSessione(session);
-      if (session) caricaProfilo(session.user.id);
-      else setProfilo(null);
+      if (session) { caricaProfilo(session.user.id); caricaSpese(session.user.id); }
+      else { setProfilo(null); setAbilSpese(null); setChiarire(0); }
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -194,14 +209,16 @@ export default function App() {
         {tab==="uba"       && <UBAReport/>}
         {tab==="export"     && <ExportManager/>}
         {tab==="email"       && <Destinatari/>}
+        {tab==="spese" && abilSpese && <SpesePagate abilitazione={abilSpese} utente={sessione.user.id} onCambio={()=>caricaSpese(sessione.user.id)}/>}
         {tab==="guida"       && <Guida key={guidaSezione?.n || 0} ruolo={profilo?.ruolo} sezioneIniziale={guidaSezione?.id}/>}
       </div>
 
       <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,background:"#FFF",borderTop:`1.5px solid ${C.border}`,display:"flex",overflowX:"auto",padding:"6px 4px 8px",zIndex:100,boxShadow:"0 -4px 20px rgba(0,0,0,0.1)"}}>
-        {TABS.map(tb=>(
+        {(abilSpese ? [...TABS.slice(0,-1), TAB_SPESE, TABS[TABS.length-1]] : TABS).map(tb=>(
           <button key={tb.id} onClick={()=>{ setGuidaSezione(null); setTab(tb.id); }} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:1,background:"none",border:"none",cursor:"pointer",padding:"3px 8px",minWidth:46,flexShrink:0}}>
-            <div style={{background:tab===tb.id?C.primary+"18":"transparent",borderRadius:8,padding:"4px 5px"}}>
+            <div style={{position:"relative",background:tab===tb.id?C.primary+"18":"transparent",borderRadius:8,padding:"4px 5px"}}>
               <span style={{fontSize:15}}>{tb.icon}</span>
+              {tb.id==="spese" && chiarire>0 && <span style={{position:"absolute",top:-4,right:-6,background:C.red,color:"#FFF",borderRadius:9,padding:"0 5px",fontSize:10,fontWeight:800}}>{chiarire}</span>}
             </div>
             <span style={{fontSize:9,fontWeight:tab===tb.id?700:500,color:tab===tb.id?C.primary:C.muted,whiteSpace:"nowrap"}}>{t(tb.label)}</span>
           </button>
