@@ -2,6 +2,8 @@
 // ============================================================================
 // v148 — SPESE PAGATE (ordine del Dott. Bizzarri; specifica del Sergente del 14/11/2026 ore 12:50;
 // database e funzioni della versione 382 del programma di contabilità).
+// v149 — nuova spesa rifatta (spese_nuova.jsx, procedura del Tenente del 20/11/2026 ore 11:59);
+// «Le mie spese» con «Rimborsata» in blu e «Rifai la foto»; strumenti con residui ed elenco delle spese.
 // Chi paga per l'azienda fotografa il documento: la spesa entra nel programma con il PDF,
 // chi ha pagato e con che cosa. L'ufficio (Demaria, il Dottore o Colabucci) la controlla.
 // - Solo gli abilitati (ci_spese_abilitati): il menu compare solo a loro (App.js).
@@ -13,24 +15,20 @@ import { supabase } from "./supabase";
 import { t } from "./i18n";
 import { oggiRoma } from "./dateRoma";
 import { md5 } from "./md5";
-import {
-  caricaOpenCV, apriFoto, angoliTuttaFoto, trovaAngoli, raddrizza, biancoNero,
-  jpegDa, creaPdf, centesimi, euro, leggiTotale,
-} from "./scanner";
-import { ARCHIVIO, inviaSpesa, mettiInCoda, elencoCoda, togliDallaCoda, riprovaCoda, erroreDiRete } from "./spese_coda";
+import { caricaOpenCV, apriFoto, angoliTuttaFoto, trovaAngoli, raddrizza, biancoNero, jpegDa, creaPdf, centesimi, euro, leggiTesto, leggiPdf } from "./scanner";
+import { leggiDocumento } from "./spese_lettura";
+import { ARCHIVIO, CARTELLA, elencoCoda, togliDallaCoda, aggiornaInCoda, riprovaCoda, erroreDiRete } from "./spese_coda";
+import NuovaSpesa from "./spese_nuova";   // v149 — passi 1–8 della nuova spesa
 
 const C = { primary: "#5C3D1E", border: "#D4C4A8", muted: "#8B7355", bg: "#F5F0E8", red: "#C0392B",
   green: "#2E7D32", orange: "#E67E22", yellow: "#B7950B", grey: "#7F8C8D", blue: "#1F6FB2", text: "#2D1B0E" };
 
-const TIPI = ["Fattura", "Scontrino", "Ricevuta", "Acquisto online", "Altro"];
-const PAGATO_CON = ["Contanti", "Carta prepagata 8006", "Carta di debito 1894", "Pagato da me", "Carta di credito personale"];
-const CARTE = ["Carta prepagata 8006", "Carta di debito 1894"];
-const COLORE_STATO = { "Da controllare": C.grey, "Controllata": C.green, "Da chiarire": C.orange, "Annullata": C.grey };
+const COLORE_STATO = { "Da controllare": C.grey, "Controllata": C.green, "Da chiarire": C.orange, "Annullata": C.grey, "Rimborsata": C.blue };
+const SOLDI_PROPRI = ["Pagato da me", "La mia carta", "Carta di credito personale"];
 
 const dataIt = (d) => d ? `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}` : "";
 const oraIt = (ts) => ts ? new Date(ts).toLocaleString("it-IT", { timeZone: "Europe/Rome", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
 const euroN = (n) => euro(Math.round(Number(n || 0) * 100));
-const kb = (n) => n >= 1048576 ? (n / 1048576).toFixed(1).replace(".", ",") + " MB" : Math.round(n / 1024) + " KB";
 
 // ---------------------------------------------------------------- piccoli pezzi grafici
 const st = {
@@ -48,19 +46,6 @@ function Tasto({ children, onClick, colore = C.primary, pieno = true, disabled, 
         background: pieno ? colore : "#FFF", color: pieno ? "#FFF" : colore, border: `2px solid ${colore}`, ...style }}>
       {children}
     </button>
-  );
-}
-function Scelta({ voci, valore, onScegli, etichetta = (v) => t(v) }) {
-  return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-      {voci.map((v) => (
-        <button key={v} type="button" onClick={() => onScegli(v)}
-          style={{ padding: "16px 8px", fontSize: 15, fontWeight: 700, borderRadius: 12, cursor: "pointer", minHeight: 58,
-            border: `2px solid ${valore === v ? C.primary : C.border}`, background: valore === v ? C.primary : "#FFF", color: valore === v ? "#FFF" : C.text }}>
-          {etichetta(v)}
-        </button>
-      ))}
-    </div>
   );
 }
 function Avviso({ tipo = "info", children }) {
@@ -108,7 +93,7 @@ export default function SpesePagate({ abilitazione, utente, onCambio }) {
   }, [utente]);
 
   const VISTE = [
-    { id: "nuova", label: "Nuova spesa", icon: "📷" },
+    { id: "nuova", label: "Nuova spesa", icon: "➕" },
     { id: "mie", label: "Le mie spese", icon: "🧾", numero: daChiarire, attesa: inAttesa },
     ...(contanti ? [{ id: "contanti", label: "I miei contanti", icon: "💶" }] : []),
     { id: "strumenti", label: "Strumenti di pagamento", icon: "💳" },
@@ -126,345 +111,12 @@ export default function SpesePagate({ abilitazione, utente, onCambio }) {
           </button>
         ))}
       </div>
-      {vista === "nuova" && <NuovaSpesa contanti={contanti} utente={utente} onFatto={aggiornaContatori} vaiAMie={() => setVista("mie")} />}
+      {/* la nuova spesa resta aperta anche se si guarda un'altra scheda: foto e dati non si perdono */}
+      <div style={{ display: vista === "nuova" ? "block" : "none" }}><NuovaSpesa utente={utente} onFatto={aggiornaContatori} vaiAMie={() => setVista("mie")} /></div>
       {vista === "mie" && <LeMieSpese utente={utente} giro={giro} onCambio={aggiornaContatori} />}
       {vista === "contanti" && contanti && <IMieiContanti utente={utente} />}
-      {vista === "strumenti" && <Strumenti />}
+      {vista === "strumenti" && <Strumenti utente={utente} />}
     </div>
-  );
-}
-
-// ============================================================================
-// NUOVA SPESA — passi 1–5 della procedura approvata
-// ============================================================================
-function NuovaSpesa({ contanti, utente, onFatto, vaiAMie }) {
-  const [passo, setPasso] = useState(1);
-  // passo 1 — documento
-  const [cv, setCv] = useState(null);
-  const [statoCv, setStatoCv] = useState("caricamento");
-  const [foto, setFoto] = useState(null);           // canvas della foto in lavorazione
-  const [angoli, setAngoli] = useState(null);
-  const [comeAngoli, setComeAngoli] = useState("");
-  const [pagine, setPagine] = useState([]);         // [{ jpeg, w, h, anteprima }]
-  const [pdfCaricato, setPdfCaricato] = useState(null);   // PDF scelto dal telefono (acquisto online)
-  const [prima, setPrima] = useState(null);         // ImageData della prima pagina, per leggere il totale
-  const [lavoro, setLavoro] = useState("");
-  const [errore, setErrore] = useState("");
-  // passo 2
-  const [tipo, setTipo] = useState("");
-  const [tipoAltro, setTipoAltro] = useState("");
-  const [pagatoCon, setPagatoCon] = useState("");
-  // passo 3
-  const [importo, setImporto] = useState("");
-  const [totale, setTotale] = useState(null);       // { cent, regola, riga } letto dalla foto
-  const [statoTotale, setStatoTotale] = useState("");
-  const [data, setData] = useState(oggiRoma());
-  const [dataPagamento, setDataPagamento] = useState("");
-  const [fornitore, setFornitore] = useState("");
-  const [nota, setNota] = useState("");
-  const [fotoOggetto, setFotoOggetto] = useState(null);   // { jpeg, url }
-  // passo 4–5
-  const [pdf, setPdf] = useState(null);             // { byte, impronta, url }
-  const [esito, setEsito] = useState(null);
-  const [salvo, setSalvo] = useState(false);
-
-  useEffect(() => {
-    caricaOpenCV().then((s) => { setCv(s.cv); setStatoCv("pronto"); }, () => setStatoCv("assente"));
-  }, []);
-  useEffect(() => () => { if (pdf && pdf.url) URL.revokeObjectURL(pdf.url); }, [pdf]);
-
-  const ricomincia = () => {
-    setPasso(1); setFoto(null); setAngoli(null); setPagine([]); setPdfCaricato(null); setPrima(null); setErrore("");
-    setTipo(""); setTipoAltro(""); setPagatoCon(""); setImporto(""); setTotale(null); setStatoTotale("");
-    setData(oggiRoma()); setDataPagamento(""); setFornitore(""); setNota(""); setFotoOggetto(null); setPdf(null); setEsito(null);
-  };
-
-  // ---- passo 1: foto → angoli → pagina in bianco e nero
-  const nuovaFoto = async (file) => {
-    setErrore(""); setLavoro(t("Apro la foto…"));
-    try {
-      const c = await apriFoto(file);
-      setFoto(c);
-      let m = cv;
-      if (!m) { try { m = (await caricaOpenCV()).cv; setCv(m); setStatoCv("pronto"); } catch (e) { m = null; } }
-      const r = m ? trovaAngoli(m, c) : null;
-      if (r) { setAngoli(r.angoli); setComeAngoli(r.sicuro ? t("Bordi trovati: controlla gli angoli gialli") : t("Bordi incerti: sposta gli angoli gialli con il dito")); }
-      else { setAngoli(angoliTuttaFoto(c)); setComeAngoli(t("Bordi non trovati: sposta gli angoli gialli con il dito")); }
-    } catch (e) { setErrore(t("La foto non si apre") + ": " + e.message); }
-    setLavoro("");
-  };
-  const confermaPagina = async () => {
-    setErrore(""); setLavoro(t("Raddrizzo la pagina…"));
-    await new Promise((r) => setTimeout(r, 30));      // lascia comparire la scritta
-    try {
-      const dritta = raddrizza(foto, angoli);
-      const bn = biancoNero(dritta);
-      const jpeg = await jpegDa(bn, 0.7);
-      const k = Math.min(1, 360 / Math.max(bn.width, bn.height));
-      const mini = document.createElement("canvas"); mini.width = Math.round(bn.width * k); mini.height = Math.round(bn.height * k);
-      mini.getContext("2d").drawImage(bn, 0, 0, mini.width, mini.height);
-      setPagine((p) => [...p, { jpeg, w: bn.width, h: bn.height, anteprima: mini.toDataURL("image/jpeg", 0.6) }]);
-      if (!pagine.length) setPrima(dritta);
-      setFoto(null); setAngoli(null); setPdf(null);
-    } catch (e) { setErrore(t("Pagina non raddrizzata") + ": " + e.message); }
-    setLavoro("");
-  };
-  const scegliPdf = async (file) => {
-    setErrore("");
-    if (file.type !== "application/pdf" && !/\.pdf$/i.test(file.name || "")) { setErrore(t("Il file scelto non è un PDF")); return; }
-    if (file.size > 20 * 1024 * 1024) { setErrore(t("Il PDF supera 20 MB")); return; }
-    const byte = new Uint8Array(await file.arrayBuffer());
-    setPdfCaricato({ byte, nome: file.name || "documento.pdf", dimensione: file.size });
-    setPagine([]); setPrima(null); setFoto(null); setAngoli(null); setPdf(null);
-    if (!tipo) setTipo("Acquisto online");
-  };
-  const documentoPronto = pagine.length > 0 || !!pdfCaricato;
-
-  // lettura del totale sulla prima pagina (in sottofondo, mentre si sceglie il tipo)
-  useEffect(() => {
-    if (!prima) { setTotale(null); setStatoTotale(""); return; }
-    let vivo = true;
-    setStatoTotale("lettura");
-    leggiTotale(prima).then(
-      (r) => { if (!vivo) return; setTotale(r); setStatoTotale(r ? "letto" : "nessuno"); if (r) setImporto((v) => v || (r.cent / 100).toFixed(2).replace(".", ",")); },
-      () => { if (vivo) setStatoTotale("errore"); });
-    return () => { vivo = false; };
-  }, [prima]);
-
-  // ---- passo 3: foto dell'oggetto (a colori, lato lungo 1.280 pixel)
-  const scegliFotoOggetto = async (file) => {
-    try {
-      const c = await apriFoto(file, 1280);
-      const jpeg = await jpegDa(c, 0.8);
-      setFotoOggetto({ jpeg, url: c.toDataURL("image/jpeg", 0.6) });
-    } catch (e) { setErrore(t("La foto non si apre") + ": " + e.message); }
-  };
-
-  // ---- controlli prima del riepilogo
-  const oggi = oggiRoma();
-  const cent = centesimi(importo);
-  const controlliPasso3 = () => {
-    if (cent == null || cent <= 0) return t("Scrivi l'importo pagato");
-    if (!data) return t("Scrivi la data del documento");
-    if (data > oggi) return t("La data del documento non può essere nel futuro");
-    if (CARTE.includes(pagatoCon) && dataPagamento) {
-      if (dataPagamento > oggi) return t("La data del pagamento non può essere nel futuro");
-      const minimo = new Date(data + "T12:00:00Z"); minimo.setUTCDate(minimo.getUTCDate() - 30);
-      if (dataPagamento < minimo.toISOString().slice(0, 10)) return t("La data del pagamento non può essere più di 30 giorni prima del documento");
-    }
-    return "";
-  };
-  const vaiRiepilogo = () => {
-    const e = controlliPasso3(); if (e) { setErrore(e); return; }
-    setErrore("");
-    const byte = pdfCaricato ? pdfCaricato.byte : creaPdf(pagine);
-    if (pdf && pdf.url) URL.revokeObjectURL(pdf.url);
-    setPdf({ byte, impronta: md5(byte), url: URL.createObjectURL(new Blob([byte], { type: "application/pdf" })) });
-    setPasso(4);
-  };
-
-  // ---- passo 4 → 5: salvataggio
-  const salva = async () => {
-    if (salvo) return;
-    setSalvo(true); setErrore("");
-    const spesa = {
-      pdf: pdf.byte, impronta: pdf.impronta, foto: fotoOggetto ? fotoOggetto.jpeg : null,
-      tipo, tipoAltro: tipo === "Altro" ? tipoAltro.trim() : "", pagatoCon, data,
-      dataPagamento: CARTE.includes(pagatoCon) && dataPagamento && dataPagamento !== data ? dataPagamento : null,
-      importo: cent / 100, totaleLetto: totale ? totale.cent / 100 : null, fornitore: fornitore.trim(), nota: nota.trim(),
-    };
-    let r = await inviaSpesa(spesa);
-    if (r.esito === "rete") {
-      try { await mettiInCoda(spesa, utente); r = { esito: "telefono" }; }
-      catch (e) { r = { esito: "errore", messaggio: t("Niente rete e memoria del telefono non disponibile: la spesa NON è salvata") }; }
-    }
-    setEsito(r); setPasso(5); setSalvo(false);
-    if (onFatto) onFatto();
-  };
-
-  // ---------------------------------------------------------------- disegno
-  const intestazione = (
-    <div style={{ display: "flex", gap: 4, margin: "10px 12px 0" }}>
-      {[1, 2, 3, 4].map((n) => <div key={n} style={{ flex: 1, height: 6, borderRadius: 3, background: passo >= n ? C.primary : C.border }} />)}
-    </div>
-  );
-
-  if (passo === 5 && esito) return (
-    <div style={st.scheda}>
-      {esito.esito === "salvata" && <Avviso tipo="ok">✓ {t("Salvata")} – n. {esito.numero}{esito.codice ? `\n${t("In attesa della banca")}: ${esito.codice}` : ""}</Avviso>}
-      {esito.esito === "telefono" && <Avviso tipo="giallo">📵 {t("Niente rete: la spesa è rimasta nel telefono. Si invia da sola quando torna la rete (oppure da «Le mie spese» → «Riprova ora»).")}</Avviso>}
-      {esito.esito === "doppia" && <Avviso tipo="giallo">{esito.messaggio}</Avviso>}
-      {esito.esito === "errore" && <Avviso tipo="ko">{t("Non salvata")}: {esito.messaggio}</Avviso>}
-      {esito.esito === "errore"
-        ? <><Tasto onClick={() => setPasso(4)}>{t("Torna al riepilogo")}</Tasto><Tasto pieno={false} onClick={ricomincia}>{t("Lascia perdere e ricomincia")}</Tasto></>
-        : <><Tasto grande onClick={ricomincia}>📷 {t("Nuova spesa")}</Tasto><Tasto pieno={false} onClick={vaiAMie}>🧾 {t("Le mie spese")}</Tasto></>}
-    </div>
-  );
-
-  return (
-    <div>
-      {intestazione}
-      {passo === 1 && (
-        <div style={st.scheda}>
-          <div style={st.titolo}>1 · {t("Foto del documento")}</div>
-          {!foto && (
-            <>
-              <SceltaFile accept="image/*" capture="environment" onFile={nuovaFoto}>📷 {pagine.length ? t("Fotografa un'altra pagina") : t("Fotocamera")}</SceltaFile>
-              <SceltaFile accept="image/*" onFile={nuovaFoto} pieno={false}>🖼️ {t("Scegli dalla galleria")}</SceltaFile>
-              {!pagine.length && <SceltaFile accept="application/pdf,.pdf" onFile={scegliPdf} pieno={false} colore={C.blue}>📄 {t("Ho già il PDF (acquisto online)")}</SceltaFile>}
-              {statoCv === "caricamento" && <div style={st.piccolo}>{t("Preparo il riconoscimento dei bordi…")}</div>}
-              {statoCv === "assente" && <div style={st.piccolo}>{t("Riconoscimento dei bordi non disponibile: gli angoli si mettono a mano.")}</div>}
-            </>
-          )}
-          {foto && angoli && <Angoli foto={foto} angoli={angoli} onCambia={setAngoli} />}
-          {foto && angoli && (
-            <>
-              <div style={st.piccolo}>{comeAngoli}</div>
-              <Tasto grande onClick={confermaPagina} disabled={!!lavoro}>✓ {t("Conferma la pagina")}</Tasto>
-              <Tasto pieno={false} onClick={() => setAngoli(angoliTuttaFoto(foto))}>{t("Usa tutta la foto")}</Tasto>
-              <Tasto pieno={false} colore={C.red} onClick={() => { setFoto(null); setAngoli(null); }}>{t("Scarta questa foto")}</Tasto>
-            </>
-          )}
-          {lavoro && <Avviso>{lavoro}</Avviso>}
-          {errore && <Avviso tipo="ko">{errore}</Avviso>}
-          {pagine.length > 0 && !foto && (
-            <>
-              <div style={{ display: "flex", gap: 8, overflowX: "auto", margin: "10px 0" }}>
-                {pagine.map((p, i) => (
-                  <div key={i} style={{ position: "relative", flex: "0 0 auto" }}>
-                    <img src={p.anteprima} alt={t("Pagina {n}", { n: i + 1 })} style={{ height: 150, border: `1px solid ${C.border}`, borderRadius: 6 }} />
-                    <button type="button" onClick={() => { setPagine((x) => x.filter((_, j) => j !== i)); if (i === 0) setPrima(null); }}
-                      style={{ position: "absolute", top: 2, right: 2, background: C.red, color: "#FFF", border: "none", borderRadius: 10, width: 24, height: 24, fontWeight: 800 }}>×</button>
-                  </div>
-                ))}
-              </div>
-              <div style={st.piccolo}>{t("Pagine: {n}. Il PDF esce in bianco e nero.", { n: pagine.length })}</div>
-            </>
-          )}
-          {pdfCaricato && <Avviso tipo="ok">📄 {pdfCaricato.nome} ({kb(pdfCaricato.dimensione)})</Avviso>}
-          {pdfCaricato && <Tasto pieno={false} colore={C.red} onClick={() => setPdfCaricato(null)}>{t("Togli il PDF")}</Tasto>}
-          {documentoPronto && !foto && <Tasto grande onClick={() => { setErrore(""); setPasso(2); }}>{t("Avanti")} →</Tasto>}
-        </div>
-      )}
-
-      {passo === 2 && (
-        <div style={st.scheda}>
-          <div style={st.titolo}>2 · {t("Che documento è e come hai pagato")}</div>
-          <div style={st.etichetta}>{t("Tipo di documento")}</div>
-          <Scelta voci={TIPI} valore={tipo} onScegli={setTipo} />
-          {tipo === "Altro" && <input style={{ ...st.campo, marginTop: 8 }} value={tipoAltro} onChange={(e) => setTipoAltro(e.target.value)} placeholder={t("Che cos'è?")} />}
-          <div style={st.etichetta}>{t("Pagato con")}</div>
-          <Scelta voci={PAGATO_CON.filter((p) => contanti || p !== "Contanti")} valore={pagatoCon} onScegli={setPagatoCon} />
-          <Tasto grande disabled={!tipo || !pagatoCon || (tipo === "Altro" && !tipoAltro.trim())} onClick={() => setPasso(3)}>{t("Avanti")} →</Tasto>
-          <Tasto pieno={false} onClick={() => setPasso(1)}>← {t("Indietro")}</Tasto>
-        </div>
-      )}
-
-      {passo === 3 && (
-        <div style={st.scheda}>
-          <div style={st.titolo}>3 · {t("Importo e data")}</div>
-          <label style={st.etichetta}>{t("Importo pagato (€)")}</label>
-          <input style={{ ...st.campo, fontSize: 22, fontWeight: 800 }} inputMode="decimal" value={importo} onChange={(e) => setImporto(e.target.value)} placeholder="0,00" />
-          {statoTotale === "lettura" && <div style={st.piccolo}>{t("Leggo il totale sul documento…")}</div>}
-          {statoTotale === "nessuno" && <div style={st.piccolo}>{t("Nessun totale letto sul documento: controlla a vista.")}</div>}
-          {statoTotale === "errore" && <div style={st.piccolo}>{t("Lettura del totale non riuscita: scrivi l'importo.")}</div>}
-          {totale && cent != null && cent !== totale.cent && (
-            <Avviso tipo="giallo">⚠ {t("Sul documento leggo {a}, è scritto {b}: vale il documento, controlla.", { a: euro(totale.cent), b: euro(cent) })}</Avviso>
-          )}
-          {totale && cent === totale.cent && <div style={{ ...st.piccolo, color: C.green }}>✓ {t("Coincide con il totale letto sul documento.")}</div>}
-          <label style={st.etichetta}>{t("Data del documento")}</label>
-          <input style={st.campo} type="date" value={data} max={oggi} onChange={(e) => setData(e.target.value)} />
-          {CARTE.includes(pagatoCon) && (
-            <>
-              <label style={st.etichetta}>{t("Data del pagamento (solo se diversa)")}</label>
-              <input style={st.campo} type="date" value={dataPagamento} max={oggi} onChange={(e) => setDataPagamento(e.target.value)} />
-              <div style={st.piccolo}>{t("Per esempio una fattura vecchia pagata oggi. Se resta vuota vale la data del documento.")}</div>
-            </>
-          )}
-          <label style={st.etichetta}>{t("Fornitore (facoltativo)")}</label>
-          <input style={st.campo} value={fornitore} onChange={(e) => setFornitore(e.target.value)} />
-          <label style={st.etichetta}>{t("Nota (facoltativa)")}</label>
-          <textarea style={{ ...st.campo, minHeight: 60 }} value={nota} onChange={(e) => setNota(e.target.value)} />
-          <div style={st.etichetta}>{t("Foto dell'oggetto (facoltativa)")}</div>
-          {fotoOggetto
-            ? <div><img src={fotoOggetto.url} alt="" style={{ maxWidth: "100%", maxHeight: 180, borderRadius: 8 }} /><Tasto pieno={false} colore={C.red} onClick={() => setFotoOggetto(null)}>{t("Togli la foto dell'oggetto")}</Tasto></div>
-            : <SceltaFile accept="image/*" capture="environment" onFile={scegliFotoOggetto} pieno={false}>📸 {t("Fotografa l'oggetto")}</SceltaFile>}
-          {errore && <Avviso tipo="ko">{errore}</Avviso>}
-          <Tasto grande onClick={vaiRiepilogo}>{t("Avanti")} →</Tasto>
-          <Tasto pieno={false} onClick={() => { setErrore(""); setPasso(2); }}>← {t("Indietro")}</Tasto>
-        </div>
-      )}
-
-      {passo === 4 && pdf && (
-        <div style={st.scheda}>
-          <div style={st.titolo}>4 · {t("Riepilogo")}</div>
-          <div style={{ display: "flex", gap: 8, overflowX: "auto", marginBottom: 8 }}>
-            {pagine.map((p, i) => <img key={i} src={p.anteprima} alt="" style={{ height: 120, border: `1px solid ${C.border}`, borderRadius: 6 }} />)}
-          </div>
-          <a href={pdf.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 14, fontWeight: 700, color: C.blue }}>📄 {t("Apri il PDF")} ({kb(pdf.byte.length)})</a>
-          {[
-            [t("Documento"), tipo === "Altro" ? `${t("Altro")}: ${tipoAltro}` : t(tipo), 2],
-            [t("Pagato con"), t(pagatoCon), 2],
-            [t("Importo"), euro(cent), 3],
-            [t("Data del documento"), dataIt(data), 3],
-            ...(CARTE.includes(pagatoCon) && dataPagamento && dataPagamento !== data ? [[t("Data del pagamento"), dataIt(dataPagamento), 3]] : []),
-            ...(fornitore.trim() ? [[t("Fornitore"), fornitore.trim(), 3]] : []),
-            ...(nota.trim() ? [[t("Nota"), nota.trim(), 3]] : []),
-            [t("Foto dell'oggetto"), fotoOggetto ? t("sì") : t("no"), 3],
-          ].map(([e, v, p]) => (
-            <div key={e} onClick={() => setPasso(p)} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "11px 2px", borderBottom: `1px solid ${C.border}`, cursor: "pointer" }}>
-              <span style={{ color: C.muted, fontSize: 14 }}>{e}</span>
-              <span style={{ fontWeight: 700, fontSize: 15, textAlign: "right" }}>{v} ✎</span>
-            </div>
-          ))}
-          {totale && cent !== totale.cent && <Avviso tipo="giallo">⚠ {t("Sul documento leggo {a}, è scritto {b}: vale il documento, controlla.", { a: euro(totale.cent), b: euro(cent) })}</Avviso>}
-          {errore && <Avviso tipo="ko">{errore}</Avviso>}
-          <Tasto grande colore={C.green} onClick={salva} disabled={salvo}>{salvo ? t("Salvo…") : "💾 " + t("Salva")}</Tasto>
-          <Tasto pieno={false} onClick={() => setPasso(3)}>← {t("Indietro")}</Tasto>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// angoli spostabili col dito sopra la foto
-function Angoli({ foto, angoli, onCambia }) {
-  const tela = useRef(null);
-  const preso = useRef(-1);
-  useEffect(() => {
-    const c = tela.current; if (!c) return;
-    const k = Math.min(1, 1200 / Math.max(foto.width, foto.height));
-    c.width = Math.round(foto.width * k); c.height = Math.round(foto.height * k);
-    const g = c.getContext("2d");
-    g.drawImage(foto, 0, 0, c.width, c.height);
-    const p = angoli.map(([x, y]) => [x * k, y * k]);
-    g.fillStyle = "rgba(46,94,62,.18)"; g.strokeStyle = "#ffd400"; g.lineWidth = Math.max(3, c.width / 250);
-    g.beginPath(); p.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.closePath(); g.fill(); g.stroke();
-    const raggio = Math.max(10, c.width / 45);
-    p.forEach(([x, y]) => { g.beginPath(); g.arc(x, y, raggio, 0, 7); g.fillStyle = "rgba(255,212,0,.85)"; g.fill(); g.lineWidth = 2; g.strokeStyle = "#1d2b22"; g.stroke(); });
-  }, [foto, angoli]);
-  const punto = (e) => {
-    const r = tela.current.getBoundingClientRect();
-    const sx = foto.width / r.width, sy = foto.height / r.height;
-    return [(e.clientX - r.left) * sx, (e.clientY - r.top) * sy, sx];
-  };
-  return (
-    <canvas ref={tela} style={{ width: "100%", touchAction: "none", borderRadius: 8, border: `1px solid ${C.border}` }}
-      onPointerDown={(e) => {
-        const [x, y, sx] = punto(e);
-        let meglio = -1, dist = 45 * sx;
-        angoli.forEach(([ax, ay], i) => { const d = Math.hypot(ax - x, ay - y); if (d < dist) { dist = d; meglio = i; } });
-        preso.current = meglio; if (meglio >= 0) e.currentTarget.setPointerCapture(e.pointerId);
-      }}
-      onPointerMove={(e) => {
-        if (preso.current < 0) return;
-        const [x, y] = punto(e);
-        const nuovi = angoli.map((a) => [...a]);
-        nuovi[preso.current] = [Math.max(0, Math.min(foto.width, x)), Math.max(0, Math.min(foto.height, y))];
-        onCambia(nuovi);
-      }}
-      onPointerUp={() => { preso.current = -1; }}
-      onPointerCancel={() => { preso.current = -1; }} />
   );
 }
 
@@ -512,8 +164,15 @@ function LeMieSpese({ utente, giro, onCambio }) {
           <div style={st.titolo}>📵 {t("Nel telefono, da inviare")}: {coda.length}</div>
           {coda.map((v) => (
             <div key={v.chiave} style={{ borderBottom: `1px solid ${C.border}`, padding: "8px 0" }}>
-              <div style={{ fontWeight: 700 }}>{dataIt(v.data)} · {euroN(v.importo)} · {t(v.pagatoCon)} · {t(v.tipo)}</div>
-              {v.ultimoErrore && <Avviso tipo="ko">{t("Non salvata")}: {v.ultimoErrore}</Avviso>}
+              <div style={{ fontWeight: 700 }}>{dataIt(v.data)} · {euroN(v.importo)} · {t(v.pagatoCon)} · {t(v.tipo)}{v.fornitore ? " · " + v.fornitore : ""}</div>
+              {v.versione !== 149 && (
+                <Avviso tipo="giallo">
+                  {t("Preparata con la versione precedente dell'app: rifalla con la nuova (le foto restano nel telefono) oppure toglila.")}
+                  <Tasto pieno={false} colore={C.red} onClick={async () => { await togliDallaCoda(v.chiave); if (onCambio) onCambio(); else carica(); }}>{t("Togli dal telefono")}</Tasto>
+                </Avviso>
+              )}
+              {v.ultimoErrore && /^DOPPIONE:/.test(v.ultimoErrore) && <MotivoDoppione voce={v} utente={utente} onFatto={() => { if (onCambio) onCambio(); else carica(); }} />}
+              {v.ultimoErrore && !/^DOPPIONE:/.test(v.ultimoErrore) && <Avviso tipo="ko">{t("Non salvata")}: {v.ultimoErrore}</Avviso>}
               {v.ultimoErrore && <Tasto pieno={false} colore={C.red} onClick={async () => { await togliDallaCoda(v.chiave); if (onCambio) onCambio(); else carica(); }}>{t("Togli dal telefono")}</Tasto>}
             </div>
           ))}
@@ -540,6 +199,24 @@ function LeMieSpese({ utente, giro, onCambio }) {
         </div>
       ))}
     </div>
+  );
+}
+
+// spesa rimasta nel telefono che il database ha fermato come «DOPPIONE»: si invia di nuovo con il motivo
+function MotivoDoppione({ voce, utente, onFatto }) {
+  const [motivo, setMotivo] = useState("");
+  const [lavoro, setLavoro] = useState(false);
+  return (
+    <Avviso tipo="giallo">
+      {voce.ultimoErrore.replace(/^DOPPIONE:\s*/, "")}{"\n"}{t("Confermi che è una spesa diversa? Scrivi il motivo")}
+      <input style={{ ...st.campo, marginTop: 6 }} value={motivo} onChange={(e) => setMotivo(e.target.value)} />
+      <Tasto disabled={!motivo.trim() || lavoro} onClick={async () => {
+        setLavoro(true);
+        await aggiornaInCoda({ ...voce, confermaDoppione: motivo.trim(), ultimoErrore: null });
+        await riprovaCoda(utente, voce.chiave);
+        setLavoro(false); onFatto();
+      }}>{t("Salva con il motivo")}</Tasto>
+    </Avviso>
   );
 }
 
@@ -570,9 +247,11 @@ function DettaglioSpesa({ spesa, domande, onCambio }) {
       {spesa.nota && <div style={{ fontSize: 14, margin: "6px 0" }}>📝 {spesa.nota}</div>}
       {spesa.annullata_motivo && <div style={{ fontSize: 14, margin: "6px 0", color: C.grey }}>{t("Motivo dell'annullamento")}: {spesa.annullata_motivo}</div>}
       <div style={{ display: "flex", gap: 8 }}>
-        <Tasto pieno={false} colore={C.blue} onClick={() => apri(spesa.pdf_percorso)}>📄 {t("Apri il PDF")}</Tasto>
+        {spesa.pdf_percorso && <Tasto pieno={false} colore={C.blue} onClick={() => apri(spesa.pdf_percorso)}>📄 {t("Apri il PDF")}</Tasto>}
+        {spesa.pagamento_percorso && <Tasto pieno={false} colore={C.blue} onClick={() => apri(spesa.pagamento_percorso)}>💳 {t("Ricevuta del pagamento")}</Tasto>}
         {spesa.foto_percorso && <Tasto pieno={false} colore={C.blue} onClick={() => apri(spesa.foto_percorso)}>📸 {t("Foto dell'oggetto")}</Tasto>}
       </div>
+      {spesa.stato === "Da controllare" && <RifaiFoto spesa={spesa} onCambio={onCambio} />}
       {domande.length > 0 && (
         <div style={{ margin: "8px 0" }}>
           {domande.map((d) => (
@@ -590,8 +269,11 @@ function DettaglioSpesa({ spesa, domande, onCambio }) {
           <Tasto colore={C.orange} disabled={!risposta.trim() || lavoro} onClick={async () => { if (await chiama("ci_spesa_rispondi", { p_spesa: spesa.id, p_testo: risposta.trim() })) setRisposta(""); }}>{t("Invia la risposta")}</Tasto>
         </div>
       )}
-      {spesa.stato === "Da controllare" && !annullo && <Tasto pieno={false} colore={C.red} onClick={() => setAnnullo(true)}>{t("Annulla questa spesa")}</Tasto>}
-      {spesa.stato === "Da controllare" && annullo && (
+      {spesa.stato === "Da controllare" && spesa.pagato_con === "Contanti" && (
+        <div style={st.piccolo}>{t("Spesa in contanti: è già nella cassa. Se va annullata, chiedi all'ufficio.")}</div>
+      )}
+      {spesa.stato === "Da controllare" && spesa.pagato_con !== "Contanti" && !annullo && <Tasto pieno={false} colore={C.red} onClick={() => setAnnullo(true)}>{t("Annulla questa spesa")}</Tasto>}
+      {spesa.stato === "Da controllare" && spesa.pagato_con !== "Contanti" && annullo && (
         <div>
           <label style={st.etichetta}>{t("Motivo dell'annullamento")}</label>
           <input style={st.campo} value={motivo} onChange={(e) => setMotivo(e.target.value)} />
@@ -600,6 +282,76 @@ function DettaglioSpesa({ spesa, domande, onCambio }) {
         </div>
       )}
       {errore && <Avviso tipo="ko">{errore}</Avviso>}
+    </div>
+  );
+}
+
+// «Rifai la foto»: si sostituisce un file della spesa finché l'ufficio non l'ha controllata
+// (decisioni del 17/11 21:13 e dell'11/11 21:49; funzione ci_spesa_sostituisci_file del Tenente).
+function RifaiFoto({ spesa, onCambio }) {
+  const [aperto, setAperto] = useState(false);
+  const [quale, setQuale] = useState("");
+  const [lavoro, setLavoro] = useState("");
+  const [errore, setErrore] = useState("");
+  const [fatto, setFatto] = useState("");
+  // CARTELLA/anno/mese: dal PDF; per «Altro» senza documento dagli altri file della spesa
+  const unFile = spesa.pdf_percorso || spesa.pagamento_percorso || spesa.foto_percorso || "";
+  const dd = String(spesa.data_documento || "");
+  const cartella = unFile ? String(unFile).split("/").slice(0, 3).join("/") : `${CARTELLA[spesa.pagato_con] || "PAGATE DALLE PERSONE"}/${dd.slice(0, 4)}/${dd.slice(5, 7)}`;
+  const voci = [["documento", "Il documento"], ...(spesa.pagamento_percorso || !["Contanti", "Pagato da me"].includes(spesa.pagato_con) ? [["pagamento", "La ricevuta del pagamento"]] : []), ...(spesa.foto_percorso || spesa.bene ? [["bene", "La foto del bene"]] : [])];
+  const nuovoFile = async (file) => {
+    setErrore(""); setFatto(""); setLavoro(t("Preparo il file…"));
+    try {
+      const pdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name || "");
+      let byte, tipo, testi = null;
+      if (quale === "documento") {
+        if (pdf) { byte = new Uint8Array(await file.arrayBuffer()); const { pagine } = await leggiPdf(byte); testi = pagine.map((p) => p.testo); }
+        else {
+          const foto = await apriFoto(file);
+          let ang = null;
+          try { const x = await caricaOpenCV(); const r = trovaAngoli(x.cv, foto); ang = r && r.angoli; } catch (e) { ang = null; }
+          const bn = biancoNero(raddrizza(foto, ang || angoliTuttaFoto(foto)));
+          byte = creaPdf([{ jpeg: await jpegDa(bn, 0.7), w: bn.width, h: bn.height }]);
+          testi = [await leggiTesto(bn)];
+        }
+        tipo = "pdf";
+      } else if (pdf && quale === "pagamento") { byte = new Uint8Array(await file.arrayBuffer()); tipo = "pdf"; }
+      else { const c = await apriFoto(file, quale === "bene" ? 1280 : 1600); byte = await jpegDa(c, 0.8); tipo = "jpg"; }
+      const impronta = md5(byte);
+      // nomi dei file (lettera del Tenente del 20/11 ore 12:28, punto 4): il vecchio file resta come traccia
+      const improntaDoc = (String(unFile).split("/").pop().match(/^[0-9a-f]{32}/) || [""])[0];
+      const percorso = quale === "documento" ? `${cartella}/${impronta}.pdf`
+        : improntaDoc ? `${cartella}/${improntaDoc}-${quale === "pagamento" ? "pagamento" : "oggetto"}-${impronta}.${tipo}`
+        : `${cartella}/${impronta}-${quale === "pagamento" ? "pagamento" : "oggetto"}-${impronta}.${tipo}`;   // senza file: la stessa impronta due volte
+      setLavoro(t("Salvo…"));
+      const up = await supabase.storage.from(ARCHIVIO).upload(percorso, new Blob([byte], { type: tipo === "pdf" ? "application/pdf" : "image/jpeg" }), { contentType: tipo === "pdf" ? "application/pdf" : "image/jpeg", upsert: false });
+      if (up.error && !/already exists|duplicate/i.test(up.error.message || "") && String(up.error.statusCode) !== "409") throw up.error;
+      const { error } = await supabase.rpc("ci_spesa_sostituisci_file", { p_spesa: spesa.id, p_quale: quale, p_percorso: percorso, p_impronta: impronta });
+      if (error) throw error;
+      let msg = t("File sostituito");
+      if (testi) {
+        const l = leggiDocumento(spesa.tipo_documento, testi);
+        if (l.cent != null && Math.round(Number(spesa.importo) * 100) !== l.cent) msg += "\n" + t("Il documento dice {a}, la spesa ha {b}: avvisa l'ufficio", { a: euro(l.cent), b: euroN(spesa.importo) });
+      }
+      setFatto(msg); setQuale(""); onCambio();
+    } catch (e) { setErrore(erroreDiRete(e) ? t("Niente rete: riprova più tardi.") : (e.message || String(e))); }
+    setLavoro("");
+  };
+  if (!aperto) return <Tasto pieno={false} onClick={() => setAperto(true)}>📷 {t("Rifai la foto")}</Tasto>;
+  return (
+    <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: 10, margin: "6px 0" }}>
+      {!quale && voci.map(([v, e]) => <Tasto key={v} pieno={false} onClick={() => setQuale(v)}>{t(e)}</Tasto>)}
+      {quale && (
+        <>
+          <SceltaFile accept="image/*" capture="environment" onFile={nuovoFile}>📷 {t("Scatta la foto")}</SceltaFile>
+          <SceltaFile accept={quale === "bene" ? "image/*" : "image/*,application/pdf,.pdf"} onFile={nuovoFile} pieno={false}>📁 {t("Carica dal telefono")}</SceltaFile>
+          <Tasto pieno={false} onClick={() => setQuale("")}>← {t("Indietro")}</Tasto>
+        </>
+      )}
+      {lavoro && <Avviso>{lavoro}</Avviso>}
+      {errore && <Avviso tipo="ko">{errore}</Avviso>}
+      {fatto && <Avviso tipo="ok">✓ {fatto}</Avviso>}
+      <Tasto pieno={false} colore={C.grey} onClick={() => { setAperto(false); setQuale(""); }}>{t("Chiudi")}</Tasto>
     </div>
   );
 }
@@ -646,8 +398,9 @@ function IMieiContanti({ utente }) {
     setLavoro(true); setErrore(""); setFatto("");
     try {
       if (modulo === "prelievo") {
+        if (!ricevuta) { setLavoro(false); setErrore(t("Manca la foto della ricevuta del bancomat")); return; }
         let foto = null;
-        if (ricevuta) {
+        {
           const impronta = md5(ricevuta.jpeg);
           foto = `PRELIEVI/${data.slice(0, 4)}/${data.slice(5, 7)}/${impronta}.jpg`;
           const { error } = await supabase.storage.from(ARCHIVIO).upload(foto, new Blob([ricevuta.jpeg], { type: "image/jpeg" }), { contentType: "image/jpeg", upsert: false });
@@ -734,11 +487,11 @@ function IMieiContanti({ utente }) {
             <input style={st.campo} type="date" value={data} max={oggiRoma()} onChange={(e) => setData(e.target.value)} />
             {modulo === "prelievo" && (ricevuta
               ? <Tasto pieno={false} colore={C.red} onClick={() => setRicevuta(null)}>{t("Togli la foto della ricevuta")}</Tasto>
-              : <SceltaFile accept="image/*" capture="environment" pieno={false} onFile={async (f) => { try { const c = await apriFoto(f, 1600); setRicevuta({ jpeg: await jpegDa(c, 0.75) }); } catch (e) { setErrore(e.message); } }}>📸 {t("Foto della ricevuta del bancomat (facoltativa)")}</SceltaFile>)}
+              : <SceltaFile accept="image/*" capture="environment" pieno={false} onFile={async (f) => { try { const c = await apriFoto(f, 1600); setRicevuta({ jpeg: await jpegDa(c, 0.75) }); } catch (e) { setErrore(e.message); } }}>📸 {t("Foto della ricevuta del bancomat (obbligatoria)")}</SceltaFile>)}
             {ricevuta && <div style={{ ...st.piccolo, color: C.green }}>✓ {t("Foto della ricevuta pronta")}</div>}
             <label style={st.etichetta}>{t("Nota (facoltativa)")}</label>
             <input style={st.campo} value={nota} onChange={(e) => setNota(e.target.value)} />
-            <Tasto grande colore={C.green} disabled={lavoro} onClick={registra}>{lavoro ? t("Salvo…") : t("Registra")}</Tasto>
+            <Tasto grande colore={C.green} disabled={lavoro || (modulo === "prelievo" && !ricevuta)} onClick={registra}>{lavoro ? t("Salvo…") : t("Registra")}</Tasto>
             <Tasto pieno={false} onClick={chiudi}>{t("Annulla")}</Tasto>
           </>
         )}
@@ -782,37 +535,75 @@ function IMieiContanti({ utente }) {
 // ============================================================================
 // STRUMENTI DI PAGAMENTO
 // ============================================================================
-function Strumenti() {
-  const [stato, setStato] = useState(null);
+function Strumenti({ utente }) {
+  const [elenco, setElenco] = useState(null);       // [{ nome, limite, resta, nota }]
   const [errore, setErrore] = useState("");
+  const [aperto, setAperto] = useState(null);
+  const [spese, setSpese] = useState(null);
+  const [erroreSpese, setErroreSpese] = useState("");
   useEffect(() => {
-    supabase.rpc("ci_strumenti_stato").then(({ data, error }) => { if (error) setErrore(error.message); else setStato(data); });
-  }, []);
-  const c = stato && stato.carta_1894;
-  const residuo = c ? Number(c.residuo) : null;
-  const colore = c ? (Number(c.usato) > Number(c.limite) ? C.red : residuo < 1600 ? C.yellow : C.green) : C.text;
+    (async () => {
+      const att = await supabase.rpc("ci_spese_strumenti_attivi");
+      if (att.error) { setErrore(erroreDiRete(att.error) ? t("Niente rete: riprova più tardi.") : att.error.message); setElenco([]); return; }
+      const l = (att.data || []).map((r) => ({ nome: r.nome, limite: null, resta: null, nota: null }));
+      const res = await supabase.rpc("ci_spese_residui");
+      if (!res.error && Array.isArray(res.data)) {
+        for (const r of res.data) { const x = l.find((e) => e.nome === r.strumento); if (x) Object.assign(x, { limite: r.limite, resta: r.resta, nota: r.nota }); }
+      } else {
+        const [sal, sta] = await Promise.all([supabase.rpc("ci_contanti_saldi"), supabase.rpc("ci_strumenti_stato")]);
+        const mio = ((sal.data || []).find((r) => r.persona === utente)) || null;
+        for (const x of l) {
+          if (x.nome === "Contanti" && mio) { x.limite = mio.saldo; x.resta = mio.saldo; }
+          if (x.nome === "Carta di debito 1894" && sta.data && sta.data.carta_1894) { x.limite = sta.data.carta_1894.limite; x.resta = sta.data.carta_1894.residuo; }
+          if (SOLDI_PROPRI.includes(x.nome)) x.nota = "Soldi tuoi: ti saranno rimborsati";
+        }
+      }
+      setElenco(l);
+    })();
+  }, [utente]);
+  const apriSpese = async (nome) => {
+    if (aperto === nome) { setAperto(null); return; }
+    setAperto(nome); setSpese(null); setErroreSpese("");
+    const { data, error } = await supabase.rpc("ci_spese_dello_strumento", { p_strumento: nome });
+    if (error) { setErroreSpese(erroreDiRete(error) ? t("Niente rete: riprova più tardi.") : error.message); setSpese([]); return; }
+    setSpese(Array.isArray(data) ? data : []);
+  };
   return (
     <div>
-      <div style={st.scheda}>
-        <div style={st.titolo}>💳 {t("Carta di debito 1894")}</div>
-        {errore && <Avviso tipo="ko">{errore}</Avviso>}
-        {!c && !errore && t("Caricamento...")}
-        {c && (
-          <>
-            <div style={st.piccolo}>{t("Mese")}: {c.mese ? `${c.mese.slice(5, 7)}/${c.mese.slice(0, 4)}` : ""}</div>
-            <div style={{ fontSize: 14, lineHeight: 1.8 }}>
-              {t("Limite del mese")}: <b>{c.limite == null ? "—" : euroN(c.limite)}</b><br />
-              {t("Già usato")}: <b>{euroN(c.usato)}</b><br />
-              {t("Residuo")}: <b style={{ color: colore, fontSize: 20 }}>{c.limite == null ? "—" : euroN(c.residuo)}</b>
-            </div>
-            {Number(c.usato) > Number(c.limite) && <Avviso tipo="ko">{t("Limite superato")}</Avviso>}
-          </>
-        )}
-      </div>
-      <div style={st.scheda}>
-        <div style={st.titolo}>💳 {t("Carta prepagata 8006")}</div>
-        <div style={{ fontSize: 14, color: C.muted }}>{t("Saldo non disponibile")}</div>
-      </div>
+      {errore && <div style={st.scheda}><Avviso tipo="ko">{errore}</Avviso></div>}
+      {elenco === null && <div style={st.scheda}>{t("Caricamento...")}</div>}
+      {elenco && elenco.map((x) => {
+        const giallo = x.nome === "Carta di debito 1894" && x.resta != null && Number(x.resta) < 1600;
+        const rosso = x.resta != null && Number(x.resta) < 0;
+        const condivisa = !SOLDI_PROPRI.includes(x.nome) && x.nome !== "Contanti";
+        return (
+          <div key={x.nome} style={st.scheda}>
+            <div style={st.titolo}>💳 {t(x.nome)}</div>
+            {x.limite != null || x.resta != null ? (
+              <div style={{ fontSize: 14, lineHeight: 1.8 }}>
+                {x.nome !== "Contanti" && x.limite != null && <>{t("Limite")}: <b>{euroN(x.limite)}</b><br /></>}
+                {x.nome === "Contanti" ? t("In carico") : t("Resta")}: <b style={{ color: rosso ? C.red : giallo ? C.yellow : C.green, fontSize: 20 }}>{euroN(x.resta)}</b>
+              </div>
+            ) : <div style={{ fontSize: 14, color: C.muted }}>{t(x.nota || "Saldo non disponibile")}</div>}
+            {condivisa && <Tasto pieno={false} onClick={() => apriSpese(x.nome)}>{aperto === x.nome ? t("Chiudi") : t("Spese di questo strumento")}</Tasto>}
+            {aperto === x.nome && (
+              <div>
+                {erroreSpese && <Avviso tipo="ko">{erroreSpese}</Avviso>}
+                {spese === null && <div style={st.piccolo}>{t("Caricamento...")}</div>}
+                {spese && spese.length === 0 && !erroreSpese && <div style={st.piccolo}>{t("Nessuna spesa.")}</div>}
+                {spese && spese.map((r, i) => (
+                  <div key={r.id || i} style={{ padding: "6px 0", borderBottom: `1px solid ${C.border}`, fontSize: 14 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span>{dataIt(r.data_documento || r.data)} · {r.fornitore || r.fornitore_testo || ""}</span><b>{euroN(r.importo)}</b>
+                    </div>
+                    <div style={st.piccolo}>{r.numero ? `n. ${r.numero} · ` : ""}{r.persona || r.nome || ""}{r.stato ? ` · ${t(r.stato)}` : ""}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

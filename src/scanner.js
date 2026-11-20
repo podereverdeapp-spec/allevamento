@@ -6,6 +6,7 @@
 // - PDF scritto a mano con le pagine in JPEG, nessuna libreria;
 // - lettura del totale con Tesseract (file in public/ocr, niente internet).
 // Niente qui scrive nel database.
+import { cercaTotale } from "./spese_lettura";
 
 export const LATO_LAVORO = 2400;   // la foto si riduce a questo lato lungo prima di raddrizzarla
 const LATO_RICERCA = 700;          // lato lungo usato per trovare i bordi
@@ -153,7 +154,11 @@ export function raddrizza(foto, angoli) {
   const d = (p, q) => Math.hypot(p[0] - q[0], p[1] - q[1]);
   let W = Math.max(d(tl, tr), d(bl, br)), H = Math.max(d(tl, bl), d(tr, br));
   if (W < 20 || H < 20) throw new Error("angoli troppo vicini");
-  const k = Math.min(1, LATO_LAVORO / Math.max(W, H)); W = Math.round(W * k); H = Math.round(H * k);
+  // v149: le pagine piccole (meno di 1.800 pixel sul lato lungo) si ingrandiscono, così il bianco e nero
+  // e la lettura del testo restano nitidi; le grandi si riducono a 2.400 pixel come nella 148
+  const lato = Math.max(W, H);
+  const k = lato > LATO_LAVORO ? LATO_LAVORO / lato : lato < 1800 ? Math.min(2.5, 1800 / lato) : 1;
+  W = Math.round(W * k); H = Math.round(H * k);
   const m = omografia([[0, 0], [W, 0], [W, H], [0, H]], angoli);
   const fw = foto.width, fh = foto.height;
   const sorg = foto.getContext("2d").getImageData(0, 0, fw, fh).data;
@@ -167,6 +172,17 @@ export function raddrizza(foto, angoli) {
     o[j + 3] = 255;
   }
   return out;
+}
+
+// v149 — ricevute del POS e documenti rifotografati: bordi trovati da soli, pagina raddrizzata a colori
+// (canvas). Se OpenCV non c'è o non trova i bordi, restituisce la foto così com'è.
+export async function raddrizzaDaSolo(foto) {
+  let ang = null;
+  try { const x = await caricaOpenCV(); const r = trovaAngoli(x.cv, foto); ang = r && r.sicuro ? r.angoli : null; } catch (e) { ang = null; }
+  if (!ang) return foto;
+  const d = raddrizza(foto, ang);
+  const c = document.createElement("canvas"); c.width = d.width; c.height = d.height; c.getContext("2d").putImageData(d, 0, 0);
+  return c;
 }
 
 // bianco e nero: confronto con la media dei punti vicini. Restituisce un canvas.
@@ -229,34 +245,7 @@ export function centesimi(t) {
 }
 export const euro = (c) => (c / 100).toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
 
-// ---------------------------------------------------------------- lettura del totale (Tesseract)
-// Decisione del Dott. Bizzarri (12/11/2026 09:32): tra l'importo scritto e quello del documento prevale il documento.
-const REGOLE = [
-  ["netto a pagare", /netto\s*a\s*pagare|importo\s*pagato|totale\s*da\s*pagare|totale\s*a\s*pagare/],
-  ["totale documento", /totale\s*(documento|complessivo|fattura|euro|eur\b|€)/],
-  ["pagamento", /pagamento\s*(elettronico|carta|pos|bancomat|contante)/],
-  ["totale", /\btotale\b/],
-];
-const NON_TOTALE = /imponibile|iva\b|i\.v\.a|esent|escluso|sub\s*tot|subtot|parziale|sconto|resto|ricevuto|contanti\s*ricevut/;
-function centesimiRiga(t) {
-  const m = String(t || "").trim().match(/^(\d{1,3}(?:[.' ]\d{3})+|\d+)[,.](\d{2})$/);
-  return m ? parseInt(m[1].replace(/[.' ]/g, ""), 10) * 100 + parseInt(m[2], 10) : null;
-}
-export function cercaTotale(testo) {
-  const righe = String(testo || "").split(/\n/).map((x) => x.replace(/\s+/g, " ").trim()).filter(Boolean);
-  for (const [nome, re] of REGOLE) {
-    let trovato = null;
-    for (const riga of righe) {
-      const r = riga.toLowerCase();
-      if (!re.test(r) || (nome !== "netto a pagare" && NON_TOTALE.test(r))) continue;
-      const importi = [...riga.matchAll(/(\d{1,3}(?:[.' ]\d{3})+|\d+)[,.](\d{2})(?!\d)/g)].map((m) => centesimiRiga(m[0])).filter((c) => c != null);
-      if (importi.length) trovato = { cent: importi[importi.length - 1], regola: nome, riga: riga.slice(0, 80) };
-    }
-    if (trovato) return trovato;
-  }
-  return null;
-}
-
+// ---------------------------------------------------------------- lettura del testo (Tesseract)
 let lettoreOcr = null;
 async function lettore() {
   if (lettoreOcr) return lettoreOcr;
@@ -265,13 +254,95 @@ async function lettore() {
   lettoreOcr = await window.Tesseract.createWorker("ita", 1, { workerPath: base + "worker.min.js", corePath: base, langPath: base, gzip: true, workerBlobURL: false });
   return lettoreOcr;
 }
-// dritta: ImageData della pagina raddrizzata (a colori). Restituisce { cent, regola, riga } oppure null.
-export async function leggiTotale(dritta) {
-  const k = Math.min(1, 2000 / Math.max(dritta.width, dritta.height));
-  const c = document.createElement("canvas"); c.width = Math.round(dritta.width * k); c.height = Math.round(dritta.height * k);
-  const tmp = document.createElement("canvas"); tmp.width = dritta.width; tmp.height = dritta.height; tmp.getContext("2d").putImageData(dritta, 0, 0);
-  const g = c.getContext("2d"); g.filter = "grayscale(1) contrast(1.4)"; g.drawImage(tmp, 0, 0, c.width, c.height);
-  const w = await lettore();
-  const { data } = await w.recognize(c);
-  return cercaTotale(data.text);
+// v149 — testo di un'immagine (ImageData o canvas), ridotta a 2.000 pixel, grigi e contrasto 1,4.
+// Le letture si fanno una dopo l'altra (un solo lettore).
+let coda = Promise.resolve();
+// modo «sparso»: testo sparso (Tesseract, modo 11), utile per le ultime 4 cifre della carta sulle ricevute del POS
+// (con il modo normale la riga «CARTA ****1894» si perde o si legge male: prova del 20/11)
+export function leggiTesto(sorgente, modo = "normale") {
+  const lavoro = coda.then(async () => {
+    let tela = sorgente;
+    if (!(sorgente instanceof HTMLCanvasElement)) {
+      tela = document.createElement("canvas"); tela.width = sorgente.width; tela.height = sorgente.height;
+      tela.getContext("2d").putImageData(sorgente, 0, 0);
+    }
+    // tra 1.800 e 2.000 pixel sul lato lungo: le immagini grandi si riducono, le piccole (ricevute, schermate) si ingrandiscono
+    const lato = Math.max(tela.width, tela.height);
+    const k = lato > 2000 ? 2000 / lato : lato < 1800 ? Math.min(2.5, 1800 / lato) : 1;
+    const c = document.createElement("canvas"); c.width = Math.round(tela.width * k); c.height = Math.round(tela.height * k);
+    const g = c.getContext("2d"); g.imageSmoothingQuality = "high"; g.filter = "grayscale(1) contrast(1.4)"; g.drawImage(tela, 0, 0, c.width, c.height);
+    const w = await lettore();
+    await w.setParameters({ tessedit_pageseg_mode: modo === "sparso" ? "11" : "3" });
+    const { data } = await w.recognize(c);
+    return data.text || "";
+  });
+  coda = lavoro.catch(() => {});
+  return lavoro;
+}
+// compatibilità con la 148
+export async function leggiTotale(dritta) { return cercaTotale(await leggiTesto(dritta)); }
+
+// ---------------------------------------------------------------- PDF caricato dal telefono (pdf.js, in public/pdfjs)
+let promessaPdf = null;
+function pdfjs() {
+  if (!promessaPdf) {
+    promessaPdf = (window.pdfjsLib ? Promise.resolve() : caricaScript("/pdfjs/pdf.min.js")).then(() => {
+      const lib = window.pdfjsLib;
+      if (!lib) throw new Error("lettore dei PDF non disponibile");
+      lib.GlobalWorkerOptions.workerSrc = "/pdfjs/pdf.worker.min.js";
+      return { lib };
+    });
+    promessaPdf.catch(() => { promessaPdf = null; });
+  }
+  return promessaPdf;
+}
+// Restituisce [{ testo, tela }] per pagina: testo dal PDF se c'è; tela = disegno della pagina (per vederla e,
+// se il PDF non ha testo, per leggerla con Tesseract). Al massimo 10 pagine.
+export async function leggiPdf(byte) {
+  const { lib } = await pdfjs();
+  const doc = await lib.getDocument({ data: byte.slice(0) }).promise;
+  const pagine = [];
+  for (let n = 1; n <= Math.min(doc.numPages, 10); n++) {
+    const pag = await doc.getPage(n);
+    const cont = await pag.getTextContent();
+    // righe: si raggruppano i pezzi di testo con la stessa altezza nella pagina
+    const perRiga = new Map();
+    for (const it of cont.items) {
+      if (!it.str || !it.transform) continue;
+      const y = Math.round(it.transform[5]);
+      const chiave = [...perRiga.keys()].find((k) => Math.abs(k - y) <= 2);
+      const k = chiave !== undefined ? chiave : y;
+      if (!perRiga.has(k)) perRiga.set(k, []);
+      perRiga.get(k).push({ x: it.transform[4], s: it.str });
+    }
+    const testo = [...perRiga.entries()].sort((a, b) => b[0] - a[0])
+      .map(([, pezzi]) => pezzi.sort((a, b) => a.x - b.x).map((p) => p.s).join(" ").replace(/\s+/g, " ").trim())
+      .filter(Boolean).join("\n");
+    const vista = pag.getViewport({ scale: 1 });
+    const scala = Math.min(2.5, 1600 / Math.max(vista.width, vista.height));
+    const v = pag.getViewport({ scale: scala });
+    const tela = document.createElement("canvas"); tela.width = Math.round(v.width); tela.height = Math.round(v.height);
+    const g = tela.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, tela.width, tela.height);
+    await pag.render({ canvasContext: g, viewport: v }).promise;
+    pagine.push({ testo, tela });
+  }
+  return { pagine, totPagine: doc.numPages };
+}
+
+// ---------------------------------------------------------------- codice QR (qrcode-generator, in public/qr)
+let promessaQr = null;
+export function qrImmagine(testo) {
+  if (!promessaQr) {
+    promessaQr = window.qrcode ? Promise.resolve() : caricaScript("/qr/qrcode.js");
+    promessaQr.catch(() => { promessaQr = null; });
+  }
+  return promessaQr.then(() => {
+    const q = window.qrcode;
+    if (!q) throw new Error("generatore del codice QR non disponibile");
+    if (q.stringToBytesFuncs && q.stringToBytesFuncs["UTF-8"]) q.stringToBytes = q.stringToBytesFuncs["UTF-8"];
+    const codice = q(0, "M");
+    codice.addData(testo, "Byte");
+    codice.make();
+    return codice.createDataURL(6, 12);
+  });
 }
